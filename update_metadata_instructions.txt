@@ -1,0 +1,2 @@
+-- Update admin user metadata in Supabase dashboard -- Go to Authentication > Users -- Find admin@locallekker.com -- Click Edit -- Update User Metadata to: {\
+name\: \Admin\, \surname\: \User\, \user_type\: \admin\}

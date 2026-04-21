@@ -1,0 +1,53 @@
+# 🎯 QUICK REFERENCE CARD - Admin Image Display Fix
+
+## THE PROBLEM
+Admin-uploaded deal images don't display.
+
+## THE CAUSE
+RLS SELECT policy for admins requires business permission flag that's too strict.
+
+## THE SOLUTION
+Remove permission check from admin SELECT policy.
+
+## THE FIX (Copy This)
+```sql
+DROP POLICY IF EXISTS "Admins can view deal images for authorized partners" ON storage.objects;
+
+CREATE POLICY "Admins can view deal images" ON storage.objects
+    FOR SELECT USING (
+        bucket_id = 'business-bills' AND
+        name LIKE 'deal_images/%' AND
+        EXISTS (SELECT 1 FROM public.memberships m
+                WHERE m.user_id = auth.uid() AND m.role = 'admin')
+    );
+```
+
+## WHERE TO APPLY
+Supabase Console → SQL Editor → New Query → Paste → RUN
+
+## HOW LONG
+5 minutes to apply + 15 minutes to test
+
+## WHAT TO TEST AFTER
+1. Admin creates deal → uploads image → image displays ✓
+2. Member views it → image displays ✓
+3. TP uploads → still works ✓
+
+## IF IT FAILS
+Run: `diagnose_deal_image_policies.sql`
+
+## IF YOU NEED HELP
+Read: `ADMIN_IMAGE_ISSUE_INDEX.md`
+
+## REFERENCE DOCS
+- Quick: `ADMIN_IMAGE_QUICK_SUMMARY.md`
+- Steps: `ADMIN_IMAGE_FIX_STEPS.md`
+- Tests: `ADMIN_IMAGE_FIX_CHECKLIST.md`
+- Deep: `ADMIN_IMAGE_VISIBILITY_SOLUTION.md`
+
+---
+
+**Status**: 🟢 READY  
+**Risk**: 🟡 LOW  
+**Impact**: 🟢 HIGH (fixes admin images)  
+**Time**: ⏱️ 5 MIN + 15 MIN TEST

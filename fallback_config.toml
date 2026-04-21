@@ -1,0 +1,207 @@
+# Comprehensive Fallback System Configuration
+# Version: 1.0.0
+# Date: September 28, 2025
+
+# This configuration file defines fallback strategies for both database migrations
+# and application runtime failures.
+
+# =============================================================================
+# DATABASE MIGRATION FALLBACK CONFIGURATION
+# =============================================================================
+
+[migration_fallback]
+# Enable automatic backup before migrations
+auto_backup_enabled = true
+
+# Backup retention policy (days)
+backup_retention_days = 30
+
+# Maximum number of backup files to keep
+max_backup_files = 50
+
+# Critical tables that must be backed up
+critical_tables = [
+    "profiles",
+    "businesses",
+    "qr_codes",
+    "memberships",
+    "trusted_partner_discounts",
+    "business_bills"
+]
+
+# Migration risk levels
+migration_risk_levels = [
+    { name = "low", tables_affected = 1, requires_backup = false },
+    { name = "medium", tables_affected = 3, requires_backup = true },
+    { name = "high", tables_affected = 5, requires_backup = true },
+    { name = "critical", tables_affected = 10, requires_backup = true }
+]
+
+# Rollback strategies
+rollback_strategies = [
+    { type = "soft", description = "Revert schema changes only" },
+    { type = "medium", description = "Revert schema and recent data changes" },
+    { type = "hard", description = "Complete database restore from backup" }
+]
+
+# =============================================================================
+# APPLICATION FALLBACK CONFIGURATION
+# =============================================================================
+
+[app_fallback]
+# Enable offline mode
+offline_mode_enabled = true
+
+# Connectivity check interval (seconds)
+connectivity_check_interval = 30
+
+# Supabase timeout (seconds)
+supabase_timeout = 10
+
+# Cache expiration (hours)
+cache_expiration_hours = 24
+
+# Fallback UI components
+fallback_ui = [
+    { type = "offline_widget", enabled = true },
+    { type = "error_widget", enabled = true },
+    { type = "retry_dialog", enabled = true }
+]
+
+# Cached data priorities (higher = more important to cache)
+cache_priorities = [
+    { data_type = "user_profile", priority = 10 },
+    { data_type = "business_info", priority = 9 },
+    { data_type = "qr_codes", priority = 8 },
+    { data_type = "recent_transactions", priority = 7 }
+]
+
+# =============================================================================
+# EMERGENCY RECOVERY CONFIGURATION
+# =============================================================================
+
+[emergency_recovery]
+# Emergency contact information
+emergency_contacts = [
+    "admin@locallekker.com",
+    "+27-XX-XXX-XXXX"
+]
+
+# Recovery procedures
+recovery_procedures = [
+    {
+        name = "database_restore",
+        description = "Complete database restore from latest backup",
+        estimated_time = "30 minutes",
+        requires_downtime = true
+    },
+    {
+        name = "app_rollback",
+        description = "Rollback to previous app version",
+        estimated_time = "10 minutes",
+        requires_downtime = false
+    },
+    {
+        name = "cache_clear",
+        description = "Clear all cached data and restart",
+        estimated_time = "5 minutes",
+        requires_downtime = false
+    }
+]
+
+# System health checks
+health_checks = [
+    { service = "supabase", endpoint = "https://qdrotavcmmevhgveodcp.supabase.co/rest/v1/", timeout = 5 },
+    { service = "app_cache", check_type = "file_size", max_size_mb = 100 },
+    { service = "connectivity", check_type = "ping", target = "8.8.8.8" }
+]
+
+# =============================================================================
+# MONITORING AND ALERTS CONFIGURATION
+# =============================================================================
+
+[monitoring]
+# Enable monitoring
+monitoring_enabled = true
+
+# Alert thresholds
+alert_thresholds = [
+    { metric = "response_time", warning = 2000, critical = 5000 }, # milliseconds
+    { metric = "error_rate", warning = 5, critical = 15 }, # percentage
+    { metric = "offline_duration", warning = 300, critical = 900 } # seconds
+]
+
+# Log levels
+log_levels = [
+    { component = "migration_fallback", level = "info" },
+    { component = "app_fallback", level = "warn" },
+    { component = "emergency_recovery", level = "error" }
+]
+
+# Notification channels
+notification_channels = [
+    { type = "email", enabled = true, recipients = ["admin@locallekker.com"] },
+    { type = "sms", enabled = false, recipients = [] },
+    { type = "slack", enabled = false, webhook_url = "" }
+]
+
+# =============================================================================
+# BACKUP AND RECOVERY SCRIPTS
+# =============================================================================
+
+[scripts]
+# Migration fallback script
+migration_fallback_script = "./migration_fallback.sh"
+
+# Database backup script
+database_backup_script = "./database_backup_restore.sh"
+
+# App fallback system
+app_fallback_system = "lib/services/app_fallback_system.dart"
+
+# Emergency recovery script
+emergency_recovery_script = "./emergency_recovery.sh"
+
+# =============================================================================
+# TESTING CONFIGURATION
+# =============================================================================
+
+[testing]
+# Enable fallback testing mode
+testing_mode_enabled = false
+
+# Test scenarios
+test_scenarios = [
+    { name = "network_failure", simulate = "offline", duration = 60 },
+    { name = "supabase_down", simulate = "service_unavailable", duration = 120 },
+    { name = "cache_corruption", simulate = "clear_cache", duration = 30 }
+]
+
+# Test data
+test_data = [
+    { type = "user_profile", generate_fake = true },
+    { type = "business_info", generate_fake = true },
+    { type = "qr_codes", generate_fake = false }
+]
+
+# =============================================================================
+# DOCUMENTATION AND SUPPORT
+# =============================================================================
+
+[documentation]
+# Fallback system documentation
+docs_url = "https://github.com/locallekker/fallback-system"
+
+# Troubleshooting guides
+troubleshooting_guides = [
+    "migration_rollback_guide.md",
+    "app_offline_mode_guide.md",
+    "emergency_recovery_guide.md"
+]
+
+# Support resources
+support_resources = [
+    { type = "knowledge_base", url = "https://support.locallekker.com" },
+    { type = "community_forum", url = "https://forum.locallekker.com" },
+    { type = "github_issues", url = "https://github.com/locallekker/app/issues" }
+]

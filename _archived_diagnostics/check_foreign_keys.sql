@@ -1,0 +1,1 @@
+SELECT conname, conrelid::regclass, confrelid::regclass, conkey, confkey FROM pg_constraint WHERE contype = 'f' AND (conrelid::regclass::text = 'memberships' OR confrelid::regclass::text = 'memberships');

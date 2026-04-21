@@ -1,0 +1,2 @@
+-- The user metadata is missing the user_type field -- Update it in Supabase Dashboard to: {\
+name\: \Admin\, \surname\: \User\, \user_type\: \admin\}

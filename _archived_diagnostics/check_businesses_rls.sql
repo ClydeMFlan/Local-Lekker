@@ -1,0 +1,1 @@
+-- Check current RLS policies on businesses table SELECT schemaname, tablename, rowsecurity FROM pg_tables WHERE tablename = 'businesses'; SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual FROM pg_policies WHERE tablename = 'businesses' ORDER BY policyname;

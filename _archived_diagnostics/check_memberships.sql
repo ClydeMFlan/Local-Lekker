@@ -1,0 +1,1 @@
+-- Check what's in the memberships table SELECT user_id, role, gateway, created_at FROM memberships ORDER BY created_at DESC LIMIT 10;

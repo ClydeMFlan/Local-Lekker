@@ -1,0 +1,8 @@
+{
+  "files.exclude": {
+    "**/.dart_tool": false,
+    "**/.idea": false
+  },
+  "explorer.compactFolders": false,
+  "cmake.sourceDirectory": "C:/Users/clyde/local_lekker/linux"
+}

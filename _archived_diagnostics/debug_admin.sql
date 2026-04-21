@@ -1,0 +1,1 @@
+-- Check admin user data SELECT p.email, p.role as profile_role, p.category, m.role as membership_role, m.gateway FROM profiles p LEFT JOIN memberships m ON p.id = m.user_id WHERE p.email = 'admin@locallekker.com'; -- Check if admin can read their own data SELECT * FROM profiles WHERE id = '6f06d197-ea80-47b9-91e8-b899fa221c8d';

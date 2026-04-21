@@ -1,0 +1,1 @@
+-- Check the combined view SELECT p.email, p.name, p.surname, p.role as profile_role, m.role as membership_role, m.gateway FROM profiles p LEFT JOIN memberships m ON p.id = m.user_id ORDER BY p.created_at DESC LIMIT 10;

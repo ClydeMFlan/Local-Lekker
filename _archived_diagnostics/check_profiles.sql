@@ -1,0 +1,1 @@
+-- Check what's in the profiles table SELECT id, email, name, surname, role, created_at FROM profiles ORDER BY created_at DESC LIMIT 10;

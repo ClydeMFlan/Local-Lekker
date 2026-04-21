@@ -1,0 +1,493 @@
+import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/admin_service.dart';
+
+enum _MemberTab { active, pending, deactivated }
+
+class AdminMembersScreen extends StatefulWidget {
+  const AdminMembersScreen({super.key});
+
+  @override
+  State<AdminMembersScreen> createState() => _AdminMembersScreenState();
+}
+
+class _AdminMembersScreenState extends State<AdminMembersScreen>
+    with SingleTickerProviderStateMixin {
+  final _logger = Logger();
+  final _adminService = AdminService();
+  final _supabase = Supabase.instance.client;
+  final _searchController = TextEditingController();
+
+  late TabController _tabController;
+  List<Map<String, dynamic>> _activeMembers = [];
+  List<Map<String, dynamic>> _pendingMembers = [];
+  List<Map<String, dynamic>> _deactivatedMembers = [];
+  bool _isLoading = true;
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _loadMembers();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadMembers() async {
+    setState(() => _isLoading = true);
+    try {
+      final allNonDeactivated = await _supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'member')
+          .or('is_deactivated.is.null,is_deactivated.eq.false')
+          .order('created_at', ascending: false);
+
+      final deactivated = await _adminService.getDeactivatedMembers();
+
+      // Split non-deactivated members by subscription status
+      final active = <Map<String, dynamic>>[];
+      final pending = <Map<String, dynamic>>[];
+      for (final m in allNonDeactivated) {
+        final sub = (m['subscription'] ?? '').toString().toLowerCase();
+        if (sub == 'active') {
+          active.add(Map<String, dynamic>.from(m));
+        } else {
+          pending.add(Map<String, dynamic>.from(m));
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _activeMembers = active;
+        _pendingMembers = pending;
+        _deactivatedMembers = deactivated;
+        _isLoading = false;
+      });
+    } catch (e) {
+      _logger.e('Error loading members: $e');
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load members: $e')),
+      );
+    }
+  }
+
+  List<Map<String, dynamic>> _filteredList(List<Map<String, dynamic>> list) {
+    if (_searchQuery.isEmpty) return list;
+    final q = _searchQuery.toLowerCase();
+    return list.where((m) {
+      final name = '${m['name'] ?? ''} ${m['surname'] ?? ''}'.toLowerCase();
+      final email = (m['email'] ?? '').toString().toLowerCase();
+      return name.contains(q) || email.contains(q);
+    }).toList();
+  }
+
+  Future<void> _deactivateMember(Map<String, dynamic> member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Deactivate Member'),
+        content: Text(
+          'Deactivate ${member['name'] ?? ''} ${member['surname'] ?? ''}?\n\n'
+          'This will cancel their subscription, disable QR codes, and hide them from the platform.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Deactivate'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _adminService.deactivateMember(member['id']);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Member deactivated successfully')),
+      );
+      _loadMembers();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to deactivate: $e')),
+      );
+    }
+  }
+
+  Future<void> _reactivateMember(Map<String, dynamic> member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reactivate Member'),
+        content: Text(
+          'Reactivate ${member['name'] ?? ''} ${member['surname'] ?? ''}?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.teal),
+            child: const Text('Reactivate'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _adminService.reactivateMember(member['id']);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Member reactivated successfully')),
+      );
+      _loadMembers();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to reactivate: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteMember(Map<String, dynamic> member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Permanently Delete Member'),
+        content: Text(
+          'WARNING: This will permanently delete ALL data for '
+          '${member['name'] ?? ''} ${member['surname'] ?? ''} including their '
+          'profile, subscriptions, QR codes, payments, and auth account.\n\n'
+          'This action cannot be undone. They will need to re-signup to return.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _adminService.deleteMember(member['id']);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Member completely deleted (data + auth account)'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _loadMembers();
+    } catch (e) {
+      if (!mounted) return;
+      final errorMsg = e.toString();
+      final isPartialDelete = errorMsg.contains('auth account removal failed') ||
+          errorMsg.contains('Failed to delete auth user');
+
+      if (isPartialDelete) {
+        // Data deleted but auth remains - offer retry
+        final retryConfirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Auth Deletion Failed'),
+            content: const Text(
+              'Member data was deleted but the auth account could not be removed '
+              '(server timeout). The member may still be able to log in.\n\n'
+              'Would you like to retry deleting the auth account?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Retry Delete Auth'),
+              ),
+            ],
+          ),
+        );
+        if (retryConfirmed == true && mounted) {
+          try {
+            await _adminService.retryDeleteAuthUser(member['id']);
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Auth account deleted successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } catch (retryError) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Auth deletion still failing: $retryError'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 8),
+              ),
+            );
+          }
+        }
+        _loadMembers();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Search bar
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search members...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+            ),
+            onChanged: (v) => setState(() => _searchQuery = v),
+          ),
+        ),
+        // Tabs
+        TabBar(
+          controller: _tabController,
+          labelColor: Colors.teal,
+          unselectedLabelColor: Colors.grey,
+          tabs: [
+            Tab(text: 'Active (${_activeMembers.length})'),
+            Tab(text: 'Pending (${_pendingMembers.length})'),
+            Tab(text: 'Deactivated (${_deactivatedMembers.length})'),
+          ],
+        ),
+        // Content
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildMemberList(_filteredList(_activeMembers), status: _MemberTab.active),
+                    _buildMemberList(_filteredList(_pendingMembers), status: _MemberTab.pending),
+                    _buildMemberList(_filteredList(_deactivatedMembers), status: _MemberTab.deactivated),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMemberList(List<Map<String, dynamic>> members, {required _MemberTab status}) {
+    final isActive = status == _MemberTab.active;
+    final isDeactivated = status == _MemberTab.deactivated;
+
+    if (members.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.people_outline, size: 64, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'No members match your search'
+                  : isActive
+                      ? 'No active members'
+                      : isDeactivated
+                          ? 'No deactivated members'
+                          : 'No pending members',
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadMembers,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        itemCount: members.length,
+        itemBuilder: (context, index) {
+          final m = members[index];
+          final name = '${m['name'] ?? 'Unknown'} ${m['surname'] ?? ''}'.trim();
+          final email = m['email'] ?? 'No email';
+          final city = m['city'] ?? '';
+          // Show the right status label per tab
+          final String statusLabel;
+          final Color statusColor;
+          if (isDeactivated) {
+            statusLabel = 'deactivated';
+            statusColor = Colors.red;
+          } else {
+            final sub = (m['subscription'] ?? 'unknown').toString().toLowerCase();
+            statusLabel = sub;
+            statusColor = sub == 'active' ? Colors.green : Colors.orange;
+          }
+          final createdAt = m['created_at'] != null
+              ? DateTime.tryParse(m['created_at'].toString())
+              : null;
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: isDeactivated
+                    ? Colors.grey.shade300
+                    : isActive
+                        ? Colors.teal.shade100
+                        : Colors.orange.shade100,
+                child: Text(
+                  (m['name'] ?? '?')[0].toUpperCase(),
+                  style: TextStyle(
+                    color: isDeactivated
+                        ? Colors.grey.shade600
+                        : isActive
+                            ? Colors.teal.shade700
+                            : Colors.orange.shade700,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(email, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  if (city.isNotEmpty)
+                    Text(city, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  Row(
+                    children: [
+                      _StatusChip(
+                        label: statusLabel,
+                        color: statusColor,
+                      ),
+                      if (createdAt != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          'Joined ${_formatDate(createdAt)}',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+              isThreeLine: true,
+              trailing: PopupMenuButton<String>(
+                onSelected: (action) {
+                  switch (action) {
+                    case 'deactivate':
+                      _deactivateMember(m);
+                      break;
+                    case 'reactivate':
+                      _reactivateMember(m);
+                      break;
+                    case 'delete':
+                      _deleteMember(m);
+                      break;
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  if (!isDeactivated)
+                    const PopupMenuItem(
+                      value: 'deactivate',
+                      child: ListTile(
+                        leading: Icon(Icons.block, color: Colors.orange),
+                        title: Text('Deactivate'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  if (isDeactivated)
+                    const PopupMenuItem(
+                      value: 'reactivate',
+                      child: ListTile(
+                        leading: Icon(Icons.check_circle, color: Colors.teal),
+                        title: Text('Reactivate'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete_forever, color: Colors.red),
+                      title: Text('Delete'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _StatusChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}

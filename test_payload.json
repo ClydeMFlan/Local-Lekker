@@ -1,0 +1,15 @@
+{
+    "event": "charge.success",
+    "data": {
+        "reference": "test_ref_12345",
+        "amount": 50000,
+        "customer": {
+            "email": "test@example.com"
+        },
+        "metadata": {
+            "user_id": "test-user-id",
+            "payment_type": "subscription",
+            "plan_name": "premium"
+        }
+    }
+}

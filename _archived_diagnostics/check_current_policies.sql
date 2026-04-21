@@ -1,0 +1,5 @@
+-- Check current RLS policies on profiles and memberships tables
+SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual
+FROM pg_policies
+WHERE tablename IN ('profiles', 'memberships')
+ORDER BY tablename, policyname;

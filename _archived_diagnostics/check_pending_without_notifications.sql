@@ -1,0 +1,4 @@
+SELECT da.id, da.status, da.created_at, n.id as notification_id
+FROM deal_authorizations da
+LEFT JOIN notifications n ON n.data->>'deal_authorization_id' = da.id
+WHERE da.status = 'pending' AND n.id IS NULL;
