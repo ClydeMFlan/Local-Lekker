@@ -1,13 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_lekker/services/paystack_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() {
+  // Required so plugins (shared_preferences) used by Supabase can be mocked
+  // in the unit-test VM where no native side exists.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('PaystackService Banking Details Tests', () {
     late PaystackService paystackService;
 
     setUp(() async {
+      // Provide an in-memory SharedPreferences implementation so
+      // Supabase.initialize can persist its session storage during tests.
+      SharedPreferences.setMockInitialValues({});
+
       // Load environment variables
       await dotenv.load();
 

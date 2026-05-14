@@ -155,7 +155,7 @@ class AdminService {
         if (first is Map) return Map<String, dynamic>.from(first);
       }
 
-      if (res is Map && (res as Map).isNotEmpty) {
+      if (res is Map && res.isNotEmpty) {
         return Map<String, dynamic>.from(res);
       }
 

@@ -4,6 +4,7 @@ import '../models/notification.dart';
 import '../models/deal_authorization.dart';
 import '../features/payments/deal_payment_webview_page.dart';
 import 'notification_service.dart';
+import 'navigation_service.dart';
 import 'paystack_service.dart';
 import 'supabase_service.dart';
 import '../features/payments/pending_payments_page.dart';
@@ -50,6 +51,84 @@ class DealApprovalPopupService {
 
   // Guard flag to prevent double-tap on payment authorization
   bool _paymentInitInProgress = false;
+
+  // Tracks whether the payment progress overlay is currently shown so we
+  // can dismiss it safely on success/error paths.
+  bool _paymentProgressOpen = false;
+
+  /// Show a full-screen, non-dismissible progress overlay while a payment
+  /// is being processed. Replaces the previous SnackBar approach so that
+  /// the underlying authorisation screen is fully covered until the
+  /// operation completes (or fails).
+  void _showPaymentProgressOverlay(
+    BuildContext context, {
+    required String message,
+  }) {
+    if (_paymentProgressOpen) return;
+    _paymentProgressOpen = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      useRootNavigator: true,
+      builder: (ctx) {
+        return PopScope(
+          canPop: false,
+          child: Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 28,
+                vertical: 32,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 4,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Please wait, do not close the app.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Dismiss the payment progress overlay if it is open.
+  void _dismissPaymentProgressOverlay(BuildContext context) {
+    if (!_paymentProgressOpen) return;
+    _paymentProgressOpen = false;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+  }
 
   /// Check for unread deal approval notifications and show popup if found
   Future<void> checkAndShowApprovalPopup(
@@ -851,6 +930,7 @@ class DealApprovalPopupService {
       }
 
       if (context.mounted) {
+        _dismissPaymentProgressOverlay(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Payment failed: ${e.toString()}'),
@@ -905,26 +985,9 @@ class DealApprovalPopupService {
         final selectedAuthCode = selection['authorization_code'] as String;
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                ),
-                SizedBox(width: 16),
-                Text('Charging saved card...'),
-              ],
-            ),
-            duration: Duration(seconds: 4),
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(bottom: 300, left: 16, right: 16),
-          ),
+        _showPaymentProgressOverlay(
+          context,
+          message: 'Processing payment…',
         );
       }
 
@@ -977,6 +1040,25 @@ class DealApprovalPopupService {
           // Payment was taken — webhook will handle as fallback
         }
 
+        // Defensive: ensure ALL unread deal_approved notifications for this
+        // deal are marked read so the realtime listener on members_home_page
+        // doesn't re-trigger checkAndShowApprovalPopup for a deal that has
+        // just been paid (root cause of the popup re-appearing after a
+        // successful in-app payment).
+        try {
+          await SupabaseService.instance.client
+              .from('notifications')
+              .update({'is_read': true})
+              .eq('user_id', user.id)
+              .eq('is_read', false)
+              .inFilter('type', ['deal_approved', 'pos_deal_approved'])
+              .filter('data->>deal_authorization_id', 'eq', deal.id);
+        } catch (e) {
+          if (kDebugMode) {
+            print('⚠️ Failed to mark deal_approved notifications as read: $e');
+          }
+        }
+
         // Generate receipt for saved card payment
         await _generateReceiptForSavedCardPayment(
           dealId: deal.id,
@@ -985,6 +1067,7 @@ class DealApprovalPopupService {
         );
 
         if (context.mounted) {
+          _dismissPaymentProgressOverlay(context);
           ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -994,6 +1077,16 @@ class DealApprovalPopupService {
             ),
           );
         }
+
+        // Navigate to home so the members_home_page rebuilds with fresh
+        // state (subscriptions, pending payments, notification stream).
+        // Without this, the user stays on the original screen whose
+        // realtime notification subscription may re-trigger the
+        // "Deal Approved" popup before the just-marked-read state
+        // has propagated through the stream.
+        if (context.mounted) {
+          await NavigationService().navigateToHomeAfterPayment(context);
+        }
         return;
       }
 
@@ -1002,6 +1095,7 @@ class DealApprovalPopupService {
         print('⚠️ Saved card charge failed, falling back to WebView');
       }
       if (context.mounted) {
+        _dismissPaymentProgressOverlay(context);
         ScaffoldMessenger.of(context).clearSnackBars();
       }
       } // end of saved card selection block
@@ -1009,26 +1103,9 @@ class DealApprovalPopupService {
 
     // No saved card or charge failed — open Paystack WebView checkout
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-              SizedBox(width: 16),
-              Text('Initializing payment...'),
-            ],
-          ),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(bottom: 300, left: 16, right: 16),
-        ),
+      _showPaymentProgressOverlay(
+        context,
+        message: 'Initializing payment…',
       );
     }
 
@@ -1051,6 +1128,7 @@ class DealApprovalPopupService {
 
     if (authorizationUrl == null) {
       if (context.mounted) {
+        _dismissPaymentProgressOverlay(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Failed to initialize payment. Please try again.'),
@@ -1061,6 +1139,7 @@ class DealApprovalPopupService {
     }
 
     if (context.mounted) {
+      _dismissPaymentProgressOverlay(context);
       if (kDebugMode) {
         print('💳 Opening DealPaymentWebViewPage...');
       }

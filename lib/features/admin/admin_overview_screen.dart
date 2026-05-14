@@ -36,6 +36,10 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   int _activeDealCount = 0;
   int _inactiveDealCount = 0;
 
+  // Per-region (province) counts of active members and partners.
+  // Map<region, (memberCount, partnerCount)>
+  final Map<String, _RegionCounts> _regionCounts = {};
+
   @override
   void initState() {
     super.initState();
@@ -53,11 +57,11 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         _service.fetchDashboard(),
         _supabase
             .from('profiles')
-            .select('id, subscription, is_deactivated')
+            .select('id, subscription, is_deactivated, province')
             .eq('role', 'member'),
         _supabase
             .from('profiles')
-            .select('id, partner_terms_accepted, is_deactivated')
+            .select('id, partner_terms_accepted, is_deactivated, province')
             .eq('role', 'trusted_partner'),
         _supabase
             .from('trusted_partner_discounts')
@@ -71,6 +75,12 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
 
       // Member breakdown
       int activeMem = 0, pendingMem = 0, deactivatedMem = 0;
+      final Map<String, _RegionCounts> regionCounts = {};
+      String normaliseRegion(dynamic v) {
+        final s = (v ?? '').toString().trim();
+        return s.isEmpty ? 'Unknown' : s;
+      }
+
       for (final m in allMembers) {
         if (m['is_deactivated'] == true) {
           deactivatedMem++;
@@ -81,6 +91,8 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
           } else {
             pendingMem++;
           }
+          final region = normaliseRegion(m['province']);
+          regionCounts.putIfAbsent(region, () => _RegionCounts()).members++;
         }
       }
 
@@ -93,6 +105,8 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         } else {
           pendingTP++;
         }
+        final region = normaliseRegion(p['province']);
+        regionCounts.putIfAbsent(region, () => _RegionCounts()).partners++;
       }
 
       // Deal breakdown
@@ -116,6 +130,9 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         _totalDealCount = allDeals.length;
         _activeDealCount = activeDeals;
         _inactiveDealCount = inactiveDeals;
+        _regionCounts
+          ..clear()
+          ..addAll(regionCounts);
         _loading = false;
       });
     } catch (e) {
@@ -242,6 +259,11 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
 
             const SizedBox(height: 32),
 
+            // ── Per-Region Counts ──
+            _RegionBreakdownCard(regionCounts: _regionCounts),
+
+            const SizedBox(height: 32),
+
             // ── Chart Section ──
             if (categorySummary.isNotEmpty) ...[
               Text(
@@ -364,6 +386,155 @@ class _SubLabel {
   final int count;
   final Color color;
   const _SubLabel(this.label, this.count, this.color);
+}
+
+class _RegionCounts {
+  int members = 0;
+  int partners = 0;
+}
+
+class _RegionBreakdownCard extends StatelessWidget {
+  final Map<String, _RegionCounts> regionCounts;
+  const _RegionBreakdownCard({required this.regionCounts});
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = regionCounts.entries.toList()
+      ..sort((a, b) {
+        final totalCmp = (b.value.members + b.value.partners)
+            .compareTo(a.value.members + a.value.partners);
+        if (totalCmp != 0) return totalCmp;
+        return a.key.compareTo(b.key);
+      });
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.map_outlined, color: Colors.indigo.shade400),
+                const SizedBox(width: 8),
+                Text(
+                  'By Region',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Active member & trusted partner totals per province',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 12),
+            if (entries.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'No regional data yet.',
+                  style: TextStyle(color: Colors.grey.shade500),
+                ),
+              )
+            else
+              Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            'Region',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'Members',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.teal.shade700,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'Partners',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 8),
+                  ...entries.map((e) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              e.key,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '${e.value.members}',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '${e.value.partners}',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _MetricCard extends StatelessWidget {

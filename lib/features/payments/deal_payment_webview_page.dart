@@ -1540,6 +1540,28 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
               return;
             }
 
+            // Override window.open() to redirect 3DS popup navigation into
+            // this WebView window (same fix as paystack_webview_page.dart).
+            if (url.contains('paystack.com') || url.contains('paystack.co')) {
+              try {
+                await _controller.runJavaScript(r'''
+                  (function() {
+                    if (window.__llOpenOverride) return;
+                    window.__llOpenOverride = true;
+                    window.open = function(url, target, features) {
+                      if (url && url !== '' && url !== 'about:blank') {
+                        window.location.href = url;
+                        return { focus: function(){}, close: function(){}, location: { href: url } };
+                      }
+                    };
+                  })();
+                ''');
+                _logger.d('Injected window.open override for 3DS popup handling');
+              } catch (e) {
+                _logger.w('Could not inject window.open override: $e');
+              }
+            }
+
             // If on Paystack page, start polling for completion
             // (polling will verify via API before declaring success)
             if (url.contains('paystack.com') && !_pollingActive && !_paymentVerified) {
@@ -1565,19 +1587,28 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
               return NavigationDecision.prevent;
             }
 
-            // Detect Paystack close/cancel endpoints
-            final lower = url.toLowerCase();
-            if (lower.contains('cancel') || lower.contains('close')) {
-              // NEVER treat cancel/close as success, even with reference
-              _logger.w('Detected cancellation/close URL: $url');
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Payment cancelled'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-                NavigationService().navigateToHomeAfterPayment(context);
+            // Detect Paystack close/cancel endpoints.
+            // Only match Paystack domains to avoid blocking 3DS bank redirect
+            // URLs whose path or query params contain 'cancel' or 'close'.
+            // If the close URL includes a transaction reference, verify first.
+            final isPaystackCloseDomain = url.contains('paystack.com') || url.contains('paystack.co');
+            if (isPaystackCloseDomain) {
+              final lower = url.toLowerCase();
+              if (lower.contains('/close') || lower.contains('/cancel')) {
+                _logger.w('Detected Paystack close/cancel URL: $url');
+                final hasReference = url.contains('trxref=') || url.contains('reference=');
+                if (hasReference) {
+                  _logger.i('Close URL has reference params — verifying before dismissing');
+                  _verifyAndHandlePayment(url: url);
+                } else if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Payment cancelled'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                  NavigationService().navigateToHomeAfterPayment(context);
+                }
                 return NavigationDecision.prevent;
               }
             }

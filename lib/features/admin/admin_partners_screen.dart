@@ -546,40 +546,60 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
                   Expanded(
                     child: Text(
                       bizName.isNotEmpty ? bizName : name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
-                  if (isActivated && verified)
+                  if (isActivated && verified) ...[
+                    const SizedBox(width: 4),
                     Icon(Icons.verified, color: Colors.blue.shade600, size: 18),
-                  if (!isActivated)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange.shade200),
-                      ),
-                      child: Text(
-                        'Awaiting T&Cs',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.orange.shade800,
-                        ),
-                      ),
-                    ),
+                  ],
                 ],
               ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (bizName.isNotEmpty)
-                    Text(name, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                  Text(email, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    ),
+                  Text(
+                    email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
                   Wrap(
                     spacing: 6,
                     runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
+                      if (!isActivated)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Text(
+                            'Awaiting T&Cs',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange.shade800,
+                            ),
+                          ),
+                        ),
                       if (bizCategory.isNotEmpty)
                         _TagChip(label: bizCategory, color: Colors.purple),
                       if (bizCity.isNotEmpty)
@@ -598,13 +618,19 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.vpn_key, color: Colors.orange),
+                    icon: const Icon(Icons.vpn_key, color: Colors.orange, size: 20),
                     tooltip: 'Issue Member Key',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
                     onPressed: () => _issueMemberKey(p),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.local_offer, color: Colors.teal),
+                    icon: const Icon(Icons.local_offer, color: Colors.teal, size: 20),
                     tooltip: 'Add Deal',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -618,6 +644,7 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
                     },
                   ),
                   PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
                     onSelected: (action) {
                       switch (action) {
                         case 'edit':

@@ -87,9 +87,11 @@ class DealAuthorization {
         'Deal authorization missing trusted_partner_id/business_id',
       );
     }
-    if (discountId == null) {
-      throw Exception('Deal authorization missing discount_id');
-    }
+    // Note: discount_id may be null for legacy or partially-created records
+    // (e.g. bill discount requests where the original discount link wasn't
+    // recorded). We tolerate this so the trusted partner can still see and
+    // act on the request rather than the whole list failing to load.
+    final safeDiscountId = discountId ?? '';
 
     // Extract business_id separately (distinct from trusted_partner_id)
     final businessId = json['business_id'] as String?;
@@ -98,7 +100,7 @@ class DealAuthorization {
       id: id,
       memberId: memberId,
       trustedPartnerId: trustedPartnerId,
-      discountId: discountId,
+      discountId: safeDiscountId,
       status: json['status'] as String? ?? 'pending',
       authorizationType: json['authorization_type'] as String? ?? 'in_store',
       paymentMethod: json['payment_method'] as String?,

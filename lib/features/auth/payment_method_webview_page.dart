@@ -223,6 +223,25 @@ class _PaymentMethodWebViewPageState extends State<PaymentMethodWebViewPage> {
             }
 
             if (url.contains('paystack.com')) {
+              // Override window.open() to redirect 3DS popup navigation into
+              // this WebView window (same fix as paystack_webview_page.dart).
+              try {
+                await _controller.runJavaScript(r'''
+                  (function() {
+                    if (window.__llOpenOverride) return;
+                    window.__llOpenOverride = true;
+                    window.open = function(url, target, features) {
+                      if (url && url !== '' && url !== 'about:blank') {
+                        window.location.href = url;
+                        return { focus: function(){}, close: function(){}, location: { href: url } };
+                      }
+                    };
+                  })();
+                ''');
+                _logger.d('Injected window.open override for 3DS popup handling');
+              } catch (e) {
+                _logger.w('Could not inject window.open override: $e');
+              }
               try {
                 _logger.d('Checking page content for success indicators...');
                 final successScript = '''

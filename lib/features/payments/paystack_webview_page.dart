@@ -885,6 +885,52 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
 
             _logger.d('No success indicators detected on this page');
 
+            // Override window.open() to redirect 3DS popup navigation into
+            // this WebView window. Paystack's hosted checkout opens the bank
+            // authorization page via window.open(); webview_flutter blocks
+            // popups by default, so without this override Paystack detects
+            // the failed popup and navigates to its /close URL which
+            // dismisses the WebView before the bank auth page is shown.
+            if (isPaystackPage) {
+              try {
+                await _controller.runJavaScript(r'''
+                  (function() {
+                    if (window.__llOpenOverride) return;
+                    window.__llOpenOverride = true;
+                    window.open = function(url, target, features) {
+                      // Always return a truthy fake window so Paystack's
+                      // popup-capability probe (window.open('', '_blank'))
+                      // succeeds. Without this the first Pay click is seen
+                      // as popup-blocked and Paystack resets the card form
+                      // instead of opening the 3DS authenticate page.
+                      var fakeWin = {
+                        focus: function(){},
+                        close: function(){},
+                        closed: false,
+                        location: { href: url || '' }
+                      };
+                      if (url && url !== '' && url !== 'about:blank') {
+                        // Use the JavaScriptChannel to hand the URL to Flutter.
+                        // This triggers a native loadRequest which runs outside
+                        // the JS execution context, preventing Paystack's own
+                        // subsequent window.location assignments from racing
+                        // against our navigation to the bank auth page.
+                        if (typeof PaystackPopup !== 'undefined') {
+                          PaystackPopup.postMessage(url);
+                        } else {
+                          window.location.href = url;
+                        }
+                      }
+                      return fakeWin;
+                    };
+                  })();
+                ''');
+                _logger.d('Injected window.open override for 3DS popup handling (channel-based)');
+              } catch (e) {
+                _logger.w('Could not inject window.open override: $e');
+              }
+            }
+
             // Start polling on Paystack pages to detect success.
             // Delay polling start to avoid interfering with card entry,
             // OTP/PIN verification, and 3DS redirect flows.
@@ -911,12 +957,30 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
             // Detect Paystack-specific close/cancel URLs only.
             // IMPORTANT: Only match Paystack domains to avoid blocking
             // 3DS bank redirect URLs that may contain '/close' in their path.
+            // If the close URL includes a transaction reference the payment
+            // may have completed — verify via API before dismissing.
             final isPaystackDomain = url.contains('paystack.com') || url.contains('paystack.co');
             if (isPaystackDomain && (url.endsWith('/close') || url.endsWith('/cancel') ||
                 url.contains('/close?') || url.contains('/cancel?'))) {
               _logger.w('Detected Paystack close/cancel URL: $url');
-              if (mounted) {
-                Navigator.of(context).pop();
+              final hasReference = url.contains('trxref=') || url.contains('reference=');
+              if (hasReference) {
+                _logger.i('Close URL has reference params — verifying before dismissing');
+                _verifyAndHandlePayment(url: url);
+              } else if (mounted) {
+                // Delay pop to allow the webhook / realtime listener to activate
+                // the subscription if 3DS completed just before the /close fired.
+                // If verification confirms success it takes over; otherwise pop.
+                _logger.i('Close URL without reference — waiting 4s before verifying/pop');
+                Future.delayed(const Duration(seconds: 4), () {
+                  if (!mounted || _paymentHandled || _showingSuccess) return;
+                  _silentVerifyPayment();
+                  Future.delayed(const Duration(seconds: 2), () {
+                    if (mounted && !_paymentHandled && !_showingSuccess) {
+                      Navigator.of(context).pop();
+                    }
+                  });
+                });
               }
               return NavigationDecision.prevent;
             }
@@ -931,6 +995,20 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
             return NavigationDecision.navigate;
           },
         ),
+      )
+      ..addJavaScriptChannel(
+        'PaystackPopup',
+        onMessageReceived: (JavaScriptMessage message) {
+          // Receives the bank 3DS auth URL from the window.open override.
+          // Using a native loadRequest bypasses the JS navigation queue so
+          // Paystack's own subsequent window.location assignment cannot win
+          // the race and overwrite the navigation to the bank auth page.
+          final url = message.message;
+          if (_paymentHandled || _processingPayment || _showingSuccess) return;
+          if (!url.startsWith('http')) return;
+          _logger.i('PaystackPopup channel: loading 3DS auth URL: $url');
+          _controller.loadRequest(Uri.parse(url));
+        },
       )
       ..loadRequest(Uri.parse(widget.authorizationUrl));
   }

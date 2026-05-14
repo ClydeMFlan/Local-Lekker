@@ -580,6 +580,42 @@ class _AdminPromotionDetailScreenState
     );
   }
 
+  Future<void> _deleteParticipant(Map<String, dynamic> participant) async {
+    final email = participant['email'] as String? ?? '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Email'),
+        content: Text('Remove "$email" from this promotion?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await PromotionCampaignService().deleteParticipantEmail(
+        participantId: participant['id'] as String,
+      );
+      await _loadData();
+    } catch (e) {
+      _logger.e('Error deleting participant: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to remove email')),
+        );
+      }
+    }
+  }
+
   Widget _buildParticipantCard(Map<String, dynamic> participant) {
     final isClaimed = participant['is_claimed'] == true;
     final statusColor = isClaimed ? Colors.green : Colors.orange;
@@ -595,20 +631,34 @@ class _AdminPromotionDetailScreenState
               ? 'Claimed: ${_formatDate(participant['claimed_at'] as String?)}'
               : 'Awaiting signup claim',
         ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            statusText,
-            style: TextStyle(
-              color: statusColor,
-              fontWeight: FontWeight.bold,
-              fontSize: 11,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                statusText,
+                style: TextStyle(
+                  color: statusColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
             ),
-          ),
+            if (!isClaimed) ...
+              [
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  tooltip: 'Remove email',
+                  onPressed: () => _deleteParticipant(participant),
+                ),
+              ],
+          ],
         ),
       ),
     );

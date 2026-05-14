@@ -103,6 +103,56 @@ class PromotionCampaignService {
     };
   }
 
+  /// Returns all promotions the given member email is eligible to see.
+  /// Only promotions where the email exists in [promotion_participant_emails]
+  /// are returned — admin controls who sees which promotion.
+  Future<List<Map<String, dynamic>>> getEligiblePromotionsForEmail({
+    required String email,
+  }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.isEmpty) return [];
+
+    try {
+      final response = await _client
+          .from('promotion_participant_emails')
+          .select('promotion_id, promotions!inner(*)')
+          .eq('email', normalizedEmail);
+
+      final now = DateTime.now();
+      final promotions = <Map<String, dynamic>>[];
+      final seenIds = <String>{};
+
+      for (final row in response) {
+        final promotionRaw = row['promotions'];
+        if (promotionRaw == null) continue;
+
+        final promo = Map<String, dynamic>.from(promotionRaw as Map);
+        final id = promo['id'] as String?;
+        if (id == null || seenIds.contains(id)) continue;
+
+        if (promo['is_active'] != true) continue;
+
+        final endsAt = promo['ends_at'] as String?;
+        if (endsAt != null && DateTime.parse(endsAt).isBefore(now)) continue;
+
+        seenIds.add(id);
+        promotions.add(promo);
+      }
+
+      // Sort newest first (mirrors the home page ordering)
+      promotions.sort((a, b) {
+        final aDate = a['created_at'] as String? ?? '';
+        final bDate = b['created_at'] as String? ?? '';
+        return bDate.compareTo(aDate);
+      });
+
+      return promotions;
+    } catch (e) {
+      _logger.e('PromotionCampaignService.getEligiblePromotionsForEmail error: $e');
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getPromotionParticipants({
     required String promotionId,
   }) async {
@@ -126,6 +176,15 @@ class PromotionCampaignService {
           'claimed_by': userId,
           'claimed_at': DateTime.now().toIso8601String(),
         })
+        .eq('id', participantId);
+  }
+
+  Future<void> deleteParticipantEmail({
+    required String participantId,
+  }) async {
+    await _client
+        .from('promotion_participant_emails')
+        .delete()
         .eq('id', participantId);
   }
 

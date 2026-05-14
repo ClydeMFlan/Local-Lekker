@@ -3002,6 +3002,31 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
                               return;
                             }
 
+                            // Guard: discount must be fully hydrated before
+                            // we can create an authorization. Without these
+                            // ids the row becomes unreadable on the TP side.
+                            final discountId = widget.discount.id;
+                            final trustedPartnerUserId =
+                                widget.discount.trustedPartnerId;
+                            if (discountId.isEmpty ||
+                                trustedPartnerUserId.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Deal information is incomplete. Please reopen the deal and try again.',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                  behavior: SnackBarBehavior.floating,
+                                  margin: EdgeInsets.only(
+                                    bottom: 40,
+                                    left: 16,
+                                    right: 16,
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+
                             // Calculate the final total and components
                             final totalAmount = _calculateTotal();
 
@@ -3050,7 +3075,8 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
                                 .insert({
                                   'member_id': currentUser.id,
                                   'business_id': businessId,
-                                  'discount_id': widget.discount.id,
+                                  'trusted_partner_id': trustedPartnerUserId,
+                                  'discount_id': discountId,
                                   'status': 'pending',
                                   'amount': totalAmount,
                                   'payment_method': _paymentMethod,

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logger/logger.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'dart:async';
 import 'core/theme/theme.dart';
 import 'features/auth/welcome_page.dart';
@@ -13,7 +11,6 @@ import 'services/navigation_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/app_fallback_system.dart';
 import 'services/subscription_service.dart';
-import 'services/push_notification_service.dart';
 import 'services/cache_service.dart';
 import 'widgets/loading_screen.dart';
 

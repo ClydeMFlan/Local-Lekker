@@ -168,37 +168,39 @@ class _PaymentRequiredScreenState extends State<PaymentRequiredScreen> {
                 ),
                 child: const Text('Proceed to Payment'),
               ),
-              const SizedBox(height: 16),
-              // Promo Key option - bypasses subscription payment
-              OutlinedButton.icon(
-                onPressed: () {
-                  final user = SupabaseService.instance.getCurrentUser();
-                  if (user == null) return;
-                  showDialog(
-                    context: context,
-                    builder: (context) => TrustedPartnerKeyDialog(
-                      userId: user.id,
-                      onSuccess: () {
-                        ScaffoldMessenger.of(this.context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Promo key activated! Welcome to Local Lekker.'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                        NavigationService().navigateToHomeAfterPayment(this.context);
-                      },
+              // Promo Key option - only shown for reactivation, not during initial signup
+              if (widget.isReactivation) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final user = SupabaseService.instance.getCurrentUser();
+                    if (user == null) return;
+                    showDialog(
+                      context: context,
+                      builder: (context) => TrustedPartnerKeyDialog(
+                        userId: user.id,
+                        onSuccess: () {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Promo key activated! Welcome to Local Lekker.'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          NavigationService().navigateToHomeAfterPayment(this.context);
+                        },
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.vpn_key),
+                  label: const Text('Have a Promo Key?'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
                     ),
-                  );
-                },
-                icon: const Icon(Icons.vpn_key),
-                label: const Text('Have a Promo Key?'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
                   ),
                 ),
-              ),
+              ],
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () async {

@@ -1,0 +1,264 @@
+﻿Resolving dependencies...
+Downloading packages...
+  _flutterfire_internals 1.3.59 (1.3.71 available)
+  app_links 6.4.1 (7.0.0 available)
+  archive 3.6.1 (4.0.9 available)
+  async 2.13.0 (2.13.1 available)
+  characters 1.4.0 (1.4.1 available)
+  cli_util 0.4.2 (0.5.1 available)
+  connectivity_plus 7.0.0 (7.1.1 available)
+  connectivity_plus_platform_interface 2.0.1 (2.1.0 available)
+  cupertino_icons 1.0.8 (1.0.9 available)
+  dart_jsonwebtoken 3.3.1 (3.4.1 available)
+  dio 5.9.1 (5.9.2 available)
+  dio_web_adapter 2.1.1 (2.1.2 available)
+  ffi 2.1.5 (2.2.0 available)
+  firebase_core 3.15.2 (4.9.0 available)
+  firebase_core_platform_interface 6.0.2 (7.0.1 available)
+  firebase_core_web 2.24.1 (3.7.0 available)
+  firebase_messaging 15.2.10 (16.2.2 available)
+  firebase_messaging_platform_interface 4.6.10 (4.7.11 available)
+  firebase_messaging_web 3.10.10 (4.1.7 available)
+  fl_chart 1.1.1 (1.2.0 available)
+  flutter_dotenv 6.0.0 (6.0.1 available)
+  flutter_local_notifications 20.0.0 (21.0.0 available)
+  flutter_local_notifications_linux 7.0.0 (8.0.0 available)
+  flutter_local_notifications_platform_interface 10.0.0 (11.0.0 available)
+  flutter_local_notifications_windows 2.0.0 (3.0.0 available)
+  flutter_plugin_android_lifecycle 2.0.33 (2.0.34 available)
+  geocoding_android 4.0.1 (5.0.1 available)
+  geocoding_platform_interface 3.2.0 (5.0.0 available)
+  gotrue 2.18.0 (2.20.0 available)
+  gtk 2.1.0 (2.2.0 available)
+  hooks 1.0.1 (1.0.3 available)
+  image 4.3.0 (4.8.0 available)
+  image_picker 1.2.1 (1.2.2 available)
+  image_picker_android 0.8.13+13 (0.8.13+17 available)
+  json_annotation 4.10.0 (4.11.0 available)
+  llm_dart 0.10.5 (0.10.7 available)
+  logger 2.6.2 (2.7.0 available)
+  matcher 0.12.17 (0.12.20 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  meta 1.17.0 (1.18.2 available)
+  mobile_scanner 7.1.4 (7.2.0 available)
+  native_toolchain_c 0.17.4 (0.18.0 available)
+  package_info_plus 9.0.0 (10.1.0 available)
+  package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+  path_provider_android 2.2.22 (2.3.1 available)
+  pdf 3.11.3 (3.12.0 available)
+  petitparser 7.0.1 (7.0.2 available)
+  postgrest 2.6.0 (2.7.0 available)
+  realtime_client 2.7.0 (2.7.3 available)
+  shared_preferences 2.5.4 (2.5.5 available)
+  shared_preferences_android 2.4.20 (2.4.23 available)
+  shared_preferences_platform_interface 2.4.1 (2.4.2 available)
+  storage_client 2.4.1 (2.5.2 available)
+  supabase 2.10.2 (2.10.6 available)
+  supabase_flutter 2.12.0 (2.12.4 available)
+  test_api 0.7.7 (0.7.12 available)
+  timezone 0.10.1 (0.11.0 available)
+  url_launcher_android 6.3.28 (6.3.29 available)
+  url_launcher_ios 6.3.6 (6.4.1 available)
+  url_launcher_web 2.4.2 (2.4.3 available)
+  uuid 4.5.2 (4.5.3 available)
+  vector_math 2.2.0 (2.3.0 available)
+  vm_service 15.0.2 (15.2.0 available)
+  webview_flutter_android 4.10.11 (4.12.0 available)
+  webview_flutter_platform_interface 2.14.0 (2.15.1 available)
+  webview_flutter_wkwebview 3.23.6 (3.25.1 available)
+  win32 5.15.0 (6.2.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+68 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing local_lekker...                                       
+
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\admin_add_partner_screen.dart:264:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\admin_add_partner_screen.dart:275:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\admin_add_partner_screen.dart:291:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\admin_create_promotion_screen.dart:234:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\admin_edit_partner_screen.dart:462:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\admin_edit_partner_screen.dart:474:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\admin_edit_partner_screen.dart:491:17 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_members_screen.dart:484:22 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_overview_screen.dart:571:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_partner_detail_screen.dart:740:22 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_partner_detail_screen.dart:742:41 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\features\admin\admin_partners_screen.dart:368:30 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_partners_screen.dart:717:22 - deprecated_member_use
+   info - The private field _confirmingIds could be 'final' - lib\features\admin\admin_promotion_detail_screen.dart:30:15 - prefer_final_fields
+   info - Unnecessary use of multiple underscores - lib\features\admin\admin_promotion_detail_screen.dart:346:41 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\admin\admin_promotion_detail_screen.dart:346:45 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_promotion_detail_screen.dart:640:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_promotion_detail_screen.dart:671:22 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_promotion_detail_screen.dart:729:40 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\admin\admin_promotions_screen.dart:241:35 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\admin\admin_promotions_screen.dart:241:39 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_promotions_screen.dart:266:46 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_promotions_screen.dart:268:65 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\widgets\admin_promo_key_dialog.dart:276:19 - deprecated_member_use
+warning - The value of the field '_conversationId' isn't used - lib\features\auth\admin_chat_page.dart:17:11 - unused_field
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\business_profile_page.dart:780:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\business_profile_page.dart:799:17 - deprecated_member_use
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\features\auth\business_profile_page.dart:1275:7 - use_null_aware_elements
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\business_profile_page.dart:1356:7 - use_build_context_synchronously
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\deactivation_confirmation_page.dart:174:19 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\deactivation_confirmation_page.dart:175:19 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\deal_authorization_dashboard.dart:573:40 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\deal_authorization_dashboard.dart:586:21 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\deal_authorization_dashboard.dart:615:40 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\deal_authorization_dashboard.dart:627:40 - use_build_context_synchronously
+   info - Don't invoke 'print' in production code - lib\features\auth\deal_selection_page.dart:150:13 - avoid_print
+warning - The declaration '_incrementQuantity' isn't referenced - lib\features\auth\deal_selection_page.dart:375:8 - unused_element
+warning - The declaration '_decrementQuantity' isn't referenced - lib\features\auth\deal_selection_page.dart:387:8 - unused_element
+warning - The declaration '_getScheduleDisplayText' isn't referenced - lib\features\auth\deal_selection_page.dart:405:10 - unused_element
+warning - The value of the local variable 'isOnceOff' isn't used - lib\features\auth\deal_selection_page.dart:1265:11 - unused_local_variable
+   info - Don't invoke 'print' in production code - lib\features\auth\deal_selection_page.dart:1903:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\deal_selection_page.dart:1904:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\deal_selection_page.dart:1905:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\deal_selection_page.dart:1906:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\deal_selection_page.dart:1907:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\deal_selection_page.dart:1908:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\deal_selection_page.dart:1909:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\deal_selection_page.dart:1910:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\deal_selection_page.dart:1911:7 - avoid_print
+warning - The value of the local variable 'quantity' isn't used - lib\features\auth\deal_selection_page.dart:2053:11 - unused_local_variable
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\deal_selection_page.dart:3098:50 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\deal_selection_page.dart:3112:43 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\deal_selection_page.dart:3117:50 - use_build_context_synchronously
+warning - The declaration '_buildExclusionsSection' isn't referenced - lib\features\auth\discount_management_page.dart:464:10 - unused_element
+warning - The declaration '_buildEmptyState' isn't referenced - lib\features\auth\discount_management_page.dart:548:10 - unused_element
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2258:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2262:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2268:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2297:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2298:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2301:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2351:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2353:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2355:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2357:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2453:7 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\discount_management_page.dart:2454:20 - use_build_context_synchronously
+   info - Don't invoke 'print' in production code - lib\features\auth\discount_management_page.dart:2455:7 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\discount_management_page.dart:3821:20 - use_build_context_synchronously
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\member_profile_page.dart:1448:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\member_profile_page.dart:1449:23 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\member_profile_page.dart:1462:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\auth\member_profile_page.dart:1463:23 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\member_profile_page.dart:1511:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\member_profile_page.dart:1514:27 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\member_profile_page.dart:1532:46 - use_build_context_synchronously
+warning - The value of the field '_isLoading' isn't used - lib\features\auth\members_home_page.dart:44:8 - unused_field
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\members_home_page.dart:780:25 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\members_home_page.dart:805:27 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\auth\members_home_page.dart:1084:37 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\auth\members_home_page.dart:1084:41 - unnecessary_underscores
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\members_signup_page.dart:351:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\members_signup_page.dart:370:17 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\auth\promotion_detail_page.dart:215:35 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\auth\promotion_detail_page.dart:215:39 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\promotion_detail_page.dart:361:24 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\promotion_detail_page.dart:363:43 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\tp_interest_form_page.dart:173:17 - deprecated_member_use
+warning - The declaration '_navigateToDiscountSelection' isn't referenced - lib\features\auth\trusted_partner_home_page.dart:632:8 - unused_element
+   info - Don't invoke 'print' in production code - lib\features\auth\trusted_partner_shop_page.dart:109:13 - avoid_print
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\trusted_partner_shop_page.dart:458:42 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\trusted_partner_shop_page.dart:459:50 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\trusted_partner_shop_page.dart:470:50 - use_build_context_synchronously
+   info - Invalid use of a private type in a public API - lib\features\auth\trusted_partner_signup_page.dart:14:3 - library_private_types_in_public_api
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\trusted_partner_signup_page.dart:453:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\trusted_partner_signup_page.dart:472:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\trusted_partners_by_category_page.dart:499:21 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\trusted_partners_by_category_page.dart:535:21 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:63:31 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:222:35 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:331:33 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:344:25 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:345:25 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:445:52 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:455:52 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:551:15 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:570:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:588:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:749:43 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:752:31 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:927:29 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:932:29 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:937:48 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:949:50 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:998:29 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:999:29 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:1010:52 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:1054:48 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:1217:48 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:1227:39 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:1232:29 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\auth\welcome_page.dart:1250:27 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:1311:36 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:1319:25 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:1320:25 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\welcome_page.dart:1373:19 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\widgets\otp_verification_dialog.dart:370:21 - use_build_context_synchronously
+warning - The value of the local variable 'isMemberKey' isn't used - lib\features\auth\widgets\trusted_partner_key_dialog.dart:134:18 - unused_local_variable
+warning - The value of the local variable 'paymentResult' isn't used - lib\features\business\bill_approval_page.dart:196:13 - unused_local_variable
+   info - Unnecessary use of multiple underscores - lib\features\business\trusted_partner_customers_page.dart:145:29 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\business\trusted_partner_repeat_customers_page.dart:161:29 - unnecessary_underscores
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\chat\chat_thread_page.dart:263:58 - use_build_context_synchronously
+   info - The 'if' statement could be replaced by a null-aware assignment - lib\features\payments\deal_payment_webview_page.dart:173:5 - prefer_conditional_assignment
+   info - The 'if' statement could be replaced by a null-aware assignment - lib\features\payments\deal_payment_webview_page.dart:281:5 - prefer_conditional_assignment
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\payments\deal_payment_webview_page.dart:1682:27 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\payments\payments_feature.dart:78:11 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\payments\payments_feature.dart:210:21 - use_build_context_synchronously
+   info - Unnecessary use of multiple underscores - lib\features\payments\pending_payments_page.dart:128:35 - unnecessary_underscores
+   info - Don't use 'BuildContext's across async gaps - lib\services\deal_approval_popup_service.dart:169:35 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\services\deal_approval_popup_service.dart:182:33 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\services\deal_approval_popup_service.dart:246:7 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\services\deal_approval_popup_service.dart:621:27 - use_build_context_synchronously
+warning - The '!' will have no effect because the receiver can't be null - lib\services\deal_approval_popup_service.dart:707:39 - unnecessary_non_null_assertion
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\services\deep_link_service.dart:98:13 - use_null_aware_elements
+   info - 'desiredAccuracy' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings - lib\services\location_service.dart:71:9 - deprecated_member_use
+   info - 'desiredAccuracy' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings - lib\services\location_service.dart:114:9 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\services\navigation_service.dart:501:13 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\services\navigation_service.dart:517:11 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\services\navigation_service.dart:565:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\services\navigation_service.dart:571:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\services\navigation_service.dart:608:13 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\services\navigation_service.dart:624:11 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\services\navigation_service.dart:676:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\services\navigation_service.dart:683:9 - use_build_context_synchronously
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\services\paystack_service.dart:57:7 - use_null_aware_elements
+   info - Unnecessary braces in a string interpolation - lib\services\paystack_service.dart:1227:99 - unnecessary_brace_in_string_interps
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\services\subscription_service.dart:132:9 - use_null_aware_elements
+warning - The value of the field '_textAnimation' isn't used - lib\widgets\loading_screen.dart:26:26 - unused_field
+   info - Don't use 'BuildContext's across async gaps - lib\widgets\loading_screen.dart:150:22 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\widgets\loading_screen.dart:175:22 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\widgets\loading_screen.dart:199:22 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\widgets\loading_screen.dart:228:22 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\widgets\loading_screen.dart:389:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\widgets\loading_screen.dart:400:21 - use_build_context_synchronously
+   info - Don't invoke 'print' in production code - test\database_state_test.dart:26:9 - avoid_print
+   info - Don't invoke 'print' in production code - test\database_state_test.dart:34:9 - avoid_print
+   info - Don't invoke 'print' in production code - test\database_state_test.dart:42:9 - avoid_print
+   info - Don't invoke 'print' in production code - test\database_state_test.dart:44:9 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:40:9 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:41:9 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:50:9 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:54:9 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:69:7 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:77:7 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:86:7 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:90:9 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:99:9 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:102:11 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:108:11 - avoid_print
+   info - Don't invoke 'print' in production code - test\paystack_service_test.dart:111:9 - avoid_print
+
+flutter : 180 issues found. (ran in 4.5s)
+At line:1 char:1
++ flutter analyze 2>&1 | Out-File analyze_output.txt -Encoding utf8; Ge ...
++ ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (180 issues found. (ran in 4.5s):S 
+   tring) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

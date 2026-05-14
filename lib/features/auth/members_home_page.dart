@@ -19,6 +19,7 @@ import 'trusted_partners_by_category_page.dart';
 import '../payments/pending_payments_page.dart';
 import 'widgets/trusted_partner_key_dialog.dart';
 import 'promotion_detail_page.dart';
+import '../../services/promotion_campaign_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,7 +32,8 @@ class MembersHomePage extends StatefulWidget {
   State<MembersHomePage> createState() => _MembersHomePageState();
 }
 
-class _MembersHomePageState extends State<MembersHomePage> {
+class _MembersHomePageState extends State<MembersHomePage>
+  with WidgetsBindingObserver {
   final SubscriptionService _subscriptionService = SubscriptionService();
   final DealApprovalPopupService _dealApprovalService =
       DealApprovalPopupService();
@@ -54,6 +56,8 @@ class _MembersHomePageState extends State<MembersHomePage> {
   int _pendingPaymentsCount = 0;
   bool _isLoadingPendingPayments = true;
   bool _isTrustedPartner = false;
+  DateTime? _lastApprovalSyncAt;
+  bool _isResubscribingApprovals = false;
 
   // Promotions
   List<Map<String, dynamic>> _activePromotions = [];
@@ -193,6 +197,7 @@ class _MembersHomePageState extends State<MembersHomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadUserData();
     _loadTrustedPartnersCount();
     _loadPendingPaymentsCount();
@@ -206,23 +211,15 @@ class _MembersHomePageState extends State<MembersHomePage> {
       final user = SupabaseService.instance.getCurrentUser();
       if (user == null) return;
 
-      // Fetch active, non-expired promotions
-      final promos = await SupabaseService.instance.client
-          .from('promotions')
-          .select()
-          .eq('is_active', true)
-          .order('created_at', ascending: false);
+      final email = user.email;
+      if (email == null || email.isEmpty) return;
 
-      // Filter out expired promos client-side as extra safety
-      final now = DateTime.now();
-      final activePromos = (promos as List).where((p) {
-        final endsAt = p['ends_at'];
-        if (endsAt == null) return true;
-        return DateTime.parse(endsAt).isAfter(now);
-      }).toList();
+      // Only show promotions the admin has registered this member's email for
+      final eligiblePromos = await PromotionCampaignService()
+          .getEligiblePromotionsForEmail(email: email);
 
-      // Filter out promos user already signed up for
-      if (activePromos.isNotEmpty) {
+      // Filter out promos the member has already signed up for
+      if (eligiblePromos.isNotEmpty) {
         final signups = await SupabaseService.instance.client
             .from('promotion_signups')
             .select('promotion_id')
@@ -232,18 +229,17 @@ class _MembersHomePageState extends State<MembersHomePage> {
             .map((s) => s['promotion_id'] as String)
             .toSet();
 
-        activePromos.removeWhere((p) => signedUpIds.contains(p['id']));
+        eligiblePromos.removeWhere((p) => signedUpIds.contains(p['id']));
       }
 
       if (mounted) {
         setState(() {
-          _activePromotions =
-              activePromos.cast<Map<String, dynamic>>();
+          _activePromotions = eligiblePromos;
         });
       }
     } catch (e) {
       if (kDebugMode) {
-        print('\u274c Error loading promotions: $e');
+        print('❌ Error loading promotions: $e');
       }
     }
   }
@@ -252,24 +248,75 @@ class _MembersHomePageState extends State<MembersHomePage> {
     final user = SupabaseService.instance.getCurrentUser();
     if (user == null) return;
 
+    _notificationSubscription?.cancel();
+
     if (kDebugMode) {
       print('🔔 Subscribing to real-time approval notifications');
     }
     _notificationSubscription = _dealApprovalService
         .subscribeToApprovalNotifications(user.id)
-        .listen((approvalNotifications) {
-          if (approvalNotifications.isNotEmpty && mounted) {
-            if (kDebugMode) {
-              print('🎉 New approval notification received in real-time!');
+        .listen(
+          (approvalNotifications) {
+            if (approvalNotifications.isNotEmpty && mounted) {
+              if (kDebugMode) {
+                print('🎉 New approval notification received in real-time!');
+              }
+              // Show popup for the first unread approval
+              _dealApprovalService.checkAndShowApprovalPopup(context, user.id);
             }
-            // Show popup for the first unread approval
-            _dealApprovalService.checkAndShowApprovalPopup(context, user.id);
-          }
-        });
+          },
+          onError: (error) {
+            if (kDebugMode) {
+              print('❌ Approval notification stream error: $error');
+            }
+            unawaited(_refreshApprovalNotificationsOnResume());
+          },
+          onDone: () {
+            if (kDebugMode) {
+              print('⚠️ Approval notification stream closed');
+            }
+            unawaited(_refreshApprovalNotificationsOnResume());
+          },
+        );
+  }
+
+  Future<void> _refreshApprovalNotificationsOnResume() async {
+    if (_isResubscribingApprovals) return;
+
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return;
+
+    final now = DateTime.now();
+    final shouldThrottle =
+        _lastApprovalSyncAt != null &&
+        now.difference(_lastApprovalSyncAt!).inSeconds < 3;
+    if (shouldThrottle) return;
+
+    _isResubscribingApprovals = true;
+    _lastApprovalSyncAt = now;
+
+    try {
+      _subscribeToApprovalNotifications();
+
+      // Fallback query path in case realtime events were missed while backgrounded.
+      if (mounted) {
+        await _dealApprovalService.checkAndShowApprovalPopup(context, user.id);
+      }
+    } finally {
+      _isResubscribingApprovals = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshApprovalNotificationsOnResume());
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
     super.dispose();
   }

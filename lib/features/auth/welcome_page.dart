@@ -625,6 +625,7 @@ class _WelcomePageState extends State<WelcomePage> {
     bool needsPasswordSetup = false;
     final confirmPasswordController = TextEditingController();
     String? signInError;
+    bool isPasswordIncorrect = false;
 
     showDialog(
       context: context,
@@ -688,28 +689,43 @@ class _WelcomePageState extends State<WelcomePage> {
                       return;
                     }
 
-                    // Debounce email validation
+                    // Debounce email validation (short to feel instant while typing)
                     emailCheckTimer = Timer(
-                      const Duration(milliseconds: 500),
+                      const Duration(milliseconds: 300),
                       () async {
+                        final trimmed = value.trim();
                         setState(() => isCheckingEmail = true);
 
                         if (kDebugMode) {
                           print(
-                            '🔐 WelcomePage: Validating email: "${value.trim()}"',
+                            '🔐 WelcomePage: Validating email: "$trimmed"',
                           );
                         }
                         final exists = await SupabaseService.instance
-                            .checkEmailExists(value.trim());
+                            .checkEmailExists(trimmed);
                         if (kDebugMode) {
                           print(
                             '🔐 WelcomePage: Email validation result: $exists',
                           );
                         }
 
+                        // If user kept typing, abort: a newer timer will handle it
+                        if (trimmed != emailController.text.trim()) return;
+
+                        // Run admin-created lookup and deactivation check in parallel
+                        // to minimise perceived delay.
+                        Map<String, dynamic> adminStatus = const {};
+                        bool isDeactivated = false;
                         if (exists) {
-                          final adminStatus = await SupabaseService.instance
-                              .checkAdminCreatedStatus(value.trim());
+                          final results = await Future.wait([
+                            SupabaseService.instance
+                                .checkAdminCreatedStatus(trimmed),
+                            SupabaseService.instance.isEmailDeactivated(
+                              trimmed,
+                            ),
+                          ]);
+                          adminStatus = results[0] as Map<String, dynamic>;
+                          isDeactivated = results[1] as bool;
 
                           if (kDebugMode) {
                             print('🔐 WelcomePage: Admin status: $adminStatus');
@@ -734,17 +750,11 @@ class _WelcomePageState extends State<WelcomePage> {
 
                             _showOtpVerificationForTrustedPartner(
                               parentContext,
-                              value.trim(),
+                              trimmed,
                             );
                             return;
                           }
                         }
-
-                        final isDeactivated = exists
-                            ? await SupabaseService.instance.isEmailDeactivated(
-                                value.trim(),
-                              )
-                            : false;
 
                         if (mounted && isDeactivated) {
                           setState(() {
@@ -821,19 +831,37 @@ class _WelcomePageState extends State<WelcomePage> {
                   TextField(
                     controller: passwordController,
                     focusNode: passwordFocusNode,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Password',
                       hintText: 'Enter your password',
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
+                      errorText: isPasswordIncorrect
+                          ? 'Incorrect password'
+                          : null,
+                      focusedBorder: isPasswordIncorrect
+                          ? const OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Colors.red,
+                                width: 2,
+                              ),
+                            )
+                          : null,
+                      suffixIcon: isPasswordIncorrect
+                          ? const Icon(Icons.error, color: Colors.red)
+                          : null,
                     ),
                     obscureText: true,
                     onChanged: (value) {
                       // Clear stale error when user edits password
-                      if (signInError != null) {
-                        setState(() => signInError = null);
+                      if (signInError != null || isPasswordIncorrect) {
+                        setState(() {
+                          signInError = null;
+                          isPasswordIncorrect = false;
+                        });
+                      } else {
+                        // Trigger rebuild to enable/disable Sign In button
+                        setState(() {});
                       }
-                      // Trigger rebuild to enable/disable Sign In button
-                      setState(() {});
                     },
                   ),
                 ],
@@ -951,18 +979,9 @@ class _WelcomePageState extends State<WelcomePage> {
                           );
                         }
 
-                        final isDeactivated = await SupabaseService.instance
-                            .isEmailDeactivated(email);
-                        if (isDeactivated) {
-                          if (mounted) {
-                            setState(
-                              () => signInError =
-                                  'This account is deactivated. Please reactivate to continue.',
-                            );
-                          }
-                          return;
-                        }
-
+                        // Email existence + deactivation already verified
+                        // while the user typed (button is disabled otherwise),
+                        // so skip the redundant network round-trip here.
                         final response = await SupabaseService.instance.signIn(
                           email: email,
                           password: password,
@@ -1004,24 +1023,46 @@ class _WelcomePageState extends State<WelcomePage> {
                         if (kDebugMode) {
                           print('🔐 WelcomePage: Sign in error: $e');
                         }
-                        String errorMessage = 'Sign in error: ${e.toString()}';
-                        if (e.toString().contains(
-                          'Invalid login credentials',
-                        )) {
-                          errorMessage = 'Invalid email or password';
-                        } else if (e.toString().contains(
-                          'Email not confirmed',
-                        )) {
+                        final errorString = e.toString();
+                        String errorMessage = 'Sign in error: $errorString';
+                        bool wrongPassword = false;
+                        if (errorString.contains('Invalid login credentials')) {
+                          errorMessage = 'Incorrect password. Please try again.';
+                          wrongPassword = true;
+                        } else if (errorString.contains('Email not confirmed')) {
                           errorMessage =
                               'Please check your email and confirm your account';
-                        } else if (e.toString().contains(
+                        } else if (errorString.contains(
                           'over_email_send_rate_limit',
                         )) {
                           errorMessage =
                               'Too many attempts. Please wait before trying again';
                         }
                         if (mounted) {
-                          setState(() => signInError = errorMessage);
+                          setState(() {
+                            signInError = errorMessage;
+                            isPasswordIncorrect = wrongPassword;
+                          });
+                          if (wrongPassword) {
+                            // Clear the password and refocus so the user can
+                            // re-enter it immediately.
+                            passwordController.clear();
+                            if (passwordFocusNode.canRequestFocus) {
+                              passwordFocusNode.requestFocus();
+                            }
+                          }
+                          ScaffoldMessenger.of(parentContext)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(
+                              SnackBar(
+                                content: Text(errorMessage),
+                                backgroundColor: wrongPassword
+                                    ? Colors.red
+                                    : null,
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
                         }
                       }
                     }
@@ -1101,28 +1142,32 @@ class _WelcomePageState extends State<WelcomePage> {
                       return;
                     }
 
-                    // Debounce email validation
+                    // Debounce email validation (short to feel instant while typing)
                     emailCheckTimer = Timer(
-                      const Duration(milliseconds: 500),
+                      const Duration(milliseconds: 300),
                       () async {
+                        final trimmed = value.trim();
                         setState(() => isCheckingEmail = true);
 
                         if (kDebugMode) {
                           print(
-                            '🔐 WelcomePage: Validating email (forgot password): "${value.trim()}"',
+                            '🔐 WelcomePage: Validating email (otp signin): "$trimmed"',
                           );
                         }
                         final exists = await SupabaseService.instance
-                            .checkEmailExists(value.trim());
+                            .checkEmailExists(trimmed);
                         if (kDebugMode) {
                           print(
-                            '🔐 WelcomePage: Email validation result (forgot password): $exists',
+                            '🔐 WelcomePage: Email validation result (otp signin): $exists',
                           );
                         }
 
+                        // If user kept typing, abort: a newer timer will handle it
+                        if (trimmed != emailController.text.trim()) return;
+
                         final isDeactivated = exists
                             ? await SupabaseService.instance.isEmailDeactivated(
-                                value.trim(),
+                                trimmed,
                               )
                             : false;
 
