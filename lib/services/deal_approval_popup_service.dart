@@ -704,7 +704,7 @@ class DealApprovalPopupService {
             .select(
               'subaccount_code, subaccount_active, is_active, bank_name, percentage_charge, updated_at',
             )
-            .eq('user_id', ownerUserId!)
+            .eq('user_id', ownerUserId)
             .eq('is_active', true)
             .maybeSingle();
 
@@ -959,12 +959,25 @@ class DealApprovalPopupService {
       );
     }
 
+    // Show progress overlay immediately so the member gets instant
+    // feedback after authorising. Without this, the saved-cards lookup
+    // below feels like a dead pause between the confirm dialog and the
+    // next screen (card picker or Paystack WebView).
+    if (context.mounted) {
+      _showPaymentProgressOverlay(
+        context,
+        message: 'Preparing payment…',
+      );
+    }
+
     // Try charging the member's saved card first for instant payment
     final savedMethods = await _paystackService.getSavedPaymentMethods(user.id);
 
     if (savedMethods.isNotEmpty) {
-      // Show card selection + CVV dialog
+      // Hand off to the card selection dialog — drop the overlay so the
+      // dialog isn't competing with it.
       if (!context.mounted) return;
+      _dismissPaymentProgressOverlay(context);
       final selection = await _showCardSelectionDialog(
         context,
         savedMethods: savedMethods,
@@ -1101,8 +1114,12 @@ class DealApprovalPopupService {
       } // end of saved card selection block
     }
 
-    // No saved card or charge failed — open Paystack WebView checkout
+    // No saved card or charge failed — open Paystack WebView checkout.
+    // Re-show / refresh the overlay (it may already be visible from the
+    // 'Preparing payment…' step or have been dismissed for the card
+    // selection dialog).
     if (context.mounted) {
+      _dismissPaymentProgressOverlay(context);
       _showPaymentProgressOverlay(
         context,
         message: 'Initializing payment…',
@@ -1139,11 +1156,15 @@ class DealApprovalPopupService {
     }
 
     if (context.mounted) {
-      _dismissPaymentProgressOverlay(context);
       if (kDebugMode) {
         print('💳 Opening DealPaymentWebViewPage...');
       }
-      await Navigator.push(
+      // Push the WebView first, THEN dismiss the overlay. This keeps a
+      // visual cover in place until the WebView page mounts and shows
+      // its own loading indicator, eliminating the brief white-flash
+      // gap that previously appeared between dismissing the overlay
+      // and the WebView's first frame.
+      final navFuture = Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => DealPaymentWebViewPage(
@@ -1153,6 +1174,14 @@ class DealApprovalPopupService {
           ),
         ),
       );
+      // Dismiss after the next frame so the new route is on top before
+      // we tear down the dialog.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          _dismissPaymentProgressOverlay(context);
+        }
+      });
+      await navFuture;
     }
   }
 

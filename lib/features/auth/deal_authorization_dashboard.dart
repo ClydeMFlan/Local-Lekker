@@ -8,6 +8,11 @@ import '../../services/supabase_service.dart';
 import 'receipt_generator_page.dart';
 import 'package:flutter/foundation.dart';
 
+/// Local Lekker brand palette.
+const Color kBrandBlue = Color(0xFF001489);
+const Color kBrandGreen = Color(0xFF2E7D32);
+const Color kBrandYellow = Color(0xFFFFB81C);
+
 class DealAuthorizationDashboard extends StatefulWidget {
   const DealAuthorizationDashboard({super.key});
 
@@ -296,7 +301,7 @@ class _DealAuthorizationDashboardState
             content: Text(
               'Authorization approved! Member will complete payment in the app.',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: kBrandGreen,
             behavior: SnackBarBehavior.floating,
             margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
           ),
@@ -336,7 +341,7 @@ class _DealAuthorizationDashboardState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Authorization rejected'),
-            backgroundColor: Colors.orange,
+            backgroundColor: kBrandYellow,
           ),
         );
         _loadAuthorizations(); // Refresh the list
@@ -390,7 +395,7 @@ class _DealAuthorizationDashboardState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Deal authorization deleted successfully'),
-            backgroundColor: Colors.green,
+            backgroundColor: kBrandGreen,
           ),
         );
         _loadAuthorizations(); // Refresh the list
@@ -467,10 +472,10 @@ class _DealAuthorizationDashboardState
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.blue.withAlpha(25),
+                color: kBrandBlue.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.store, color: Colors.blue, size: 28),
+              child: const Icon(Icons.store, color: kBrandBlue, size: 28),
             ),
             const SizedBox(width: 12),
             const Expanded(
@@ -542,7 +547,7 @@ class _DealAuthorizationDashboardState
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 20,
-                          color: Colors.green,
+                          color: kBrandGreen,
                         ),
                       ),
                     ],
@@ -617,7 +622,7 @@ class _DealAuthorizationDashboardState
                       content: Text(
                         'Payment successful! Receipt issued to member.',
                       ),
-                      backgroundColor: Colors.green,
+                      backgroundColor: kBrandGreen,
                     ),
                   );
                   _loadAuthorizations();
@@ -633,7 +638,7 @@ class _DealAuthorizationDashboardState
             icon: const Icon(Icons.check_circle),
             label: const Text('Payment Successful'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
+              backgroundColor: kBrandGreen,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
@@ -650,8 +655,9 @@ class _DealAuthorizationDashboardState
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Deal Authorizations'),
-          backgroundColor: Theme.of(context).primaryColor,
+          backgroundColor: kBrandBlue,
           foregroundColor: Colors.white,
+          iconTheme: const IconThemeData(color: Colors.white),
           bottom: TabBar(
             labelStyle: const TextStyle(
               fontWeight: FontWeight.bold,
@@ -823,10 +829,10 @@ class _DealAuthorizationDashboardState
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
-        leading: const CircleAvatar(
-          backgroundColor: Colors.green,
-          child: Icon(Icons.receipt, color: Colors.white),
-        ),
+          leading: const CircleAvatar(
+            backgroundColor: kBrandGreen,
+            child: Icon(Icons.receipt, color: Colors.white),
+          ),
         title: Text(
           receipt['business_name'] ?? 'Business',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -859,7 +865,7 @@ class _DealAuthorizationDashboardState
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
-                color: Colors.green,
+                color: kBrandGreen,
               ),
             ),
             const SizedBox(height: 4),
@@ -899,7 +905,7 @@ class _DealAuthorizationDashboardState
       builder: (context) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.receipt_long, color: Colors.green),
+            Icon(Icons.receipt_long, color: kBrandGreen),
             SizedBox(width: 8),
             Text('Receipt Details'),
           ],
@@ -1026,8 +1032,9 @@ class _DealAuthorizationDashboardState
                   ),
                   child: Text(
                     type.toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      // Use dark text on the yellow pending badge for legibility
+                      color: type == 'pending' ? kBrandBlue : Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1098,7 +1105,7 @@ class _DealAuthorizationDashboardState
                 icon: const Icon(Icons.check),
                 label: const Text('Approve'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: kBrandGreen,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -1198,14 +1205,14 @@ class _DealAuthorizationDashboardState
                 const Icon(
                   Icons.hourglass_empty,
                   size: 20,
-                  color: Colors.orange,
+                  color: kBrandYellow,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Waiting for member to complete payment',
                     style: TextStyle(
-                      color: Colors.orange.shade700,
+                      color: kBrandBlue,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -1243,7 +1250,7 @@ class _DealAuthorizationDashboardState
                   icon: const Icon(Icons.check_circle),
                   label: const Text('Member Paid'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: kBrandBlue,
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -1277,7 +1284,7 @@ class _DealAuthorizationDashboardState
             icon: const Icon(Icons.receipt),
             label: const Text('Generate Receipt'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
+              backgroundColor: kBrandBlue,
               foregroundColor: Colors.white,
             ),
           ),
@@ -1332,9 +1339,9 @@ class _DealAuthorizationDashboardState
 
   Color _getStatusColor(String status) {
     return switch (status) {
-      'pending' => Colors.orange,
-      'approved' => Colors.blue,
-      'completed' => Colors.green,
+      'pending' => kBrandYellow,
+      'approved' => kBrandBlue,
+      'completed' => kBrandGreen,
       _ => Colors.grey,
     };
   }

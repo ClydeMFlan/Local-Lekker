@@ -103,13 +103,13 @@ class _SavingsSummaryCardState extends State<SavingsSummaryCard>
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade400.withValues(
-                                alpha: 0.9,
+                              color: const Color(0xFF001489).withValues(
+                                alpha: 0.95,
                               ),
                               borderRadius: BorderRadius.circular(25),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.blue.shade200.withValues(
+                                  color: const Color(0xFF001489).withValues(
                                     alpha: 0.4,
                                   ),
                                   blurRadius: 12,
@@ -285,11 +285,11 @@ class _SavingsSummaryCardState extends State<SavingsSummaryCard>
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.yellow.shade400.withValues(alpha: 0.95),
+                        color: const Color(0xFFFFB81C).withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.yellow.shade200.withValues(
+                            color: const Color(0xFFFFB81C).withValues(
                               alpha: 0.5,
                             ),
                             blurRadius: 16,
@@ -353,12 +353,12 @@ class _SavingsSummaryCardState extends State<SavingsSummaryCard>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.pink.withValues(alpha: 0.6),
+                      color: const Color(0xFFE03C31).withValues(alpha: 0.6),
                       blurRadius: 12,
                       spreadRadius: 3,
                     ),
                     BoxShadow(
-                      color: Colors.red.withValues(alpha: 0.4),
+                      color: const Color(0xFFE03C31).withValues(alpha: 0.4),
                       blurRadius: 20,
                       spreadRadius: 5,
                     ),
@@ -370,9 +370,9 @@ class _SavingsSummaryCardState extends State<SavingsSummaryCard>
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFFFF6B9D),
-                        Color(0xFFFF1744),
-                        Color(0xFFC2185B),
+                        Color(0xFFE03C31),
+                        Color(0xFFE03C31),
+                        Color(0xFFB02A22),
                       ],
                       stops: [0.0, 0.5, 1.0],
                     ).createShader(bounds);
@@ -388,7 +388,7 @@ class _SavingsSummaryCardState extends State<SavingsSummaryCard>
                         blurRadius: 4,
                       ),
                       Shadow(
-                        color: Colors.pink,
+                        color: Color(0xFFE03C31),
                         offset: Offset(-1, -1),
                         blurRadius: 6,
                       ),

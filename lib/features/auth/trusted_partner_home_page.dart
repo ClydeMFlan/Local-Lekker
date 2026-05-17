@@ -17,12 +17,18 @@ import 'members_home_page.dart';
 import 'member_profile_page.dart';
 import 'trusted_partners_by_category_page.dart';
 import 'admin_chat_page.dart';
-import '../chat/chat_list_page.dart';
+import 'trusted_partner_inbox_page.dart';
+import '../../services/chat_service.dart';
 import '../business/bill_approval_page.dart';
 import 'deal_authorization_dashboard.dart';
 import '../business/trusted_partner_analytics_dashboard.dart';
 import '../../widgets/trusted_partner_analytics_widget.dart';
 import 'package:flutter/foundation.dart';
+
+/// Local Lekker brand palette used across the Trusted Partner screen.
+const Color kBrandBlue = Color(0xFF001489); // primary navy blue
+const Color kBrandGreen = Color(0xFF2E7D32); // success / member toggle
+const Color kBrandYellow = Color(0xFFFFB81C); // accent / highlight
 
 class TrustedPartnerHomePage extends StatefulWidget {
   const TrustedPartnerHomePage({super.key});
@@ -47,6 +53,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   String? _businessName;
   String? _businessLogoUrl;
   int _pendingDealRequestsCount = 0;
+  int _unreadChatCount = 0;
   bool _hasActiveBanking = false;
   String? _bankName;
   bool _bankingStatusLoading = true;
@@ -55,6 +62,9 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   // Realtime subscription for deal_authorizations
   RealtimeChannel? _dealAuthChannel;
   String? _businessId;
+
+  // Realtime subscription for chat_messages (unread badge)
+  RealtimeChannel? _chatMessagesChannel;
 
   // Animation for pulsing envelope
   late AnimationController _pulseController;
@@ -75,7 +85,9 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
     _loadBankingStatus();
     _loadPendingDealRequestsCount();
     _loadPendingBillApprovalsCount();
+    _loadUnreadChatCount();
     _setupRealtimeDealAuthSubscription();
+    _setupRealtimeChatSubscription();
 
     // Ensure push notification listener is active for the logged-in TP user
     // TEMPORARILY DISABLED: Push notifications turned off
@@ -203,10 +215,34 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
       if (mounted) {
         _logger.d('Periodic refresh: updating pending deal requests count');
         _loadPendingDealRequestsCountFast();
+        _loadUnreadChatCount();
       } else {
         timer.cancel();
       }
     });
+  }
+
+  Future<void> _loadUnreadChatCount() async {
+    try {
+      final count = await ChatService.instance.fetchUnreadConversationCount();
+      if (!mounted) return;
+      if (count != _unreadChatCount) {
+        setState(() => _unreadChatCount = count);
+      }
+    } catch (e) {
+      _logger.w('Failed to load unread chat count: $e');
+    }
+  }
+
+  /// Realtime channel that refreshes the unread chat badge instantly when
+  /// any chat_messages row is inserted or updated.
+  void _setupRealtimeChatSubscription() {
+    try {
+      _chatMessagesChannel = ChatService.instance
+          .subscribeToChatMessageChanges(onChange: _loadUnreadChatCount);
+    } catch (e) {
+      _logger.w('Failed to subscribe to chat realtime: $e');
+    }
   }
 
   /// Set up a Supabase Realtime channel on deal_authorizations for this TP's business.
@@ -323,6 +359,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   void dispose() {
     _periodicRefreshTimer?.cancel();
     _dealAuthChannel?.unsubscribe();
+    _chatMessagesChannel?.unsubscribe();
     try {
       _scannerController?.stop();
     } catch (_) {}
@@ -346,6 +383,9 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 100,
+        backgroundColor: kBrandBlue,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: Image.asset('assets/locallekker_logo.png', height: 200),
         actions: [
           // View mode toggle
@@ -358,7 +398,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: _isMemberView ? Colors.green : Colors.blue,
+                    color: _isMemberView ? kBrandGreen : kBrandYellow,
                   ),
                 ),
                 Switch(
@@ -368,7 +408,8 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                       _isMemberView = value;
                     });
                   },
-                  activeThumbColor: Colors.green,
+                  activeThumbColor: kBrandGreen,
+                  activeTrackColor: kBrandGreen.withValues(alpha: 0.4),
                 ),
               ],
             ),
@@ -378,10 +419,46 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const ChatListPage()),
-              );
+                MaterialPageRoute(
+                  builder: (context) => const TrustedPartnerInboxPage(),
+                ),
+              ).then((_) => _loadUnreadChatCount());
             },
-            icon: const Icon(Icons.chat_bubble_outline),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.chat_bubble_outline),
+                if (_unreadChatCount > 0)
+                  Positioned(
+                    right: -6,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        _unreadChatCount > 9 ? '9+' : '$_unreadChatCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           IconButton(
             tooltip: 'Manage Discounts',
@@ -460,6 +537,9 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 100,
+        backgroundColor: kBrandBlue,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: Image.asset('assets/locallekker_logo.png', height: 200),
         centerTitle: true,
         actions: [
@@ -473,7 +553,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Colors.green,
+                    color: kBrandGreen,
                   ),
                 ),
                 Switch(
@@ -483,7 +563,8 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                       _isMemberView = value;
                     });
                   },
-                  activeThumbColor: Colors.green,
+                  activeThumbColor: kBrandGreen,
+                  activeTrackColor: kBrandGreen.withValues(alpha: 0.4),
                 ),
               ],
             ),
@@ -512,6 +593,52 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
               );
             },
             tooltip: 'Trusted Partners',
+          ),
+          IconButton(
+            tooltip: 'Messages',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TrustedPartnerInboxPage(),
+                ),
+              ).then((_) => _loadUnreadChatCount());
+            },
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.chat_bubble_outline),
+                if (_unreadChatCount > 0)
+                  Positioned(
+                    right: -6,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        _unreadChatCount > 9 ? '9+' : '$_unreadChatCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.support_agent),
@@ -627,16 +754,6 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
         ),
       );
     }
-  }
-
-  void _navigateToDiscountSelection(String name, String surname) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            DiscountSelectionPage(userName: name, userSurname: surname),
-      ),
-    );
   }
 
   void _toggleTheme() {
@@ -989,7 +1106,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                                 discount.discountDisplay,
                                 style: TextStyle(
                                   color: discount.isActive
-                                      ? Colors.green
+                                      ? kBrandGreen
                                       : Colors.grey,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -999,7 +1116,8 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                                 value: discount.isActive,
                                 onChanged: (value) =>
                                     _toggleDiscountActive(discount),
-                                activeThumbColor: Colors.green,
+                                activeThumbColor: kBrandGreen,
+                                activeTrackColor: kBrandGreen.withValues(alpha: 0.4),
                               ),
                             ],
                           ),
@@ -1023,7 +1141,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
       return const SizedBox.shrink();
     }
 
-    final statusColor = _hasActiveBanking ? Colors.green : Colors.red;
+    final statusColor = _hasActiveBanking ? kBrandGreen : Colors.red;
     final statusIcon = _hasActiveBanking ? Icons.check_circle : Icons.warning;
     final statusText = _hasActiveBanking
         ? 'Banking Active'
@@ -1174,7 +1292,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Card(
               color: _pendingDealRequestsCount > 0
-                  ? Colors.orange.shade50
+                  ? kBrandYellow.withValues(alpha: 0.15)
                   : Colors.grey.shade100,
               child: InkWell(
                 onTap: _navigateToDealRequests,
@@ -1196,13 +1314,13 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                                   duration: const Duration(milliseconds: 300),
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Colors.orange,
+                                    color: kBrandYellow,
                                     borderRadius: BorderRadius.circular(8),
                                     boxShadow: _pendingDealRequestsCount > 0
                                         ? [
                                             BoxShadow(
-                                              color: Colors.orange.withValues(
-                                                alpha: 0.28,
+                                              color: kBrandYellow.withValues(
+                                                alpha: 0.45,
                                               ),
                                               blurRadius: 14,
                                               spreadRadius: 1,
@@ -1212,7 +1330,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                                   ),
                                   child: const Icon(
                                     Icons.mail_outline,
-                                    color: Colors.white,
+                                    color: kBrandBlue,
                                     size: 32,
                                   ),
                                 ),
@@ -1299,10 +1417,10 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                           }
                           _loadPendingDealRequestsCount();
                         },
-                        icon: const Icon(Icons.refresh, color: Colors.orange),
+                        icon: const Icon(Icons.refresh, color: kBrandBlue),
                         tooltip: 'Refresh Count',
                       ),
-                      const Icon(Icons.arrow_forward_ios, color: Colors.orange),
+                      const Icon(Icons.arrow_forward_ios, color: kBrandBlue),
                     ],
                   ),
                 ),
@@ -1341,12 +1459,12 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: _isScannerOpen
-                  ? [Colors.blue.shade700, Colors.blue.shade900]
+                  ? [kBrandBlue, const Color(0xFF000B5C)]
                   : [Colors.grey.shade800, Colors.grey.shade900],
             ),
             boxShadow: [
               BoxShadow(
-                color: (_isScannerOpen ? Colors.blue : Colors.grey).withValues(alpha: 0.3),
+                color: (_isScannerOpen ? kBrandBlue : Colors.grey).withValues(alpha: 0.3),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -1419,7 +1537,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                     color: _isScannerOpen ? Colors.black : Colors.transparent,
                     border: Border.all(
                       color: _isScannerOpen
-                          ? Colors.blue.shade300
+                          ? kBrandYellow
                           : Colors.white.withValues(alpha: 0.2),
                       width: _isScannerOpen ? 2 : 1,
                     ),
@@ -1548,7 +1666,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.blue,
+                  color: kBrandBlue,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
@@ -1572,7 +1690,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
               height: 28,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Colors.blue,
+                color: kBrandBlue,
               ),
             ),
             SizedBox(height: 12),
@@ -1615,7 +1733,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                     onTap: _restartCamera,
                     child: const Text(
                       'Tap to retry',
-                      style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: kBrandBlue, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -1791,19 +1909,19 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
                             value: _pendingDealRequestsCount > 99
                                 ? '99+'
                                 : '$_pendingDealRequestsCount',
-                            color: Colors.orange,
+                            color: kBrandYellow,
                           ),
                           _desktopStatChip(
                             icon: Icons.local_offer_outlined,
                             label: 'Active deals',
                             value: _discounts.length.toString(),
-                            color: primary,
+                            color: kBrandBlue,
                           ),
                           _desktopStatChip(
                             icon: Icons.receipt_long,
                             label: 'Receipts and approvals',
                             value: 'Desktop friendly',
-                            color: Colors.teal,
+                            color: kBrandGreen,
                           ),
                         ],
                       ),
@@ -2384,7 +2502,7 @@ class _MemberDetailsSheetState extends State<_MemberDetailsSheet> {
   }
 
   Widget _buildContent() {
-    final statusColor = _isMemberActive ? Colors.green : Colors.red;
+    final statusColor = _isMemberActive ? kBrandGreen : Colors.red;
     final statusIcon = _isMemberActive ? Icons.verified : Icons.cancel;
     final statusText = _isMemberActive ? 'Active Member' : 'Inactive / Expired';
 
@@ -2472,14 +2590,14 @@ class _MemberDetailsSheetState extends State<_MemberDetailsSheet> {
                 Icons.credit_card,
                 'Subscription',
                 _subscriptionStatus == 'unknown' ? 'Not verified' : _subscriptionStatus.capitalize(),
-                _subscriptionStatus == 'active' ? Colors.green : Colors.orange,
+                _subscriptionStatus == 'active' ? kBrandGreen : kBrandYellow,
               ),
               const Divider(height: 20),
               _detailRow(
                 Icons.qr_code,
                 'QR Code',
                 _qrIsActive && !_qrIsExpired ? 'Valid' : 'Invalid / Expired',
-                _qrIsActive && !_qrIsExpired ? Colors.green : Colors.red,
+                _qrIsActive && !_qrIsExpired ? kBrandGreen : Colors.red,
               ),
               if (_qrExpiresAt != null && _qrIsActive && !_qrIsExpired) ...[
                 const Divider(height: 20),
@@ -2487,7 +2605,7 @@ class _MemberDetailsSheetState extends State<_MemberDetailsSheet> {
                   Icons.timer_outlined,
                   'Expires in',
                   _qrExpiresAt!,
-                  Colors.blue,
+                  kBrandBlue,
                 ),
               ],
               if (_memberSince != null) ...[
@@ -2508,18 +2626,18 @@ class _MemberDetailsSheetState extends State<_MemberDetailsSheet> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.orange.shade50,
+              color: kBrandYellow.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.shade200),
+              border: Border.all(color: kBrandYellow.withValues(alpha: 0.5)),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                Icon(Icons.info_outline, color: kBrandBlue, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _error!,
-                    style: TextStyle(fontSize: 13, color: Colors.orange.shade800),
+                    style: TextStyle(fontSize: 13, color: kBrandBlue),
                   ),
                 ),
               ],
@@ -2596,7 +2714,7 @@ class _CornerBracketPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.blue.shade300
+      ..color = kBrandYellow
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;

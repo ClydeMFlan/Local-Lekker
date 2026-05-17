@@ -23,7 +23,6 @@ class _LoadingScreenState extends State<LoadingScreen>
   late AnimationController _textController;
   late AnimationController _backgroundController;
   late Animation<double> _logoAnimation;
-  late Animation<double> _textAnimation;
   late Animation<double> _backgroundAnimation;
 
   Timer? _textAnimationTimer;
@@ -53,10 +52,6 @@ class _LoadingScreenState extends State<LoadingScreen>
     _textController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
-    );
-
-    _textAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeInOut),
     );
 
     // Background pulsing animation

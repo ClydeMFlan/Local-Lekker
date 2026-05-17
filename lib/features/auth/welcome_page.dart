@@ -827,6 +827,30 @@ class _WelcomePageState extends State<WelcomePage> {
                     },
                   ),
                 ] else if (isEmailValid) ...[
+                  if (signInError != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.08),
+                        border: Border.all(color: Colors.red.shade200),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error, color: Colors.red, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              signInError!,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   TextField(
                     controller: passwordController,
@@ -863,16 +887,6 @@ class _WelcomePageState extends State<WelcomePage> {
                         setState(() {});
                       }
                     },
-                  ),
-                ],
-                if (signInError != null) ...[
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      signInError!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
                   ),
                 ],
               ],
@@ -1044,12 +1058,12 @@ class _WelcomePageState extends State<WelcomePage> {
                             isPasswordIncorrect = wrongPassword;
                           });
                           if (wrongPassword) {
-                            // Clear the password and refocus so the user can
-                            // re-enter it immediately.
+                            // Clear the password and drop focus so the
+                            // keyboard collapses and the inline error banner
+                            // is visible to the user.
                             passwordController.clear();
-                            if (passwordFocusNode.canRequestFocus) {
-                              passwordFocusNode.requestFocus();
-                            }
+                            passwordFocusNode.unfocus();
+                            FocusScope.of(parentContext).unfocus();
                           }
                           ScaffoldMessenger.of(parentContext)
                             ..hideCurrentSnackBar()

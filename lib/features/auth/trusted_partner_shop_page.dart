@@ -23,6 +23,14 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
   bool _isLoading = true;
   String? _error;
 
+  // Brand colors for deal cards
+  // Request button: Pantone 340 C (#007749)
+  static const Color _kRequestGreen = Color(0xFF007749);
+  // 50% lighter shade of the request green for all other green accents
+  static const Color _kAccentGreen = Color(0xFF7FBBA4);
+  // Card background: light grey
+  static const Color _kCardBg = Color(0xFFF5F5F7);
+
   @override
   void initState() {
     super.initState();
@@ -271,9 +279,9 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.green.shade50,
+                            color: _kAccentGreen.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green.shade200),
+                            border: Border.all(color: _kAccentGreen),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,7 +321,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.green,
+                                      color: _kAccentGreen,
                                     ),
                                   ),
                                 ],
@@ -389,6 +397,9 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                       children: [
                         TextButton(
                           onPressed: () => Navigator.of(dialogContext).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: _kRequestGreen,
+                          ),
                           child: const Text('Close'),
                         ),
                       ],
@@ -403,6 +414,9 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                   priceController.dispose();
                   Navigator.of(dialogContext).pop();
                 },
+                style: TextButton.styleFrom(
+                  foregroundColor: _kRequestGreen,
+                ),
                 child: const Text('Cancel'),
               ),
               ElevatedButton.icon(
@@ -461,7 +475,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                 content: Text(
                                   'Deal authorization request submitted',
                                 ),
-                                backgroundColor: Colors.green,
+                                backgroundColor: _kRequestGreen,
                               ),
                             );
                           }
@@ -478,7 +492,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                 icon: const Icon(Icons.shopping_cart),
                 label: const Text('Request Deal'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
+                  backgroundColor: _kRequestGreen,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -566,15 +580,39 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                           discount.imageUrl != null &&
                           discount.imageUrl!.isNotEmpty;
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      return Container(
+                        margin: const EdgeInsets.only(
+                          bottom: 16,
+                          left: 2,
+                          right: 2,
+                          top: 4,
                         ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () {
+                        decoration: BoxDecoration(
+                          color: _kCardBg,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            // Soft ambient shadow
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 6,
+                              spreadRadius: 0,
+                              offset: const Offset(0, 2),
+                            ),
+                            // Deeper drop shadow for floating effect
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.18),
+                              blurRadius: 18,
+                              spreadRadius: 0,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () {
                             if (discount.isActive) {
                               if (discount.isBillDiscount) {
                                 _showBillDiscountDialog(context, discount);
@@ -693,24 +731,12 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
                                           decoration: discount.isActive
                                               ? null
                                               : TextDecoration.lineThrough,
                                         ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 4),
-
-                                      // Description
-                                      Text(
-                                        discount.description,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600,
-                                          height: 1.2,
-                                        ),
-                                        maxLines: 2,
+                                        maxLines: 3,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       const SizedBox(height: 8),
@@ -723,31 +749,33 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                             vertical: 4,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: Colors.green.shade50,
+                                            color: _kAccentGreen.withOpacity(
+                                              0.15,
+                                            ),
                                             borderRadius: BorderRadius.circular(
                                               6,
                                             ),
                                             border: Border.all(
-                                              color: Colors.green.shade200,
+                                              color: _kAccentGreen,
                                             ),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Icon(
+                                              const Icon(
                                                 Icons.discount,
                                                 size: 14,
-                                                color: Colors.green.shade700,
+                                                color: _kAccentGreen,
                                               ),
                                               const SizedBox(width: 4),
                                               Text(
                                                 discount.percentage > 0
                                                     ? '${discount.percentage.toStringAsFixed(0)}% off bill'
                                                     : 'R${discount.fixedAmount?.toStringAsFixed(2)} off bill',
-                                                style: TextStyle(
+                                                style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.bold,
-                                                  color: Colors.green.shade700,
+                                                  color: _kAccentGreen,
                                                 ),
                                               ),
                                             ],
@@ -758,14 +786,6 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                           spacing: 6,
                                           runSpacing: 4,
                                           children: [
-                                            Text(
-                                              discount.itemName,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.blue,
-                                              ),
-                                            ),
                                             if (discount.isPercentItem) ...[
                                               Text(
                                                 'Member enters price',
@@ -782,7 +802,8 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                                       vertical: 2,
                                                     ),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.green.shade100,
+                                                  color: _kAccentGreen
+                                                      .withOpacity(0.2),
                                                   borderRadius:
                                                       BorderRadius.circular(4),
                                                 ),
@@ -791,7 +812,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                                   style: const TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.bold,
-                                                    color: Colors.green,
+                                                    color: _kAccentGreen,
                                                   ),
                                                 ),
                                               ),
@@ -814,7 +835,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                                 style: const TextStyle(
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.bold,
-                                                  color: Colors.green,
+                                                  color: _kAccentGreen,
                                                 ),
                                               ),
                                               Container(
@@ -824,7 +845,8 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                                       vertical: 2,
                                                     ),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.green.shade100,
+                                                  color: _kAccentGreen
+                                                      .withOpacity(0.2),
                                                   borderRadius:
                                                       BorderRadius.circular(4),
                                                 ),
@@ -835,7 +857,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                                   style: const TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.bold,
-                                                    color: Colors.green,
+                                                    color: _kAccentGreen,
                                                   ),
                                                 ),
                                               ),
@@ -856,7 +878,9 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                             ),
                                             decoration: BoxDecoration(
                                               color: discount.isActive
-                                                  ? Colors.green.shade100
+                                                  ? _kAccentGreen.withOpacity(
+                                                      0.2,
+                                                    )
                                                   : Colors.grey.shade200,
                                               borderRadius:
                                                   BorderRadius.circular(8),
@@ -870,7 +894,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                                       : Icons.cancel,
                                                   size: 12,
                                                   color: discount.isActive
-                                                      ? Colors.green.shade700
+                                                      ? _kAccentGreen
                                                       : Colors.grey.shade600,
                                                 ),
                                                 const SizedBox(width: 3),
@@ -882,7 +906,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.bold,
                                                     color: discount.isActive
-                                                        ? Colors.green.shade700
+                                                        ? _kAccentGreen
                                                         : Colors.grey.shade600,
                                                   ),
                                                 ),
@@ -910,9 +934,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                                               ),
                                               label: const Text('Request'),
                                               style: ElevatedButton.styleFrom(
-                                                backgroundColor: Theme.of(
-                                                  context,
-                                                ).primaryColor,
+                                                backgroundColor: _kRequestGreen,
                                                 foregroundColor: Colors.white,
                                                 padding:
                                                     const EdgeInsets.symmetric(
@@ -938,6 +960,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                             ),
                           ),
                         ),
+                          ),
                       );
                     },
                   ),
@@ -1007,7 +1030,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                   icon: Icons.email,
                   color: const Color(0xFFFF9800), // Orange
                   label: 'Email',
-                  onTap: () => _launchUrl('mailto:$businessEmail'),
+                  onTap: () => _composeEmailToPartner(businessEmail),
                 ),
             ],
           ),
@@ -1085,9 +1108,30 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
   Future<void> _launchUrl(String urlString) async {
     try {
       final uri = Uri.parse(urlString);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
+      // Don't gate on canLaunchUrl — on Android 11+ it can return false
+      // even when an app (browser/Facebook) is installed and able to handle
+      // the intent. Try external app first, then fall back to in-app webview
+      // / platform default if the external launch fails.
+      bool launched = false;
+      try {
+        launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (_) {
+        launched = false;
+      }
+      if (!launched) {
+        try {
+          launched = await launchUrl(
+            uri,
+            mode: LaunchMode.platformDefault,
+          );
+        } catch (_) {
+          launched = false;
+        }
+      }
+      if (!launched) {
         if (kDebugMode) {
           print('Could not launch $urlString');
         }
@@ -1105,6 +1149,69 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error opening link: $e')));
+      }
+    }
+  }
+
+  /// Opens the user's default email client pre-filled with the partner's
+  /// address, a subject built from the available deal(s), and a generic
+  /// editable body the member can adjust before sending.
+  Future<void> _composeEmailToPartner(String email) async {
+    final partnerName =
+        (widget.partner['name'] as String?)?.trim() ?? 'your business';
+
+    // Pick the deal(s) to reference in the subject. Prefer the first active
+    // deal name; otherwise use a generic enquiry subject.
+    final activeDeals = _discounts.where((d) => d.isActive).toList();
+    final dealForSubject = activeDeals.isNotEmpty
+        ? activeDeals.first
+        : (_discounts.isNotEmpty ? _discounts.first : null);
+
+    final subject = dealForSubject != null
+        ? 'Enquiry: ${dealForSubject.name}'
+        : 'Enquiry from a Local Lekker member';
+
+    final dealLine = dealForSubject != null
+        ? 'I would like to enquire about your deal: "${dealForSubject.name}".'
+        : 'I would like to enquire about one of your deals.';
+
+    final body =
+        'Hi $partnerName,\n\n'
+        '$dealLine\n\n'
+        'Could you please share more details (availability, booking, '
+        'any conditions I should know about)?\n\n'
+        'Thank you,\n'
+        'Sent via Local Lekker';
+
+    // Build the mailto URI manually so spaces become %20 (not '+') and
+    // newlines are encoded correctly for all email clients.
+    String enc(String s) => Uri.encodeComponent(s);
+    final mailtoUri = Uri.parse(
+      'mailto:${enc(email)}?subject=${enc(subject)}&body=${enc(body)}',
+    );
+
+    try {
+      // Don't gate on canLaunchUrl for mailto: on Android — even with the
+      // SENDTO/mailto <queries> entry, some devices still report false here.
+      final launched = await launchUrl(
+        mailtoUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No email app available to open $email'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error launching email composer: $e');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open email app for $email')),
+        );
       }
     }
   }

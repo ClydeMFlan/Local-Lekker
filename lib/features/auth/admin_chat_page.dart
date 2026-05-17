@@ -14,7 +14,6 @@ class AdminChatPage extends StatefulWidget {
 class _AdminChatPageState extends State<AdminChatPage> {
   final Logger _logger = Logger();
   bool _isLoading = true;
-  String? _conversationId;
 
   @override
   void initState() {
@@ -39,7 +38,6 @@ class _AdminChatPageState extends State<AdminChatPage> {
           .getOrCreateAdminConversation(user.id);
 
       setState(() {
-        _conversationId = conversation.id;
         _isLoading = false;
       });
 

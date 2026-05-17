@@ -22,6 +22,9 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   bool _showEmojiPicker = false;
   bool _isSending = false;
   final Map<String, String> _nameCache = {};
+  // null = not yet fetched / no logo. Use a sentinel via separate _logoFetched set.
+  final Map<String, String?> _logoCache = {};
+  final Set<String> _logoFetchInFlight = {};
   String? _currentUserId;
   String _threadTitle = 'Chat';
 
@@ -94,78 +97,100 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                     ),
                   );
                 }
+                // Ensure ascending chronological order (oldest first), then
+                // render reversed so the newest message sits at the bottom
+                // and the list naturally starts scrolled to the latest.
+                final ordered = List<ChatMessage>.from(messages)
+                  ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
                 return ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: messages.length,
+                  reverse: true,
+                  itemCount: ordered.length,
                   itemBuilder: (context, index) {
-                    final msg = messages[index];
+                    final msg = ordered[ordered.length - 1 - index];
                     final isMe = user?.id == msg.senderId;
-                    return Align(
-                      alignment: isMe
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isMe
-                              ? Theme.of(
-                                  context,
-                                ).primaryColor.withValues(alpha: 0.12)
-                              : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _nameFor(msg.senderId),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade700,
-                              ),
+                    // Kick off async logo fetch (once per sender)
+                    _ensureLogo(msg.senderId);
+                    final avatar = _buildAvatar(msg.senderId);
+                    final bubble = Container(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.65,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isMe
+                            ? Theme.of(
+                                context,
+                              ).primaryColor.withValues(alpha: 0.12)
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _nameFor(msg.senderId),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              msg.content,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Read receipt indicator - only for sent messages
-                                if (isMe)
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    margin: const EdgeInsets.only(right: 6),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      // Green if anyone has read it, blue if not
-                                      color: msg.readBy.isNotEmpty
-                                          ? Colors.green
-                                          : Colors.blue,
-                                    ),
-                                  ),
-                                Text(
-                                  _formatTime(msg.createdAt),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            msg.content,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isMe)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.only(right: 6),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: msg.readBy.isNotEmpty
+                                        ? Colors.green
+                                        : Colors.blue,
                                   ),
                                 ),
+                              Text(
+                                _formatTime(msg.createdAt),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisAlignment: isMe
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: isMe
+                            ? [
+                                Flexible(child: bubble),
+                                const SizedBox(width: 6),
+                                avatar,
+                              ]
+                            : [
+                                avatar,
+                                const SizedBox(width: 6),
+                                Flexible(child: bubble),
                               ],
-                            ),
-                          ],
-                        ),
                       ),
                     );
                   },
@@ -492,6 +517,75 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
     // Fallback to "You" only if we can't find the name
     if (senderId == _currentUserId) return 'You';
     return 'Unknown user';
+  }
+
+  String _initialsFor(String senderId) {
+    final raw = _nameCache[senderId];
+    if (raw == null || raw.trim().isEmpty) return '?';
+    final tokens = raw
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (tokens.isEmpty) return '?';
+    if (tokens.length == 1) {
+      return tokens.first.substring(0, 1).toUpperCase();
+    }
+    return (tokens.first.substring(0, 1) + tokens.last.substring(0, 1))
+        .toUpperCase();
+  }
+
+  Color _avatarColorFor(String id) {
+    const palette = <Color>[
+      Color(0xFF1976D2),
+      Color(0xFF388E3C),
+      Color(0xFFD32F2F),
+      Color(0xFF7B1FA2),
+      Color(0xFFF57C00),
+      Color(0xFF00796B),
+      Color(0xFF512DA8),
+      Color(0xFFC2185B),
+    ];
+    final hash = id.hashCode.abs();
+    return palette[hash % palette.length];
+  }
+
+  void _ensureLogo(String senderId) {
+    if (_logoCache.containsKey(senderId)) return;
+    if (_logoFetchInFlight.contains(senderId)) return;
+    _logoFetchInFlight.add(senderId);
+    ChatService.instance
+        .fetchBusinessLogoForUser(senderId)
+        .then((url) {
+          if (!mounted) return;
+          setState(() {
+            _logoCache[senderId] = url;
+          });
+        })
+        .whenComplete(() => _logoFetchInFlight.remove(senderId));
+  }
+
+  Widget _buildAvatar(String senderId) {
+    final logo = _logoCache[senderId];
+    if (logo != null && logo.isNotEmpty) {
+      return CircleAvatar(
+        radius: 16,
+        backgroundColor: Colors.grey.shade200,
+        backgroundImage: NetworkImage(logo),
+      );
+    }
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: _avatarColorFor(senderId),
+      child: Text(
+        _initialsFor(senderId),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 
   Future<void> _markConversationRead(DateTime seenAt) async {

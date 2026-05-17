@@ -317,31 +317,71 @@ class AdminService {
         rpcResult = {'success': true, 'method': 'manual_fallback'};
       }
 
-      // Step 3: Delete auth user so they can't sign in and must re-signup
-      // This is critical - if auth user remains, re-signup gets a password reset instead of OTP
-      _logger.i('Deleting auth user for member: $memberId');
-      bool authDeleted = false;
+      // Safety net: ensure the profile row is truly removed.
+      // An older soft-delete version of admin_delete_member_data may still
+      // be deployed (it only sets is_deactivated=true), which causes the
+      // member to reappear under the "Deactivated" tab after refresh.
+      // Force a hard delete here so the row cannot resurface.
+      try {
+        final remaining = await supabase
+            .from('profiles')
+            .select('id, is_deactivated')
+            .eq('id', memberId)
+            .maybeSingle();
+        if (remaining != null) {
+          _logger.w(
+            'Profile row still present after RPC (is_deactivated='
+            '${remaining['is_deactivated']}); forcing hard delete.',
+          );
+          await supabase.from('profiles').delete().eq('id', memberId);
+          rpcResult = {
+            ...?rpcResult,
+            'profile_force_deleted': true,
+          };
+        }
+      } catch (e) {
+        _logger.w('Profile hard-delete safety net failed: $e');
+      }
+
+      // Step 3: Delete auth user so they can't sign in and must re-signup.
+      // The updated SQL RPC (fix_admin_delete_member_hard_delete_auth.sql)
+      // already removes the auth.users row directly via SECURITY DEFINER.
+      // We treat that as the source of truth and only fall back to the
+      // Edge Function if the RPC didn't (or couldn't) delete it.
+      final bool authDeletedByRpc = rpcResult?['auth_user_deleted'] == true;
+      bool authDeleted = authDeletedByRpc;
       String? authError;
-      
-      // Try up to 3 times with delays - Edge Function can be slow to start
-      for (int attempt = 1; attempt <= 3; attempt++) {
-        try {
-          await _deleteAuthUserViaFunction(memberId);
-          _logger.i('Auth user deleted successfully on attempt $attempt');
-          authDeleted = true;
-          break;
-        } catch (e) {
-          authError = e.toString();
-          _logger.w('Auth delete attempt $attempt failed: $e');
-          if (attempt < 3) {
-            await Future.delayed(Duration(seconds: attempt * 2));
+
+      if (!authDeletedByRpc) {
+        _logger.i(
+          'RPC did not delete auth user; falling back to delete-auth-user '
+          'Edge Function for member: $memberId',
+        );
+
+        // Try up to 3 times with delays - Edge Function can be slow to start
+        for (int attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await _deleteAuthUserViaFunction(memberId);
+            _logger.i('Auth user deleted successfully on attempt $attempt');
+            authDeleted = true;
+            break;
+          } catch (e) {
+            authError = e.toString();
+            _logger.w('Auth delete attempt $attempt failed: $e');
+            if (attempt < 3) {
+              await Future.delayed(Duration(seconds: attempt * 2));
+            }
           }
         }
+      } else {
+        _logger.i('Auth user deleted by RPC (auth_user_deleted=true)');
       }
 
       if (!authDeleted) {
-        _logger.e('CRITICAL: Auth user NOT deleted after 3 attempts. Member will get password reset on re-signup.');
-        // Throw so the admin sees the failure and can retry
+        _logger.e(
+          'CRITICAL: Auth user NOT deleted. Member will get a recovery '
+          'email instead of a fresh signup OTP if they re-register.',
+        );
         throw Exception(
           'Member data deleted but auth account removal failed. '
           'The member may get a password reset link instead of fresh signup. '

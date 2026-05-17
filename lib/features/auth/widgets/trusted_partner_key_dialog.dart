@@ -131,13 +131,10 @@ class _TrustedPartnerKeyDialogState extends State<TrustedPartnerKeyDialog> {
 
       // Check if the key has already been used
       final bool isUsed;
-      final bool isMemberKey;
 
       if (memberKeyResponse != null) {
-        isMemberKey = true;
         isUsed = memberKeyResponse['used_by'] != null;
       } else {
-        isMemberKey = false;
         isUsed = tpResponse!['key_used_by'] != null;
       }
 

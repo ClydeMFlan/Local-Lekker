@@ -15,6 +15,11 @@ class DealAuthorizationRequestPage extends StatefulWidget {
 
 class _DealAuthorizationRequestPageState
     extends State<DealAuthorizationRequestPage> {
+  // Brand colors
+  static const Color _kBrandBlue = Color(0xFF001489); // RGB 0,20,137
+  static const Color _kBrandGreen = Color(0xFF007749); // RGB 0,119,73
+  static const Color _kBrandGreenLight = Color(0xFFE6F2EC); // light green bg
+
   final DealAuthorizationService _dealService = DealAuthorizationService();
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _manualPriceController = TextEditingController();
@@ -163,7 +168,7 @@ class _DealAuthorizationRequestPageState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Deal authorization request submitted successfully!'),
-            backgroundColor: Colors.green,
+            backgroundColor: _kBrandGreen,
             behavior: SnackBarBehavior.floating,
             margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
             duration: Duration(seconds: 3),
@@ -193,7 +198,7 @@ class _DealAuthorizationRequestPageState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Request Deal Authorization'),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: _kBrandBlue,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -240,14 +245,14 @@ class _DealAuthorizationRequestPageState
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade100,
+                        color: _kBrandGreenLight,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
                         discount.discountDisplay,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: _kBrandGreen,
                         ),
                       ),
                     ),
@@ -488,7 +493,7 @@ class _DealAuthorizationRequestPageState
                 }
 
                 return Card(
-                  color: Colors.green.shade50,
+                  color: _kBrandGreenLight,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -595,7 +600,7 @@ class _DealAuthorizationRequestPageState
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.green,
+                                color: _kBrandGreen,
                               ),
                             ),
                           ],
@@ -617,7 +622,7 @@ class _DealAuthorizationRequestPageState
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
-                                  color: Colors.green,
+                                  color: _kBrandGreen,
                                 ),
                               ),
                             ],
@@ -680,7 +685,7 @@ class _DealAuthorizationRequestPageState
                   onPressed: _isSubmitting ? null : _submitRequest,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Theme.of(context).primaryColor,
+                    backgroundColor: _kBrandBlue,
                     foregroundColor: Colors.white,
                   ),
                   child: _isSubmitting
@@ -714,7 +719,7 @@ class _DealAuthorizationRequestPageState
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: isSelected
-              ? Theme.of(context).primaryColor
+              ? _kBrandBlue
               : Colors.grey.shade300,
           width: isSelected ? 2 : 1,
         ),
@@ -730,7 +735,7 @@ class _DealAuthorizationRequestPageState
                 icon,
                 size: 32,
                 color: isSelected
-                    ? Theme.of(context).primaryColor
+                    ? _kBrandBlue
                     : Colors.grey.shade600,
               ),
               const SizedBox(width: 16),
@@ -744,7 +749,7 @@ class _DealAuthorizationRequestPageState
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: isSelected
-                            ? Theme.of(context).primaryColor
+                            ? _kBrandBlue
                             : Colors.black,
                       ),
                     ),
@@ -766,7 +771,7 @@ class _DealAuthorizationRequestPageState
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: isSelected
-                        ? Theme.of(context).primaryColor
+                        ? _kBrandBlue
                         : Colors.grey.shade400,
                     width: 2,
                   ),
@@ -776,7 +781,7 @@ class _DealAuthorizationRequestPageState
                         margin: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Theme.of(context).primaryColor,
+                          color: _kBrandBlue,
                         ),
                       )
                     : null,

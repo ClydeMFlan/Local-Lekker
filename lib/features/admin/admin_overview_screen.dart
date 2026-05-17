@@ -57,21 +57,38 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         _service.fetchDashboard(),
         _supabase
             .from('profiles')
-            .select('id, subscription, is_deactivated, province')
+            .select('id, subscription, is_deactivated, province, city')
             .eq('role', 'member'),
         _supabase
             .from('profiles')
-            .select('id, partner_terms_accepted, is_deactivated, province')
+            .select('id, partner_terms_accepted, is_deactivated, province, city')
             .eq('role', 'trusted_partner'),
         _supabase
             .from('trusted_partner_discounts')
             .select('id, is_active'),
+        // Trusted partners' real location lives on their business record,
+        // so fetch the city for every business owner to attribute partners
+        // to a region.
+        _supabase
+            .from('businesses')
+            .select('owner_member_id, city'),
       ]);
 
       final d = results[0] as Map<String, dynamic>;
       final allMembers = results[1] as List;
       final allPartners = results[2] as List;
       final allDeals = results[3] as List;
+      final allBusinesses = results[4] as List;
+
+      // Build owner_id -> business city lookup for partner region attribution.
+      final Map<String, String> partnerBusinessCity = {};
+      for (final biz in allBusinesses) {
+        final owner = biz['owner_member_id']?.toString();
+        final city = (biz['city'] ?? '').toString().trim();
+        if (owner != null && owner.isNotEmpty && city.isNotEmpty) {
+          partnerBusinessCity[owner] = city;
+        }
+      }
 
       // Member breakdown
       int activeMem = 0, pendingMem = 0, deactivatedMem = 0;
@@ -91,7 +108,8 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
           } else {
             pendingMem++;
           }
-          final region = normaliseRegion(m['province']);
+          // Prefer province; fall back to city when province isn't captured.
+          final region = normaliseRegion(m['province'] ?? m['city']);
           regionCounts.putIfAbsent(region, () => _RegionCounts()).members++;
         }
       }
@@ -105,7 +123,14 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         } else {
           pendingTP++;
         }
-        final region = normaliseRegion(p['province']);
+        // Trusted-partner profiles rarely carry province; their location
+        // lives on the linked business record. Fall back to profile fields.
+        final id = p['id']?.toString();
+        final region = normaliseRegion(
+          (id != null ? partnerBusinessCity[id] : null) ??
+              p['province'] ??
+              p['city'],
+        );
         regionCounts.putIfAbsent(region, () => _RegionCounts()).partners++;
       }
 
@@ -431,7 +456,7 @@ class _RegionBreakdownCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Active member & trusted partner totals per province',
+              'Active member & trusted partner totals per region',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 12),

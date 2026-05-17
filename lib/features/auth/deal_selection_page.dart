@@ -20,6 +20,14 @@ class DealSelectionPage extends StatefulWidget {
 }
 
 class _DealSelectionPageState extends State<DealSelectionPage> {
+  // Brand colors
+  // Pantone 340 C — primary action / "Request" button & header
+  static const Color _kBrandGreen = Color(0xFF007749);
+  // 50% lighter shade of the brand green — secondary green accents
+  static const Color _kAccentGreen = Color(0xFF7FBBA4);
+  // Brand blue — partner/category accents (was _kBrandBlue / Colors.teal)
+  static const Color _kBrandBlue = Color(0xFF001489);
+
   final DiscountService _discountService = DiscountService();
   Map<String, List<Map<String, dynamic>>> _dealsByPartner = {};
   final Map<String, bool> _expandedPartners =
@@ -372,82 +380,6 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
     }
   }
 
-  void _incrementQuantity(String dealId, bool isWeightBased) {
-    setState(() {
-      if (isWeightBased) {
-        // Increment by 100g for weight-based deals
-        _quantities[dealId] = (_quantities[dealId] ?? 100) + 100;
-      } else {
-        // Increment by 1 for regular deals
-        _quantities[dealId] = (_quantities[dealId] ?? 1) + 1;
-      }
-    });
-  }
-
-  void _decrementQuantity(String dealId, bool isWeightBased) {
-    setState(() {
-      if (isWeightBased) {
-        // Decrement by 100g for weight-based deals, minimum 100g
-        final currentQuantity = _quantities[dealId] ?? 100;
-        if (currentQuantity > 100) {
-          _quantities[dealId] = currentQuantity - 100;
-        }
-      } else {
-        // Decrement by 1 for regular deals, minimum 1
-        final currentQuantity = _quantities[dealId] ?? 1;
-        if (currentQuantity > 1) {
-          _quantities[dealId] = currentQuantity - 1;
-        }
-      }
-    });
-  }
-
-  String _getScheduleDisplayText(Map<String, dynamic> scheduleData) {
-    try {
-      final schedule = DealSchedule.fromJson(scheduleData);
-
-      if (schedule.type == ScheduleType.dateRange) {
-        if (schedule.startDate != null && schedule.endDate != null) {
-          final startStr =
-              '${schedule.startDate!.day} ${_getMonthAbbr(schedule.startDate!.month)}';
-          final endStr =
-              '${schedule.endDate!.day} ${_getMonthAbbr(schedule.endDate!.month)}';
-          return '📅 $startStr - $endStr';
-        }
-      } else if (schedule.type == ScheduleType.dayOfWeek) {
-        if (schedule.dayOfWeek != null) {
-          final dayName = schedule.dayOfWeek!.displayName;
-          if (schedule.isRecurring) {
-            return '🔄 Every $dayName';
-          } else {
-            return '📆 $dayName Only';
-          }
-        }
-      }
-      return '📅 Scheduled';
-    } catch (e) {
-      return '📅 Scheduled';
-    }
-  }
-
-  String _getMonthAbbr(int month) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months[month - 1];
-  }
-
   void _filterDeals(String query) {
     setState(() {
       _searchQuery = query.toLowerCase();
@@ -585,7 +517,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isAdminMode ? 'Browse Deals (Admin)' : 'Browse Deals'),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: _kBrandGreen,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -604,7 +536,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
               onChanged: _filterDeals,
               decoration: InputDecoration(
                 hintText: 'Search by partner name or deal category...',
-                prefixIcon: const Icon(Icons.search, color: Colors.blue),
+                prefixIcon: const Icon(Icons.search, color: _kBrandBlue),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear),
@@ -615,14 +547,14 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                     : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.blue),
+                  borderSide: const BorderSide(color: _kBrandBlue),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.blue, width: 2),
+                  borderSide: const BorderSide(color: _kBrandBlue, width: 2),
                 ),
                 filled: true,
-                fillColor: Colors.blue.shade50,
+                fillColor: _kBrandBlue.withOpacity(0.08),
               ),
             ),
           ),
@@ -638,8 +570,8 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: _selectedCityFilter != null
-                        ? Colors.teal.shade300
-                        : Colors.blue.shade200,
+                        ? _kAccentGreen
+                        : _kBrandBlue.withOpacity(0.25),
                   ),
                 ),
                 child: DropdownButtonHideUnderline(
@@ -673,7 +605,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                           )
                         : Icon(
                             Icons.arrow_drop_down,
-                            color: Colors.blue.shade400,
+                            color: _kBrandBlue.withOpacity(0.7),
                           ),
                     style: const TextStyle(
                       fontSize: 13,
@@ -695,7 +627,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                           value: city,
                           child: Row(
                             children: [
-                              Icon(Icons.location_city, size: 16, color: Colors.teal),
+                              Icon(Icons.location_city, size: 16, color: _kBrandGreen),
                               SizedBox(width: 6),
                               Text(city, style: const TextStyle(fontSize: 13)),
                             ],
@@ -726,7 +658,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.shade200),
+                      border: Border.all(color: _kBrandBlue.withOpacity(0.25)),
                     ),
                     child: Row(
                       children: [
@@ -745,7 +677,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
                                 color: _showTrustedPartners
-                                    ? Colors.blue
+                                    ? _kBrandBlue
                                     : Colors.transparent,
                                 borderRadius: const BorderRadius.only(
                                   topLeft: Radius.circular(11),
@@ -760,7 +692,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                     size: 16,
                                     color: _showTrustedPartners
                                         ? Colors.white
-                                        : Colors.blue,
+                                        : _kBrandBlue,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
@@ -768,7 +700,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                     style: TextStyle(
                                       color: _showTrustedPartners
                                           ? Colors.white
-                                          : Colors.blue,
+                                          : _kBrandBlue,
                                       fontWeight: _showTrustedPartners
                                           ? FontWeight.bold
                                           : FontWeight.normal,
@@ -794,7 +726,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
                                 color: !_showTrustedPartners
-                                    ? Colors.blue
+                                    ? _kBrandBlue
                                     : Colors.transparent,
                                 borderRadius: const BorderRadius.only(
                                   topRight: Radius.circular(11),
@@ -809,7 +741,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                     size: 16,
                                     color: !_showTrustedPartners
                                         ? Colors.white
-                                        : Colors.blue,
+                                        : _kBrandBlue,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
@@ -817,7 +749,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                     style: TextStyle(
                                       color: !_showTrustedPartners
                                           ? Colors.white
-                                          : Colors.blue,
+                                          : _kBrandBlue,
                                       fontWeight: !_showTrustedPartners
                                           ? FontWeight.bold
                                           : FontWeight.normal,
@@ -842,7 +774,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.shade200),
+                      border: Border.all(color: _kBrandBlue.withOpacity(0.25)),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: _showTrustedPartners
@@ -855,7 +787,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                   Icon(
                                     Icons.local_offer,
                                     size: 16,
-                                    color: Colors.blue.shade400,
+                                    color: _kBrandBlue.withOpacity(0.7),
                                   ),
                                   const SizedBox(width: 6),
                                   const Text(
@@ -869,7 +801,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                               ),
                               icon: Icon(
                                 Icons.arrow_drop_down,
-                                color: Colors.blue.shade400,
+                                color: _kBrandBlue.withOpacity(0.7),
                               ),
                               style: const TextStyle(
                                 fontSize: 12,
@@ -914,7 +846,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                   Icon(
                                     Icons.local_offer,
                                     size: 16,
-                                    color: Colors.blue.shade400,
+                                    color: _kBrandBlue.withOpacity(0.7),
                                   ),
                                   const SizedBox(width: 6),
                                   const Text(
@@ -928,7 +860,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                               ),
                               icon: Icon(
                                 Icons.arrow_drop_down,
-                                color: Colors.blue.shade400,
+                                color: _kBrandBlue.withOpacity(0.7),
                               ),
                               style: const TextStyle(
                                 fontSize: 12,
@@ -978,7 +910,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.shade200),
+                  border: Border.all(color: _kBrandBlue.withOpacity(0.25)),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
@@ -989,7 +921,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                         Icon(
                           Icons.label,
                           size: 16,
-                          color: Colors.blue.shade400,
+                          color: _kBrandBlue.withOpacity(0.7),
                         ),
                         const SizedBox(width: 6),
                         const Text(
@@ -1000,7 +932,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                     ),
                     icon: Icon(
                       Icons.arrow_drop_down,
-                      color: Colors.blue.shade400,
+                      color: _kBrandBlue.withOpacity(0.7),
                     ),
                     style: const TextStyle(fontSize: 12, color: Colors.black87),
                     items: [
@@ -1038,13 +970,13 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
           // Header section
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.blue.shade50,
+            color: _kBrandBlue.withOpacity(0.08),
             child: Row(
               children: [
                 Icon(
                   _showTrustedPartners ? Icons.business : Icons.local_offer,
                   size: 32,
-                  color: Colors.blue,
+                  color: _kBrandBlue,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1058,7 +990,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue,
+                          color: _kBrandBlue,
                         ),
                       ),
                       Text(
@@ -1080,7 +1012,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                   'Search: "$_searchQuery"',
                                   style: const TextStyle(
                                     fontSize: 11,
-                                    color: Colors.blue,
+                                    color: _kBrandBlue,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1090,7 +1022,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                   'Category: $_selectedPartnerDealCategory',
                                   style: const TextStyle(
                                     fontSize: 11,
-                                    color: Colors.blue,
+                                    color: _kBrandBlue,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1100,7 +1032,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                   'Category: $_selectedDealCategory',
                                   style: const TextStyle(
                                     fontSize: 11,
-                                    color: Colors.blue,
+                                    color: _kBrandBlue,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1109,7 +1041,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                   'Type: $_selectedDealType',
                                   style: const TextStyle(
                                     fontSize: 11,
-                                    color: Colors.blue,
+                                    color: _kBrandBlue,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1223,21 +1155,21 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: _kBrandBlue.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.blue.shade200),
+                  border: Border.all(color: _kBrandBlue.withOpacity(0.25)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.business, size: 12, color: Colors.blue.shade700),
+                    Icon(Icons.business, size: 12, color: _kBrandBlue),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         partnerName,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.blue.shade700,
+                          color: _kBrandBlue,
                           fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,
@@ -1262,7 +1194,6 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
     final dealDescription = deal['description'] ?? '';
     final discount = deal['discount'] ?? 0.0;
     final isBillDiscount = (deal['is_bill_discount'] as bool?) ?? false;
-    final isOnceOff = (deal['is_once_off'] as bool?) ?? false;
     final isPercentItem = (deal['is_percent_item'] as bool?) ?? false;
     final isWeightBased = (deal['is_weight_based'] as bool?) ?? false;
     final itemPrice = (deal['item_price'] as num?)?.toDouble() ?? 0.0;
@@ -1321,7 +1252,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Colors.blue.shade300, Colors.purple.shade300],
+                      colors: [_kBrandBlue.withOpacity(0.5), _kBrandGreen.withOpacity(0.5)],
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -1342,7 +1273,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Colors.blue.shade400, Colors.purple.shade400],
+                colors: [_kBrandBlue.withOpacity(0.7), _kBrandGreen.withOpacity(0.7)],
               ),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -1392,9 +1323,9 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade50,
+                    color: _kAccentGreen.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.green.shade200),
+                    border: Border.all(color: _kAccentGreen),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1402,7 +1333,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                       Icon(
                         Icons.discount,
                         size: 14,
-                        color: Colors.green.shade700,
+                        color: _kBrandGreen,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -1412,7 +1343,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green.shade700,
+                          color: _kBrandGreen,
                         ),
                       ),
                     ],
@@ -1429,7 +1360,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Colors.blue,
+                          color: _kBrandBlue,
                         ),
                       ),
                     if (isPercentItem) ...[
@@ -1447,7 +1378,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade100,
+                          color: _kAccentGreen.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -1455,7 +1386,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green,
+                            color: _kAccentGreen,
                           ),
                         ),
                       ),
@@ -1477,7 +1408,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: _kAccentGreen,
                         ),
                       ),
                       Container(
@@ -1486,7 +1417,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade100,
+                          color: _kAccentGreen.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -1496,7 +1427,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green,
+                            color: _kAccentGreen,
                           ),
                         ),
                       ),
@@ -1516,7 +1447,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                     ),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? Colors.green.shade100
+                          ? _kAccentGreen.withOpacity(0.2)
                           : Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -1527,7 +1458,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                           isActive ? Icons.check_circle : Icons.cancel,
                           size: 12,
                           color: isActive
-                              ? Colors.green.shade700
+                              ? _kBrandGreen
                               : Colors.grey.shade600,
                         ),
                         const SizedBox(width: 3),
@@ -1537,7 +1468,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             color: isActive
-                                ? Colors.green.shade700
+                                ? _kBrandGreen
                                 : Colors.grey.shade600,
                           ),
                         ),
@@ -1550,7 +1481,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                       icon: Icon(widget.isAdminMode ? Icons.edit : Icons.shopping_cart, size: 14),
                       label: Text(widget.isAdminMode ? 'Edit' : 'Request'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: widget.isAdminMode ? Colors.teal : Theme.of(context).primaryColor,
+                        backgroundColor: widget.isAdminMode ? _kBrandGreen : _kBrandGreen,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -1666,12 +1597,12 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                             width: 48,
                             height: 48,
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade100,
+                              color: _kBrandBlue.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(
                               Icons.business,
-                              color: Colors.blue,
+                              color: _kBrandBlue,
                               size: 28,
                             ),
                           );
@@ -1683,12 +1614,12 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
+                        color: _kBrandBlue.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.business,
-                        color: Colors.blue,
+                        color: _kBrandBlue,
                         size: 28,
                       ),
                     ),
@@ -1702,7 +1633,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                            color: _kBrandBlue,
                           ),
                         ),
                         Text(
@@ -2050,9 +1981,6 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
 
     // For weight-based deals, quantity represents grams; for others, item count
     // Once-off deals are always quantity 1
-    final quantity = discount.isOnceOff
-        ? 1
-        : _quantities[dealId] ?? (isWeightBased ? 100 : 1);
 
     if (isWeightBased) {
       // Formula: (R/kg × total grams) / 1000
@@ -2097,8 +2025,8 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              Colors.blue.shade300,
-                              Colors.purple.shade300,
+                              _kBrandBlue.withOpacity(0.5),
+                              _kBrandGreen.withOpacity(0.5),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(8),
@@ -2137,7 +2065,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Colors.blue.shade400, Colors.purple.shade400],
+                      colors: [_kBrandBlue.withOpacity(0.7), _kBrandGreen.withOpacity(0.7)],
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -2191,9 +2119,9 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: _kAccentGreen.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.green.shade200),
+                          border: Border.all(color: _kAccentGreen),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -2201,7 +2129,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                             Icon(
                               Icons.discount,
                               size: 14,
-                              color: Colors.green.shade700,
+                              color: _kBrandGreen,
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -2211,7 +2139,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.green.shade700,
+                                color: _kBrandGreen,
                               ),
                             ),
                           ],
@@ -2227,7 +2155,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Colors.blue,
+                              color: _kBrandBlue,
                             ),
                           ),
                           if (discount.isPercentItem) ...[
@@ -2245,7 +2173,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade100,
+                                color: _kAccentGreen.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -2253,7 +2181,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                 style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.green,
+                                  color: _kAccentGreen,
                                 ),
                               ),
                             ),
@@ -2275,7 +2203,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.green,
+                                color: _kAccentGreen,
                               ),
                             ),
                             Container(
@@ -2284,7 +2212,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade100,
+                                color: _kAccentGreen.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -2294,7 +2222,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                 style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.green,
+                                  color: _kAccentGreen,
                                 ),
                               ),
                             ),
@@ -2314,7 +2242,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                           ),
                           decoration: BoxDecoration(
                             color: discount.isActive
-                                ? Colors.green.shade100
+                                ? _kAccentGreen.withOpacity(0.2)
                                 : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -2327,7 +2255,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                     : Icons.cancel,
                                 size: 12,
                                 color: discount.isActive
-                                    ? Colors.green.shade700
+                                    ? _kBrandGreen
                                     : Colors.grey.shade600,
                               ),
                               const SizedBox(width: 3),
@@ -2337,7 +2265,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   color: discount.isActive
-                                      ? Colors.green.shade700
+                                      ? _kBrandGreen
                                       : Colors.grey.shade600,
                                 ),
                               ),
@@ -2350,7 +2278,7 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
                             icon: Icon(widget.isAdminMode ? Icons.edit : Icons.shopping_cart, size: 14),
                             label: Text(widget.isAdminMode ? 'Edit' : 'Request'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: widget.isAdminMode ? Colors.teal : Theme.of(context).primaryColor,
+                              backgroundColor: widget.isAdminMode ? _kBrandGreen : _kBrandGreen,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -2438,6 +2366,11 @@ class BillDiscountDialog extends StatefulWidget {
 }
 
 class _BillDiscountDialogState extends State<BillDiscountDialog> {
+  // Brand colors (match deal card)
+  static const Color _kRequestGreen = Color(0xFF007749);
+  static const Color _kAccentGreen = Color(0xFF7FBBA4);
+  static const Color _kBrandBlue = Color(0xFF001489);
+
   final TextEditingController _billAmountController = TextEditingController();
   final Map<String, int> _exclusionQuantities =
       {}; // Track quantities for exclusions
@@ -2594,7 +2527,7 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                            color: _kBrandBlue,
                           ),
                         ),
                         Text(
@@ -2895,7 +2828,7 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
                         _buildBreakdownRow(
                           'Discount',
                           '-R${discountAmount.toStringAsFixed(2)}',
-                          color: Colors.green,
+                          color: _kAccentGreen,
                         ),
                       if (_addTip && _tipController.text.isNotEmpty) ...[
                         Builder(
@@ -2910,7 +2843,7 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
                             return _buildBreakdownRow(
                               'Tip',
                               '+R${tipAmount.toStringAsFixed(2)}',
-                              color: Colors.blue,
+                              color: _kBrandBlue,
                             );
                           },
                         ),
@@ -2925,9 +2858,9 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: _kBrandBlue.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200, width: 2),
+                  border: Border.all(color: _kBrandBlue.withOpacity(0.25), width: 2),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2937,7 +2870,7 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+                        color: _kBrandBlue,
                       ),
                     ),
                     Text(
@@ -2945,7 +2878,7 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+                        color: _kBrandBlue,
                       ),
                     ),
                   ],
@@ -3100,7 +3033,7 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
                                 content: Text(
                                   'Bill discount authorization request submitted',
                                 ),
-                                backgroundColor: Colors.green,
+                                backgroundColor: _kRequestGreen,
                                 behavior: SnackBarBehavior.floating,
                                 margin: EdgeInsets.only(
                                   bottom: 40,
@@ -3135,7 +3068,7 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
                     style: TextStyle(fontSize: 16),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
+                    backgroundColor: _kRequestGreen,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),

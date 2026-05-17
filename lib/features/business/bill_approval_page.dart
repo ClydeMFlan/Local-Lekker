@@ -193,7 +193,7 @@ class _BillApprovalPageState extends State<BillApprovalPage> {
       }
 
       // Create Paystack payment routed to trusted partner subaccount
-      final paymentResult = await _paystackService.startOneTimePayment(
+      await _paystackService.startOneTimePayment(
         itemName: 'Bill Payment',
         itemDescription: 'Payment for approved bill',
         amount: amount,

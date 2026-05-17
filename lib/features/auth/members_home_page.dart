@@ -13,6 +13,8 @@ import 'welcome_page.dart';
 import 'member_profile_page.dart';
 import 'admin_chat_page.dart';
 import '../chat/chat_list_page.dart';
+import '../../services/chat_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
 import 'deal_selection_page.dart';
 import '../members/member_receipts_page.dart';
 import 'trusted_partners_by_category_page.dart';
@@ -41,7 +43,6 @@ class _MembersHomePageState extends State<MembersHomePage>
   final CacheService _cacheService = CacheService.instance;
   StreamSubscription<List<NotificationModel>>? _notificationSubscription;
   Map<String, dynamic>? _userQrData;
-  bool _isLoading = true;
   Duration _timeUntilPayment = Duration.zero;
 
   Map<String, dynamic>? _subscriptionStatus;
@@ -61,6 +62,11 @@ class _MembersHomePageState extends State<MembersHomePage>
 
   // Promotions
   List<Map<String, dynamic>> _activePromotions = [];
+
+  // Unread chat count for AppBar badge
+  int _unreadChatCount = 0;
+  Timer? _unreadChatTimer;
+  RealtimeChannel? _chatMessagesChannel;
 
   // City/Area filter
   String? _selectedProvince;
@@ -204,6 +210,25 @@ class _MembersHomePageState extends State<MembersHomePage>
     _loadMemberCityProvince();
     _loadActivePromotions();
     _subscribeToApprovalNotifications();
+    _loadUnreadChatCount();
+    _unreadChatTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _loadUnreadChatCount(),
+    );
+    try {
+      _chatMessagesChannel = ChatService.instance
+          .subscribeToChatMessageChanges(onChange: _loadUnreadChatCount);
+    } catch (_) {}
+  }
+
+  Future<void> _loadUnreadChatCount() async {
+    try {
+      final count = await ChatService.instance.fetchUnreadConversationCount();
+      if (!mounted) return;
+      if (count != _unreadChatCount) {
+        setState(() => _unreadChatCount = count);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadActivePromotions() async {
@@ -318,6 +343,8 @@ class _MembersHomePageState extends State<MembersHomePage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
+    _unreadChatTimer?.cancel();
+    _chatMessagesChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -328,8 +355,6 @@ class _MembersHomePageState extends State<MembersHomePage>
   // (none expected)
 
   Future<void> _loadUserData() async {
-    setState(() => _isLoading = true);
-
     try {
       final user = SupabaseService.instance.getCurrentUser();
       if (user != null) {
@@ -418,7 +443,6 @@ class _MembersHomePageState extends State<MembersHomePage>
           _subscriptionStatus = status;
           _userQrData = qrData;
           _savingsStats = savingsData;
-          _isLoading = false;
           _isSavingsLoading = false;
         });
 
@@ -476,7 +500,6 @@ class _MembersHomePageState extends State<MembersHomePage>
         _subscriptionStatus = null;
         _userQrData = null;
         _savingsStats = null;
-        _isLoading = false;
         _isSavingsLoading = false;
       });
     }
@@ -1254,16 +1277,55 @@ class _MembersHomePageState extends State<MembersHomePage>
                 ),
                 // Messages
                 IconButton(
-                  icon: const Icon(Icons.chat_bubble_outline),
+                  tooltip: 'Messages',
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const ChatListPage(),
                       ),
-                    );
+                    ).then((_) => _loadUnreadChatCount());
                   },
-                  tooltip: 'Messages',
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.chat_bubble_outline),
+                      if (_unreadChatCount > 0)
+                        Positioned(
+                          right: -6,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 18,
+                              minHeight: 18,
+                            ),
+                            child: Text(
+                              _unreadChatCount > 9
+                                  ? '9+'
+                                  : '$_unreadChatCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
                 // Trusted Partners quick access
                 IconButton(
@@ -1447,12 +1509,24 @@ class _MembersHomePageState extends State<MembersHomePage>
                 // Savings Summary Card
                 Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.teal.shade400, Colors.green.shade400],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF007749), Color(0xFF4FA98A)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                      BoxShadow(
+                        color: Color(0x2E000000),
+                        blurRadius: 18,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
                   ),
                   child: SavingsSummaryCard(
                     totalSpent: _savingsStats?['totalSpent']?.toDouble() ?? 0.0,
@@ -1485,12 +1559,24 @@ class _MembersHomePageState extends State<MembersHomePage>
                 // Trusted Partners List
                 Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.teal.shade400, Colors.green.shade400],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF007749), Color(0xFF4FA98A)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                      BoxShadow(
+                        color: Color(0x2E000000),
+                        blurRadius: 18,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
                   ),
                   child: Material(
                     color: Colors.transparent,

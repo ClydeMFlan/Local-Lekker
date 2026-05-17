@@ -4,6 +4,7 @@ import 'admin_members_screen.dart';
 import 'admin_partners_screen.dart';
 import 'admin_promotions_screen.dart';
 import 'admin_settings_screen.dart';
+import 'admin_support_inbox_screen.dart';
 import 'widgets/admin_promo_key_dialog.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     'Manage Members',
     'Manage Partners',
     'Promotions',
+    'Support',
     'Settings',
   ];
 
@@ -28,6 +30,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     AdminMembersScreen(),
     AdminPartnersScreen(),
     AdminPromotionsScreen(),
+    AdminSupportInboxScreen(),
     AdminSettingsScreen(),
   ];
 
@@ -78,6 +81,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             icon: Icon(Icons.campaign_outlined),
             selectedIcon: Icon(Icons.campaign),
             label: 'Promos',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.support_agent_outlined),
+            selectedIcon: Icon(Icons.support_agent),
+            label: 'Support',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

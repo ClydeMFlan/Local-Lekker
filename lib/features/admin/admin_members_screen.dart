@@ -185,8 +185,36 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
     );
     if (confirmed != true) return;
 
+    // Show a non-dismissible progress dialog so the admin can see something
+    // is happening. The full delete chain (Paystack cancel + RPC + auth
+    // Edge Function with retries) can take 30+ seconds.
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Expanded(child: Text('Deleting member…')),
+          ],
+        ),
+      ),
+    );
+
+    void closeProgress() {
+      if (!mounted) return;
+      // Pop only the progress dialog, not the underlying screen.
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+
     try {
-      await _adminService.deleteMember(member['id']);
+      await _adminService
+          .deleteMember(member['id'])
+          .timeout(const Duration(minutes: 2));
+      closeProgress();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -196,6 +224,7 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
       );
       _loadMembers();
     } catch (e) {
+      closeProgress();
       if (!mounted) return;
       final errorMsg = e.toString();
       final isPartialDelete = errorMsg.contains('auth account removal failed') ||

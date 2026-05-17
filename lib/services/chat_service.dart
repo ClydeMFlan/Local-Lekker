@@ -18,10 +18,32 @@ class ChatService {
 
   String _displayNameFromRow(Map<String, dynamic> row) {
     final profile = Profile.fromJson(row);
-    final fullName = [
-      profile.name,
-      profile.surname,
-    ].where((p) => p != null && p.trim().isNotEmpty).join(' ');
+    final name = (profile.name ?? '').trim();
+    final surname = (profile.surname ?? '').trim();
+
+    // Dedupe: if `name` already contains the surname (e.g. user entered
+    // "Keith Flanagan" in the name field and "Flanagan" as surname),
+    // don't append it again.
+    String fullName;
+    if (name.isEmpty && surname.isEmpty) {
+      fullName = '';
+    } else if (name.isEmpty) {
+      fullName = surname;
+    } else if (surname.isEmpty) {
+      fullName = name;
+    } else {
+      final nameTokens = name
+          .toLowerCase()
+          .split(RegExp(r'\s+'))
+          .where((t) => t.isNotEmpty)
+          .toSet();
+      if (nameTokens.contains(surname.toLowerCase())) {
+        fullName = name;
+      } else {
+        fullName = '$name $surname';
+      }
+    }
+
     if (fullName.isNotEmpty) return fullName;
     return profile.email ?? 'Unknown user';
   }
@@ -127,8 +149,6 @@ class ChatService {
     final user = SupabaseService.instance.getCurrentUser();
     if (user == null) throw Exception('Not authenticated');
     try {
-      // Fetch all conversations where is_admin = true
-      // Admin can see all support conversations regardless of participant_ids
       final rows = await _client
           .from('chat_conversations')
           .select('id,is_admin,created_at,participant_ids')
@@ -140,6 +160,42 @@ class ChatService {
     } catch (e) {
       _logger.e('Failed to fetch admin conversations: $e');
       rethrow;
+    }
+  }
+
+  /// Returns the number of conversations for the current user that contain
+  /// at least one unread message (sent by someone else and not yet in the
+  /// user's `read_by` array).
+  Future<int> fetchUnreadConversationCount() async {
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return 0;
+    try {
+      final conversations = await fetchConversationsForCurrentUser();
+      if (conversations.isEmpty) return 0;
+      final ids = conversations.map((c) => c.id).toList(growable: false);
+
+      final rows = await _client
+          .from('chat_messages')
+          .select('conversation_id,sender_id,read_by')
+          .inFilter('conversation_id', ids)
+          .neq('sender_id', user.id);
+
+      final unreadConvos = <String>{};
+      for (final row in rows as List<dynamic>) {
+        final convId = row['conversation_id'] as String?;
+        if (convId == null) continue;
+        final readByRaw = row['read_by'];
+        final readBy = readByRaw is List
+            ? readByRaw.map((e) => e.toString()).toSet()
+            : <String>{};
+        if (!readBy.contains(user.id)) {
+          unreadConvos.add(convId);
+        }
+      }
+      return unreadConvos.length;
+    } catch (e) {
+      _logger.w('Failed to compute unread count: $e');
+      return 0;
     }
   }
 
@@ -347,6 +403,65 @@ class ChatService {
       _logger.w('Failed to fetch business name for user $userId: $e');
       return null;
     }
+  }
+
+  /// Returns the business `logo_url` for a trusted partner user, or null if
+  /// the user does not own a business or no logo is set.
+  Future<String?> fetchBusinessLogoForUser(String userId) async {
+    try {
+      final row = await _client
+          .from('businesses')
+          .select('logo_url')
+          .eq('owner_member_id', userId)
+          .maybeSingle();
+      if (row != null) {
+        final url = row['logo_url'];
+        if (url is String && url.trim().isNotEmpty) return url;
+      }
+      return null;
+    } catch (e) {
+      _logger.w('Failed to fetch business logo for user $userId: $e');
+      return null;
+    }
+  }
+
+  /// Subscribes to realtime changes on `chat_messages` so consumers (e.g. the
+  /// AppBar unread badge) can refresh instantly when any message is inserted
+  /// or updated. The caller is responsible for unsubscribing the returned
+  /// channel during dispose. The [onChange] callback is invoked on every
+  /// insert/update event in the table.
+  RealtimeChannel subscribeToChatMessageChanges({
+    required void Function() onChange,
+    String? channelTag,
+  }) {
+    final user = SupabaseService.instance.getCurrentUser();
+    final tag = channelTag ?? user?.id ?? 'anon';
+    final channel = _client
+        .channel('chat_messages_realtime_$tag')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'chat_messages',
+          callback: (payload) {
+            if (kDebugMode) {
+              debugPrint('[REALTIME chat_messages INSERT] ${payload.newRecord}');
+            }
+            onChange();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'chat_messages',
+          callback: (payload) {
+            if (kDebugMode) {
+              debugPrint('[REALTIME chat_messages UPDATE] ${payload.newRecord}');
+            }
+            onChange();
+          },
+        )
+        .subscribe();
+    return channel;
   }
 
   Future<void> deleteConversation(String conversationId) async {
