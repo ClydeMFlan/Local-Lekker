@@ -61,11 +61,20 @@ find this partner, and click "Generate New Key" to issue a new one.
 This is an automated notification from the Local Lekker app.
 `
 
+        const escapeHtml = (s: string) => s
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;')
+        const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#222;"><pre style="font-family:Arial,sans-serif;white-space:pre-wrap;margin:0;">${escapeHtml(emailBody)}</pre></body></html>`
+
         await client.send({
           from: smtpUser,
           to: ADMIN_EMAIL,
           subject: `Promo Key Request - ${business_name}`,
           content: emailBody,
+          html: htmlBody,
         })
 
         await client.close()

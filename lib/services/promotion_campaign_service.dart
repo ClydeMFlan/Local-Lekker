@@ -10,11 +10,56 @@ class PromotionCampaignService {
   final SupabaseClient _client = Supabase.instance.client;
   final Logger _logger = Logger();
 
+  /// Pre-signup check: returns minimal promo info if the email is on an
+  /// active intro-campaign participant list. Safe to call from the signup
+  /// form because it uses a SECURITY DEFINER RPC that is GRANT-ed to anon.
+  Future<Map<String, dynamic>?> checkEligibilityForEmail({
+    required String email,
+  }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.isEmpty) return null;
+
+    try {
+      final result = await _client.rpc(
+        'check_promo_eligibility_for_email',
+        params: {'p_email': normalizedEmail},
+      );
+      if (result == null) return null;
+      return Map<String, dynamic>.from(result as Map);
+    } catch (e) {
+      _logger.w('PromotionCampaignService.checkEligibilityForEmail error: $e');
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> getEligibleIntroCampaign({
     required String email,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
     if (normalizedEmail.isEmpty) return null;
+
+    // RPC-first lookup keeps eligibility consistent with pre-signup checks and
+    // avoids missing invitees due RLS/join edge cases in direct table reads.
+    try {
+      final rpc = await checkEligibilityForEmail(email: normalizedEmail);
+      if (rpc != null) {
+        return {
+          'participant_id': rpc['participant_id'],
+          'promotion': {
+            'id': rpc['promotion_id'],
+            'name': rpc['name'],
+            'description': rpc['description'],
+            'free_months': _toInt(rpc['free_months']) ?? 0,
+            'initial_charge_cents': _toInt(rpc['initial_charge_cents']) ?? 100,
+            'renewal_charge_cents': _toInt(rpc['renewal_charge_cents']) ?? 9900,
+            'is_intro_campaign': true,
+            'is_active': true,
+          },
+        };
+      }
+    } catch (e) {
+      _logger.w('PromotionCampaignService.getEligibleIntroCampaign RPC lookup error: $e');
+    }
 
     try {
       final response = await _client
@@ -40,6 +85,12 @@ class PromotionCampaignService {
           continue;
         }
 
+        promotion['free_months'] = _toInt(promotion['free_months']) ?? 0;
+        promotion['initial_charge_cents'] =
+          _toInt(promotion['initial_charge_cents']) ?? 100;
+        promotion['renewal_charge_cents'] =
+          _toInt(promotion['renewal_charge_cents']) ?? 9900;
+
         final startsAt = promotion['starts_at'] as String?;
         if (startsAt != null && DateTime.parse(startsAt).isAfter(now)) {
           continue;
@@ -61,6 +112,13 @@ class PromotionCampaignService {
       _logger.e('PromotionCampaignService.getEligibleIntroCampaign error: $e');
       return null;
     }
+  }
+
+  int? _toInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
   }
 
   Future<Map<String, dynamic>> importParticipantEmails({
@@ -115,7 +173,7 @@ class PromotionCampaignService {
     try {
       final response = await _client
           .from('promotion_participant_emails')
-          .select('promotion_id, promotions!inner(*)')
+          .select('promotion_id, is_claimed, promotions!inner(*)')
           .eq('email', normalizedEmail);
 
       final now = DateTime.now();
@@ -123,6 +181,10 @@ class PromotionCampaignService {
       final seenIds = <String>{};
 
       for (final row in response) {
+        // Do not surface banners for promo invites the member has already
+        // claimed during signup/activation.
+        if (row['is_claimed'] == true) continue;
+
         final promotionRaw = row['promotions'];
         if (promotionRaw == null) continue;
 

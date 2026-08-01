@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/discount_service.dart';
 import '../../services/supabase_service.dart';
 
@@ -38,7 +39,7 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Notification Test')),
+      appBar: BrandedAppBar(title: const Text('Notification Test')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

@@ -71,6 +71,25 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
       final allDeals = await _discountService
           .getAllActiveDiscountsWithTrustedPartners();
 
+      // Once-off deals must disappear for a member after they have been
+      // successfully paid/redeemed. Load this member's completed once-off
+      // deal ids so they can be hidden below (mirrors Browse Deals behaviour).
+      final currentUser = SupabaseService.instance.getCurrentUser();
+      final memberId = currentUser?.id;
+      Set<String> completedOnceOffDealIds = <String>{};
+      if (memberId != null) {
+        try {
+          completedOnceOffDealIds =
+              await _discountService.getCompletedDealIdsForMember(memberId);
+        } catch (e) {
+          // Fail open: if this lookup fails we still show deals; the
+          // deal-authorization service blocks re-redeeming a once-off deal.
+          if (kDebugMode) {
+            print('⚠️ Failed to load completed once-off deals: $e');
+          }
+        }
+      }
+
       if (kDebugMode) {
         print('🔍 Total active deals across all partners: ${allDeals.length}');
       }
@@ -104,6 +123,17 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
 
       // Filter by schedule - only show deals that are available now
       final availableDiscounts = discounts.where((discount) {
+        // Hide once-off deals this member has already redeemed.
+        if (discount.isOnceOff &&
+            completedOnceOffDealIds.contains(discount.id)) {
+          if (kDebugMode) {
+            print(
+              '⏰ Hiding once-off deal "${discount.name}" - already redeemed',
+            );
+          }
+          return false;
+        }
+
         if (discount.scheduleData == null || discount.scheduleData!.isEmpty) {
           // No schedule = always available
           return true;
@@ -196,6 +226,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
     double? enteredPrice;
     double? discountedPrice;
     double? savingsAmount;
+    String? selectedPaymentMethod;
 
     void recalculateTotals() {
       if (discount.isPercentItem) {
@@ -393,6 +424,54 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                     ),
                     const SizedBox(height: 16),
                     Row(
+                      children: [
+                        const Text(
+                          'Payment Method',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '*',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Text(
+                      'Choose how you will pay for this deal',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 4),
+                    RadioListTile<String>(
+                      value: 'in_app',
+                      groupValue: selectedPaymentMethod,
+                      onChanged: (value) =>
+                          setState(() => selectedPaymentMethod = value),
+                      activeColor: _kRequestGreen,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: const Text('In-App Payment'),
+                      subtitle: const Text(
+                        'Pay securely in the app after the partner approves',
+                      ),
+                    ),
+                    RadioListTile<String>(
+                      value: 'pos',
+                      groupValue: selectedPaymentMethod,
+                      onChanged: (value) =>
+                          setState(() => selectedPaymentMethod = value),
+                      activeColor: _kRequestGreen,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: const Text('POS Payment (In-Store)'),
+                      subtitle: const Text(
+                        'Visit the partner and pay at their counter',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
@@ -421,8 +500,9 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
               ),
               ElevatedButton.icon(
                 onPressed:
-                    (discount.isPercentItem &&
-                        (enteredPrice == null || enteredPrice! <= 0))
+                    ((discount.isPercentItem &&
+                            (enteredPrice == null || enteredPrice! <= 0)) ||
+                        selectedPaymentMethod == null)
                     ? null
                     : () async {
                         if (discount.isPercentItem &&
@@ -430,6 +510,17 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Please enter a valid item price'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (selectedPaymentMethod == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please select a payment method',
+                              ),
                             ),
                           );
                           return;
@@ -453,7 +544,7 @@ class _TrustedPartnerShopPageState extends State<TrustedPartnerShopPage> {
                           await dealAuthService.requestDealAuthorization(
                             memberId: currentUser.id,
                             discountId: discount.id,
-                            paymentMethod: 'pos',
+                            paymentMethod: selectedPaymentMethod!,
                             amount: totalPrice,
                             quantity: quantity,
                             memberEnteredPrice: discount.isPercentItem ? enteredPrice : null,

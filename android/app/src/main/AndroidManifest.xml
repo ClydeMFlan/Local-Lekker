@@ -7,9 +7,17 @@
     <!-- Camera permission required for QR scanner and receipt scanning -->
     <uses-permission android:name="android.permission.CAMERA" />
     
-    <!-- Storage permissions for image picker (logo uploads, receipt images) -->
+    <!-- Storage permission for image picker on Android 12 and below (logo/profile/deal image uploads) -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!--
+        On Android 13+ (API 33+) image_picker uses the Android Photo Picker, which does NOT
+        require broad media permissions. We explicitly remove READ_MEDIA_IMAGES / READ_MEDIA_VIDEO
+        so Google Play's "Photo and video permissions" policy does not require a declaration,
+        and to strip them in case a dependency injects them during manifest merge.
+    -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
     
     <!-- Location permissions for city-based deal filtering -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

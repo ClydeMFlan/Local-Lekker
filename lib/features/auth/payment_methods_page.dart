@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/supabase_service.dart';
 import '../../services/paystack_service.dart';
+import 'payment_method_webview_page.dart';
 
 class PaymentMethodsPage extends StatefulWidget {
   const PaymentMethodsPage({super.key});
@@ -67,32 +69,59 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 
   Future<void> _addPaymentMethod() async {
     try {
-      setState(() => _isAddingMethod = true);
-
       final currentUser = SupabaseService.instance.getCurrentUser();
       if (currentUser == null) return;
 
-      // Create a small test payment to capture a new payment method
-      final paymentResult = await _paystackService.startOneTimePayment(
-        itemName: 'Payment Method Setup',
-        itemDescription: 'Adding new payment method to your account',
-        amount: 1.00, // Small amount for setup
-        userId: currentUser.id,
-        userEmail: currentUser.email ?? '',
-      );
-
-      final authorizationUrl = paymentResult?['authorization_url'];
-
-      if (authorizationUrl != null && authorizationUrl.isNotEmpty) {
-        // In a real implementation, you'd open this URL in a WebView
-        // and handle the callback to capture the authorization code
+      // Enforce the saved-cards limit up front so members get a clear message
+      // instead of a failed save after completing checkout.
+      if (_paymentMethods.length >= PaystackService.maxSavedCards) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'Payment method setup initiated. Complete the payment to add the method.',
+                'You can only save up to ${PaystackService.maxSavedCards} cards. '
+                'Delete a card first to add a new one.',
               ),
+              backgroundColor: Colors.orange.shade800,
             ),
+          );
+        }
+        return;
+      }
+
+      setState(() => _isAddingMethod = true);
+
+      // Use the same secure tokenization flow as the signup card: initialize a
+      // small (R1) authorization with Paystack, then complete it in a WebView.
+      // On success PaystackService.addPaymentMethod saves the reusable
+      // authorization to members_card_details.
+      final authUrl = await _paystackService.initializePaymentMethod(
+        userId: currentUser.id,
+        userEmail: currentUser.email ?? '',
+        amount: 100, // R1.00 in kobo for tokenization
+      );
+
+      if (authUrl == null || authUrl.isEmpty) {
+        throw Exception('Failed to initialize card setup');
+      }
+
+      if (!mounted) return;
+      final result = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PaymentMethodWebViewPage(
+            authorizationUrl: authUrl,
+            userId: currentUser.id,
+            userEmail: currentUser.email ?? '',
+          ),
+        ),
+      );
+
+      if (result == true) {
+        await _loadPaymentMethods();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Card added successfully')),
           );
         }
       }
@@ -165,7 +194,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Payment Methods'),
         actions: [
           IconButton(
@@ -226,92 +255,114 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   }
 
   Widget _buildPaymentMethodsList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _paymentMethods.length,
-      itemBuilder: (context, index) {
-        final method = _paymentMethods[index];
-        final methodId =
-            method['id'] ?? method['authorization_code'] ?? 'method_$index';
-        final isPrimary = _primaryMethodId == methodId;
+    final atLimit = _paymentMethods.length >= PaystackService.maxSavedCards;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Text(
+            '${_paymentMethods.length} of ${PaystackService.maxSavedCards} cards used'
+            '${atLimit ? ' — delete a card to add another' : ''}',
+            style: TextStyle(
+              fontSize: 13,
+              color: atLimit ? Colors.orange.shade800 : Colors.grey.shade600,
+              fontWeight: atLimit ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            itemCount: _paymentMethods.length,
+            itemBuilder: (context, index) {
+              final method = _paymentMethods[index];
+              final methodId =
+                  method['id'] ??
+                  method['authorization_code'] ??
+                  'method_$index';
+              final isPrimary = _primaryMethodId == methodId;
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      _getCardIcon(method['card_type'] ?? 'card'),
-                      color: Theme.of(context).primaryColor,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Text(
-                            method['card_type'] ?? 'Card',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                          Icon(
+                            _getCardIcon(method['card_type'] ?? 'card'),
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  method['card_type'] ?? 'Card',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Text(
+                                  '**** **** **** ${method['last4'] ?? '****'}',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            '**** **** **** ${method['last4'] ?? '****'}',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
+                          if (isPrimary)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Primary',
+                                style: TextStyle(
+                                  color: Colors.green.shade800,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          if (!isPrimary)
+                            TextButton(
+                              onPressed: () => _setPrimaryMethod(methodId),
+                              child: const Text('Set as Primary'),
+                            ),
+                          const Spacer(),
+                          IconButton(
+                            onPressed: () => _showDeleteConfirmation(methodId),
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            tooltip: 'Delete Payment Method',
                           ),
                         ],
                       ),
-                    ),
-                    if (isPrimary)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'Primary',
-                          style: TextStyle(
-                            color: Colors.green.shade800,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    if (!isPrimary)
-                      TextButton(
-                        onPressed: () => _setPrimaryMethod(methodId),
-                        child: const Text('Set as Primary'),
-                      ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () => _showDeleteConfirmation(methodId),
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      tooltip: 'Delete Payment Method',
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 

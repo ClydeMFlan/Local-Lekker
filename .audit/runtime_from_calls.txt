@@ -1,0 +1,463 @@
+﻿C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\main.dart:97: .from('recovery_sessions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\main.dart:120: .from('recovery_sessions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_create_promotion_screen.dart:111: .from('promo-images')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_create_promotion_screen.dart:115: .from('promo-images')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_create_promotion_screen.dart:141: .from('promotions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_edit_partner_screen.dart:218: .from('partner-logos')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_edit_partner_screen.dart:222: .from('partner-logos')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_edit_partner_screen.dart:253: await _supabase.from('profiles').update({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_edit_partner_screen.dart:285: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_edit_partner_screen.dart:291: await _supabase.from('businesses').upsert(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_edit_partner_screen.dart:299: await _supabase.from('trusted_partners').update({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_members_screen.dart:49: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_members_screen.dart:63: active.add(Map<String, dynamic>.from(m));
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_members_screen.dart:65: pending.add(Map<String, dynamic>.from(m));
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_overview_screen.dart:60: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_overview_screen.dart:64: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_overview_screen.dart:68: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_overview_screen.dart:74: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partners_screen.dart:92: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partners_screen.dart:108: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partners_screen.dart:112: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partners_screen.dart:118: Map<String, dynamic>.from(biz);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partners_screen.dart:132: final map = Map<String, dynamic>.from(p);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partners_screen.dart:262: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partners_screen.dart:322: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partners_screen.dart:328: .from('tp_member_keys')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partners_screen.dart:339: await _supabase.from('tp_member_keys').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:50: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:55: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:60: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:64: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:69: .from('tp_member_keys')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:82: .map((e) => Map<String, dynamic>.from(e))
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:130: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:139: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:231: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:237: .from('tp_member_keys')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_partner_detail_screen.dart:250: await _supabase.from('tp_member_keys').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotions_screen.dart:29: .from('promotions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotions_screen.dart:34: _promotions = List<Map<String, dynamic>>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotions_screen.dart:61: .from('promotions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotions_screen.dart:99: .from('promotions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotions_screen.dart:155: final sorted = List<Map<String, dynamic>>.from(_promotions);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotion_detail_screen.dart:74: .from('promotions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotion_detail_screen.dart:80: .from('promotion_signups')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotion_detail_screen.dart:90: _signups = List<Map<String, dynamic>>.from(signups);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotion_detail_screen.dart:265: .from('promotion_signups')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotion_detail_screen.dart:284: .from('promotions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\widgets\admin_promo_key_dialog.dart:50: return await _supabase.from(table).select('id').eq(column, key).maybeSingle();
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\widgets\admin_promo_key_dialog.dart:100: await _supabase.from('admin_promo_keys').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:246: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:256: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:266: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:274: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:410: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:415: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:482: .from('partner-logos')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:487: .from('partner-logos')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:518: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:1327: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:1367: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:1393: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:1848: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:2033: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:2133: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:2167: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:2196: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\business_profile_page.dart:2240: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\deal_authorization_dashboard.dart:58: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\deal_authorization_dashboard.dart:176: .from('deal_receipts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\deal_authorization_dashboard.dart:186: _receipts = List<Map<String, dynamic>>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\deal_authorization_dashboard.dart:239: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\deal_authorization_dashboard.dart:270: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\deal_selection_page.dart:3005: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\discount_management_page.dart:2069: .from('business-bills')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\discount_management_page.dart:2073: .from('business-bills')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\discount_management_page.dart:2352: _exclusions = List<Map<String, dynamic>>.from(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\discount_management_page.dart:3395: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\discount_management_page.dart:3459: .from('business-bills')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\discount_management_page.dart:3463: .from('business-bills')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\members_home_page.dart:339: .from('promotion_signups')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\members_home_page.dart:460: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\members_home_page.dart:477: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\members_home_page.dart:628: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\members_home_page.dart:636: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\members_home_page.dart:733: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\members_home_page.dart:783: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:270: trustedPartners: List<Map<String, dynamic>>.from(_trustedPartners),
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:572: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:1559: .from('members_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:1581: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:2017: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:2040: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:2047: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:2089: .from('members_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:2110: .from('members_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:2117: .from('members_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\member_profile_page.dart:2227: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\promotion_detail_page.dart:40: .from('promotion_signups')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\promotion_detail_page.dart:66: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\promotion_detail_page.dart:80: .from('promotion_participant_emails')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\promotion_detail_page.dart:99: await SupabaseService.instance.client.from('promotion_signups').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\promotion_detail_page.dart:118: .from('promotion_participant_emails')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\promotion_detail_page.dart:129: .from('promotion_participant_emails')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\receipt_book_page.dart:33: .from('deal_receipts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\receipt_book_page.dart:43: _receipts = List<Map<String, dynamic>>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\receipt_generator_page.dart:72: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\receipt_generator_page.dart:183: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\set_initial_password_page.dart:66: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\set_initial_password_page.dart:304: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\set_password_page.dart:81: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\tp_interest_form_page.dart:75: .from('tp_inquiries')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partners_by_category_page.dart:116: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partners_by_category_page.dart:173: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partners_by_category_page.dart:184: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partners_by_category_page.dart:238: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partners_home_page.dart:285: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partners_home_page.dart:369: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partners_home_page.dart:378: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partners_page.dart:38: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partners_page.dart:56: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_home_page.dart:260: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_home_page.dart:332: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_home_page.dart:343: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_home_page.dart:806: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_home_page.dart:832: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_home_page.dart:933: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_home_page.dart:942: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_home_page.dart:2391: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_home_page.dart:2396: .from('user_qr_codes')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_signup_page.dart:660: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\trusted_partner_signup_page.dart:671: await SupabaseService.instance.client.from('memberships').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\welcome_page.dart:1115: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:56: .from('admin_promo_keys')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:91: .from('admin_promo_keys')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:111: .from('tp_member_keys')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:121: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:209: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:231: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:237: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:271: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:290: await client.from('subscriptions').insert(subscriptionData);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:293: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:306: .from('user_qr_codes')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:312: await client.from('user_qr_codes').update({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:319: await client.from('user_qr_codes').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\business\bill_approval_page.dart:168: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\business\trusted_partner_customers_page.dart:40: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\business\trusted_partner_customers_page.dart:52: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\business\trusted_partner_repeat_customers_page.dart:40: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\business\trusted_partner_repeat_customers_page.dart:52: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\chat\chat_thread_page.dart:112: final ordered = List<ChatMessage>.from(messages)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\members\member_receipts_page.dart:43: .from('deal_receipts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\members\member_receipts_page.dart:51: _receipts = List<Map<String, dynamic>>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\deal_payment_webview_page.dart:482: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\deal_payment_webview_page.dart:629: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\deal_payment_webview_page.dart:689: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\deal_payment_webview_page.dart:772: .from('virtual_receipts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\deal_payment_webview_page.dart:828: await _supabase.from('deal_receipts').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\deal_payment_webview_page.dart:1014: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\deal_payment_webview_page.dart:1029: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\deal_payment_webview_page.dart:1397: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\payments_feature.dart:286: final promo = Map<String, dynamic>.from(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\paystack_webview_page.dart:235: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\pending_payments_page.dart:27: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\pending_payments_page.dart:41: return List<Map<String, dynamic>>.from(rows);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\pending_payments_page.dart:48: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\pending_payments_page.dart:61: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\trusted_partner\tp_payment_terms_page.dart:36: await SupabaseService.instance.client.from('profiles').update({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\models\admin_dashboard_model.dart:25: if (e is Map) return Map<String, dynamic>.from(e);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\models\admin_dashboard_model.dart:36: .map((e) => Map<String, dynamic>.from(e as Map))
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\models\deal_authorization.dart:116: ? Map<String, dynamic>.from(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\models\discount.dart:66: ? Map<String, dynamic>.from(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:71: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:118: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:155: if (first is Map) return Map<String, dynamic>.from(first);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:159: return Map<String, dynamic>.from(res);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:179: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:187: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:197: .from('payments')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:213: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:309: rpcResult = Map<String, dynamic>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:327: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:336: await supabase.from('profiles').delete().eq('id', memberId);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:430: .from(entry['table']!)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:442: await supabase.from('profiles').delete().eq('id', memberId);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:473: result = Map<String, dynamic>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:531: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:541: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:547: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:578: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:591: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:602: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:613: await supabase.from('user_qr_codes').delete().eq('user_id', memberId);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:635: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:641: return List<Map<String, dynamic>>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:652: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:658: return List<Map<String, dynamic>>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:671: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:680: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:699: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\app_fallback_system.dart:44: Map<String, dynamic> get cachedUserData => Map.from(_cachedUserData);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\app_fallback_system.dart:45: Map<String, dynamic> get cachedAppData => Map.from(_cachedAppData);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\app_fallback_system.dart:163: _cachedUserData = Map.from(data);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\app_fallback_system.dart:174: _cachedAppData = Map.from(data);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\banking_details_test.dart:157: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\banking_details_test.dart:164: await _supabase.from('trusted_partners').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\banking_details_test.dart:174: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\banking_details_test.dart:185: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\bank_account_service.dart:95: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\bank_account_service.dart:113: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\bank_account_service.dart:141: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\bill_approval_service.dart:51: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\bill_approval_service.dart:69: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\bill_approval_service.dart:113: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\bill_approval_service.dart:133: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\bill_approval_service.dart:152: .from('processed_bills')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\bill_approval_service.dart:164: .from('processed_bills')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\bill_approval_service.dart:176: .from('bill_approvals')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:55: .from('chat_conversations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:70: .from('chat_conversations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:97: .from('chat_conversations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:106: .from('chat_conversations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:120: .from('chat_conversations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:137: .from('chat_conversations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:154: .from('chat_conversations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:179: .from('chat_messages')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:209: .from('chat_messages')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:266: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:285: .from('chat_messages')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:300: .from('chat_messages')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:321: .from('chat_messages')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:340: await _client.from('chat_messages').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:446: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:462: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:481: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:539: .from('chat_messages')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:545: .from('chat_conversations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:560: .from('chat_conversations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\chat_service.dart:576: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:217: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:747: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:764: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:773: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:807: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:837: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:1102: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:1135: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:1343: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:1417: await _supabase.from('virtual_receipts').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:1429: await _supabase.from('deal_receipts').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:40: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:50: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:71: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:110: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:145: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:224: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:273: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:323: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:367: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:414: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:439: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:445: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:456: await _supabase.from('deal_receipts').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:601: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:608: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:621: await _supabase.from('deal_receipts').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:704: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:724: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:737: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_authorization_service.dart:744: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:23: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:45: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:65: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:101: _supabase.from('businesses').select('city'),
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:103: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:141: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:179: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:201: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:287: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:303: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:327: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:366: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:371: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:433: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:504: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:528: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:571: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:589: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:675: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:704: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:723: .from('virtual_receipts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:744: .from('virtual_receipts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:765: .from('member_receipts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:787: .from('member_receipts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:803: .from('virtual_receipts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:868: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:882: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:896: .from('trusted_partner_discounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:958: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:977: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:994: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:1005: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:1036: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:1059: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:1082: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:1098: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\navigation_service.dart:105: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\navigation_service.dart:381: .from('recovery_sessions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\navigation_service.dart:401: .from('recovery_sessions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\navigation_service.dart:430: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:20: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:38: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:52: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:63: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:74: await _supabase.from('notifications').delete().eq('id', notificationId);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:83: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:131: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:162: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:179: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:200: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:225: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:247: await _supabase.from('notifications').insert(notifications);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\payment_status_service.dart:146: .from('payments')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\payment_status_service.dart:180: await client.from('payments').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:526: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:553: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:602: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:623: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:655: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:668: .from('members_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:677: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:798: .from('members_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:856: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:1001: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:1011: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:1020: .from('trusted_partner_bank_accounts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:1050: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:1081: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:1112: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:1134: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:1144: .from('members_card_details')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_service.dart:1291: await Supabase.instance.client.from('members_card_details').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_webhook_handler.dart:123: .from('payments')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_webhook_handler.dart:169: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_webhook_handler.dart:178: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_webhook_handler.dart:198: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_webhook_handler.dart:207: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_webhook_handler.dart:239: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_webhook_handler.dart:267: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_webhook_handler.dart:292: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\paystack_webhook_handler.dart:320: .from('memberships')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:28: return Map<String, dynamic>.from(result as Map);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:43: .from('promotion_participant_emails')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:53: final map = Map<String, dynamic>.from(row);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:59: final promotion = Map<String, dynamic>.from(promotionRaw as Map);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:104: await _client.from('promotion_participant_emails').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:139: .from('promotion_participant_emails')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:151: final promo = Map<String, dynamic>.from(promotionRaw as Map);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:182: .from('promotion_participant_emails')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:187: return List<Map<String, dynamic>>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:195: .from('promotion_participant_emails')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:208: .from('promotion_participant_emails')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\push_notification_service.dart:336: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\push_notification_service.dart:429: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\qr_code_service.dart:20: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\savings_service.dart:27: .from('deal_receipts')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\savings_service.dart:369: .from('deal_authorizations')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\savings_service.dart:396: return List<Map<String, dynamic>>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\savings_service.dart:424: .from('processed_bills')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\savings_service.dart:440: return List<Map<String, dynamic>>.from(response);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\savings_service.dart:462: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:43: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:59: .from('user_qr_codes')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:82: final qrResult = await _client.from('user_qr_codes').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:110: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:146: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:162: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:175: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:192: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:211: .from('subscription_renewals')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:240: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:250: await _client.from('notifications').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:313: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:322: .from('user_qr_codes')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:337: await _client.from('user_qr_codes').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:349: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:376: await _client.from('subscriptions').insert(subscriptionData);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:379: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:385: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:403: await _client.from('subscription_renewals').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:420: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:433: await _client.from('notifications').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:475: final mapped = Map<String, dynamic>.from(rpcResult);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:494: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:508: subscription = Map<String, dynamic>.from(response[0]);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:514: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:539: .from('user_qr_codes')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:581: .from('user_qr_codes')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:646: .from('user_qr_codes')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:658: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:672: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:691: .from('notifications')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:704: await _client.from('notifications').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:771: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:786: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:826: .from('user_qr_codes')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:838: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:845: await _client.from('user_qr_codes').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:874: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:883: await _client.from('subscriptions').insert(subscriptionData);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:886: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:893: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:906: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:912: await _client.from('subscription_renewals').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:274: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:493: .from('memberships')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:530: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:840: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:882: await client.from('profiles').insert(profileData);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:887: await client.from('trusted_partners').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:894: await client.from('memberships').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:907: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:937: final upsertRes = await client.from('users').upsert(upsertRow).select();
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1081: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1098: await client.from('memberships').upsert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1139: await client.from('memberships').upsert(row).select();
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1150: await client.from('profiles').upsert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1200: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1279: .from('businesses')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1306: await client.from('profiles').upsert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1353: final upRes = await client.from('users').upsert(upsertRow).select();
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1386: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1512: await client.from('users').select('count').limit(1).maybeSingle();
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1568: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1635: final cleanData = Map<String, dynamic>.from(profileData);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1646: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1661: await client.from('profiles').update(cleanData).eq('id', userId);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1681: final fallbackData = Map<String, dynamic>.from(profileData);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1693: final retryData = Map<String, dynamic>.from(fallbackData)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1764: await client.from('profiles').upsert(profileData);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1808: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1815: .from('memberships')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1906: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1940: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1953: return Map<String, dynamic>.from(profile);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1967: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:2143: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:2173: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:2199: .from('subscriptions')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:2236: .from('profiles')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:2265: .from(bucket)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:2273: final publicUrl = client.storage.from(bucket).getPublicUrl(path);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:36: .from('tp_member_keys')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:64: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:111: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:118: .from('trusted_partners')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:125: .from('memberships')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:131: await client.from('memberships').insert({
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:139: .from('memberships')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:147: .from('user_qr_codes')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:156: .from('user_qr_codes')
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:167: await client.from('user_qr_codes').insert({

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/deal_approval_popup_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/supabase_service.dart';
+import '../../core/utils/display_name_helpers.dart';
 
 class PendingPaymentsPage extends StatefulWidget {
   const PendingPaymentsPage({super.key});
@@ -29,6 +31,7 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
           status,
           payment_completed_at,
           trusted_partner_discounts(name, businesses(name)),
+          businesses!deal_authorizations_business_id_fkey(name),
           created_at
         ''')
         .eq('member_id', user.id)
@@ -81,6 +84,23 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
             dealName: dealName,
             amount: amount,
           );
+
+          // Send email to trusted partner (non-blocking)
+          try {
+            await _supabase.functions.invoke(
+              'send-deal-cancellation-email',
+              body: {
+                'trusted_partner_id': trustedPartnerId,
+                'member_name': memberName,
+                'deal_name': dealName,
+                'amount': amount,
+                'deal_authorization_id': dealId,
+              },
+            );
+            _logger.i('Deal cancellation email sent to trusted partner');
+          } catch (emailError) {
+            _logger.w('Could not send deal cancellation email: $emailError');
+          }
         }
       } catch (e) {
         _logger.w('Failed to send cancellation notification: $e');
@@ -109,7 +129,7 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pending Payments')),
+      appBar: BrandedAppBar(title: const Text('Pending Payments')),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _fetchPending(),
         builder: (context, snapshot) {
@@ -131,8 +151,12 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
               final discount =
                   row['trusted_partner_discounts'] as Map<String, dynamic>?;
               final business = discount?['businesses'] as Map<String, dynamic>?;
+              final directBusiness = row['businesses'] as Map<String, dynamic>?;
               final title = discount?['name'] ?? 'Deal';
-              final biz = business?['name'] ?? 'Business';
+              final biz = buildBusinessDisplayName(
+                (business?['name'] as String?) ??
+                    (directBusiness?['name'] as String?),
+              );
               final amount = (row['amount'] ?? 0).toString();
               return ListTile(
                 title: Text('$title at $biz'),

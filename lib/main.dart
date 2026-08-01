@@ -364,26 +364,15 @@ class _AppInitializerState extends State<AppInitializer> {
       future: _initialScreenFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          // Show the branded loading screen while determining initial screen
+          // Show splash only while initial route is being resolved.
           return const LoadingScreen(showMinimumDuration: true);
         } else if (snapshot.hasError) {
-          // On error, show loading screen that transitions to welcome page
-          return const LoadingScreen(showMinimumDuration: true);
+          // Fail-safe: if bootstrap fails, land on welcome instead of looping on splash.
+          return const WelcomePage();
         } else {
-          // Future completed, get the target screen
-          final targetScreen = snapshot.data ?? const WelcomePage();
-
-          // For authenticated users, show loading screen that transitions to home
-          if (targetScreen is WelcomePage) {
-            // For unauthenticated users, show loading screen that transitions to welcome
-            return const LoadingScreen(showMinimumDuration: true);
-          } else {
-            // For authenticated users, show loading screen with auto-transition
-            return const LoadingScreen(
-              autoTransitionAfterAuth: true,
-              showMinimumDuration: false,
-            );
-          }
+          // Route directly to the resolved initial screen.
+          // This avoids a secondary splash->navigation hop that can stall on web.
+          return snapshot.data ?? const WelcomePage();
         }
       },
     );

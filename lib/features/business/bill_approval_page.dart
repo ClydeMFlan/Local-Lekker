@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/bill_approval_service.dart';
 import '../../services/paystack_service.dart';
 import '../../services/supabase_service.dart';
@@ -251,7 +252,7 @@ class _BillApprovalPageState extends State<BillApprovalPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Bill Approvals'),
         actions: [
           IconButton(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:logger/logger.dart';
 import '../../models/discount.dart';
 import '../../models/deal_schedule.dart';
@@ -13,8 +14,14 @@ class DiscountManagementPage extends StatefulWidget {
   /// When non-null the page manages deals for this partner (admin flow).
   final String? trustedPartnerId;
   final String? businessName;
+  final bool openCreateDealOnLoad;
 
-  const DiscountManagementPage({super.key, this.trustedPartnerId, this.businessName});
+  const DiscountManagementPage({
+    super.key,
+    this.trustedPartnerId,
+    this.businessName,
+    this.openCreateDealOnLoad = false,
+  });
 
   @override
   State<DiscountManagementPage> createState() => _DiscountManagementPageState();
@@ -25,13 +32,19 @@ class _DiscountManagementPageState extends State<DiscountManagementPage> {
   final DiscountService _discountService = DiscountService();
   final SupabaseService _supabaseService = SupabaseService.instance;
   bool _isLoading = true;
+  bool _isCreatingDiscount = false;
   List<Discount> _discounts = [];
-  final List<Map<String, dynamic>> _exclusions = [];
 
   @override
   void initState() {
     super.initState();
     _loadDiscounts();
+    if (widget.openCreateDealOnLoad) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _addDiscount();
+      });
+    }
   }
 
   /// The effective partner ID: either the explicit one (admin) or the current user.
@@ -63,6 +76,8 @@ class _DiscountManagementPageState extends State<DiscountManagementPage> {
   }
 
   Future<void> _addDiscount() async {
+    if (_isCreatingDiscount) return;
+
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AddDiscountDialog(
@@ -71,6 +86,9 @@ class _DiscountManagementPageState extends State<DiscountManagementPage> {
     );
     if (result != null) {
       try {
+        if (_isCreatingDiscount) return;
+        setState(() => _isCreatingDiscount = true);
+
         // Ensure we have a valid trustedPartnerId
         final trustedPartnerId = result['trustedPartnerId'] as String?;
         if (trustedPartnerId == null || trustedPartnerId.isEmpty) {
@@ -114,6 +132,10 @@ class _DiscountManagementPageState extends State<DiscountManagementPage> {
             margin: const EdgeInsets.only(bottom: 40, left: 16, right: 16),
           ),
         );
+      } finally {
+        if (mounted) {
+          setState(() => _isCreatingDiscount = false);
+        }
       }
     }
   }
@@ -322,7 +344,7 @@ class _DiscountManagementPageState extends State<DiscountManagementPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: Text(widget.businessName != null
             ? 'Deals – ${widget.businessName}'
             : 'Discount Management'),
@@ -350,115 +372,6 @@ class _DiscountManagementPageState extends State<DiscountManagementPage> {
               ),
             ),
     );
-  }
-
-  void _addExclusion() {
-    final nameController = TextEditingController();
-    final amountController = TextEditingController();
-    String? selectedDay;
-    bool isRecurring = false;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add Exclusion'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Item Name',
-                    hintText: 'e.g., Alcohol, Cigarettes',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: amountController,
-                  decoration: const InputDecoration(
-                    labelText: 'Amount (R)',
-                    hintText: 'e.g., 50.00',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedDay,
-                  decoration: const InputDecoration(
-                    labelText: 'Day of Week',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'Monday', child: Text('Monday')),
-                    DropdownMenuItem(value: 'Tuesday', child: Text('Tuesday')),
-                    DropdownMenuItem(
-                      value: 'Wednesday',
-                      child: Text('Wednesday'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Thursday',
-                      child: Text('Thursday'),
-                    ),
-                    DropdownMenuItem(value: 'Friday', child: Text('Friday')),
-                    DropdownMenuItem(
-                      value: 'Saturday',
-                      child: Text('Saturday'),
-                    ),
-                    DropdownMenuItem(value: 'Sunday', child: Text('Sunday')),
-                  ],
-                  onChanged: (value) {
-                    setDialogState(() => selectedDay = value);
-                  },
-                ),
-                const SizedBox(height: 16),
-                CheckboxListTile(
-                  title: const Text('Recurring'),
-                  subtitle: const Text('Apply this exclusion every week'),
-                  value: isRecurring,
-                  onChanged: (value) {
-                    setDialogState(() => isRecurring = value ?? false);
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (nameController.text.isNotEmpty &&
-                    amountController.text.isNotEmpty &&
-                    selectedDay != null) {
-                  setState(() {
-                    _exclusions.add({
-                      'name': nameController.text.trim(),
-                      'amount': double.parse(amountController.text),
-                      'dayOfWeek': selectedDay,
-                      'recurring': isRecurring,
-                    });
-                  });
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _removeExclusion(int index) {
-    setState(() {
-      _exclusions.removeAt(index);
-    });
   }
 
   Widget _buildDiscountList() {
@@ -554,6 +467,8 @@ class _DiscountManagementPageState extends State<DiscountManagementPage> {
                             ? '${discount.customData?['buy_item_name'] ?? discount.itemName} + ${discount.customData?['free_item_name'] ?? 'Free Item'} - R${discount.dealPrice.toStringAsFixed(2)}'
                             : discount.isPercentItem
                             ? '${discount.itemName} - ${discount.percentage.toStringAsFixed(0)}% off'
+                            : discount.isBillDiscount
+                            ? 'Bill Discount - ${discount.percentage.toStringAsFixed(0)}% off'
                             : isWeightBased
                             ? '${discount.itemName} - R${discount.itemPrice.toStringAsFixed(2)}/kg → R${discount.dealPrice.toStringAsFixed(2)}/kg'
                             : '${discount.itemName} - R${discount.itemPrice.toStringAsFixed(2)} → R${discount.dealPrice.toStringAsFixed(2)}',
@@ -567,6 +482,8 @@ class _DiscountManagementPageState extends State<DiscountManagementPage> {
                             ? 'Get ${discount.customData?['free_item_name'] ?? 'Free Item'} free (Save R${discount.savings.toStringAsFixed(2)})'
                             : discount.isPercentItem
                             ? 'Member enters item price at checkout'
+                            : discount.isBillDiscount
+                            ? 'Applied to total bill at scan time'
                             : isWeightBased
                             ? 'Save R${discount.savings.toStringAsFixed(2)}/kg'
                             : 'Save R${discount.savings.toStringAsFixed(2)}',
@@ -720,6 +637,7 @@ class _AddDiscountDialogState extends State<AddDiscountDialog> {
 
   // Validation state
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -1914,10 +1832,16 @@ class _AddDiscountDialogState extends State<AddDiscountDialog> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: _selectedType != DiscountType.none
+                    onPressed: _selectedType != DiscountType.none && !_isSubmitting
                         ? _submit
                         : null,
-                    child: const Text('Add Deal'),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Add Deal'),
                   ),
                 ],
               ),
@@ -2170,17 +2094,38 @@ class _AddDiscountDialogState extends State<AddDiscountDialog> {
       final targetPartnerId =
           widget.trustedPartnerId ??
           SupabaseService.instance.getCurrentUser()?.id;
-      final filePath = targetPartnerId != null
+        final currentUserId = SupabaseService.instance.getCurrentUser()?.id;
+
+        Future<String> uploadToPath(String path) async {
+        await SupabaseService.instance.client.storage
+          .from('business-bills')
+          .uploadBinary(path, Uint8List.fromList(fileBytes));
+        return SupabaseService.instance.client.storage
+          .from('business-bills')
+          .getPublicUrl(path);
+        }
+
+        final primaryFilePath = targetPartnerId != null
           ? 'deal_images/$targetPartnerId/$fileName'
           : 'deal_images/$fileName';
 
-      await SupabaseService.instance.client.storage
-          .from('business-bills')
-          .uploadBinary(filePath, Uint8List.fromList(fileBytes));
+        String imageUrl;
+        try {
+        imageUrl = await uploadToPath(primaryFilePath);
+        } catch (primaryError) {
+        // Admin uploads can fail if storage RLS expects uploads under auth.uid().
+        final isAdminDealUpload =
+          widget.trustedPartnerId != null &&
+          currentUserId != null &&
+          currentUserId != targetPartnerId;
+        if (!isAdminDealUpload) rethrow;
 
-      final imageUrl = SupabaseService.instance.client.storage
-          .from('business-bills')
-          .getPublicUrl(filePath);
+        final fallbackFilePath = 'deal_images/$currentUserId/$fileName';
+        print(
+          '⚠️ AddDiscountDialog._uploadImage: Primary upload failed ($primaryError). Retrying with admin-owned path: $fallbackFilePath',
+        );
+        imageUrl = await uploadToPath(fallbackFilePath);
+        }
 
       print('DEBUG: Image uploaded successfully, public URL: $imageUrl');
       print('✅ AddDiscountDialog._uploadImage: Returning imageUrl=$imageUrl');
@@ -2216,6 +2161,12 @@ class _AddDiscountDialogState extends State<AddDiscountDialog> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
     // Enable autovalidation after first submit attempt
     setState(() {
       _autovalidateMode = AutovalidateMode.onUserInteraction;
@@ -2230,6 +2181,9 @@ class _AddDiscountDialogState extends State<AddDiscountDialog> {
               content: Text('Error: No trusted partner ID found. Please log in again.'),
             ),
           );
+          setState(() {
+            _isSubmitting = false;
+          });
         }
         return;
       }
@@ -2341,6 +2295,12 @@ class _AddDiscountDialogState extends State<AddDiscountDialog> {
       print('🔹 AddDiscountDialog result map: imageUrl=${result['imageUrl']}');
       Navigator.of(context).pop(result);
       print('🔹 AddDiscountDialog popped with result');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isSubmitting = false;
+      });
     }
   }
 }
@@ -3556,21 +3516,42 @@ class _EditDiscountDialogState extends State<EditDiscountDialog> {
       final targetPartnerId =
           widget.trustedPartnerId ??
           SupabaseService.instance.getCurrentUser()?.id;
-      final filePath = targetPartnerId != null
+      final currentUserId = SupabaseService.instance.getCurrentUser()?.id;
+
+      Future<String> uploadToPath(String path) async {
+        await SupabaseService.instance.client.storage
+            .from('business-bills')
+            .uploadBinary(path, Uint8List.fromList(fileBytes));
+        return SupabaseService.instance.client.storage
+            .from('business-bills')
+            .getPublicUrl(path);
+      }
+
+      final primaryFilePath = targetPartnerId != null
           ? 'deal_images/$targetPartnerId/$fileName'
           : 'deal_images/$fileName';
 
       _logger.i(
-        'Uploading image - Path: $filePath, Partner: $targetPartnerId, IsAdminUpload: ${widget.trustedPartnerId != null}',
+        'Uploading image - Path: $primaryFilePath, Partner: $targetPartnerId, IsAdminUpload: ${widget.trustedPartnerId != null}',
       );
 
-      await SupabaseService.instance.client.storage
-          .from('business-bills')
-          .uploadBinary(filePath, Uint8List.fromList(fileBytes));
+      String imageUrl;
+      try {
+        imageUrl = await uploadToPath(primaryFilePath);
+      } catch (primaryError) {
+        // Admin uploads can fail if storage RLS expects uploads under auth.uid().
+        final isAdminDealUpload =
+            widget.trustedPartnerId != null &&
+            currentUserId != null &&
+            currentUserId != targetPartnerId;
+        if (!isAdminDealUpload) rethrow;
 
-      final imageUrl = SupabaseService.instance.client.storage
-          .from('business-bills')
-          .getPublicUrl(filePath);
+        final fallbackFilePath = 'deal_images/$currentUserId/$fileName';
+        _logger.w(
+          'Primary upload failed ($primaryError). Retrying with admin-owned path: $fallbackFilePath',
+        );
+        imageUrl = await uploadToPath(fallbackFilePath);
+      }
 
       _logger.i('Image uploaded successfully, public URL: $imageUrl');
       return imageUrl;

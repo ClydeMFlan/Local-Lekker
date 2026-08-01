@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/supabase_service.dart';
 import 'package:flutter/foundation.dart';
 import 'welcome_page.dart';
@@ -103,7 +104,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Reset Password')),
+      appBar: BrandedAppBar(title: const Text('Reset Password')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),

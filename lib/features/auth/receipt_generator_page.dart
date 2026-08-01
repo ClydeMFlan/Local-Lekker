@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -7,6 +8,7 @@ import 'dart:io';
 import '../../models/virtual_receipt.dart';
 import '../../services/discount_service.dart';
 import '../../services/supabase_service.dart';
+import '../../core/utils/display_name_helpers.dart';
 import 'package:flutter/foundation.dart';
 
 class ReceiptGeneratorPage extends StatefulWidget {
@@ -167,13 +169,32 @@ class _ReceiptGeneratorPageState extends State<ReceiptGeneratorPage> {
 
       }
 
+      // Resolve names robustly: members may have an empty profile name (fall
+      // back to email); the business name falls back to a direct lookup.
+      final memberDisplayName = buildMemberDisplayName(
+        name: memberData?['name'] as String?,
+        surname: memberData?['surname'] as String?,
+        email: memberData?['email'] as String?,
+      );
+      String? resolvedBusinessName = businessData?['name'] as String?;
+      if ((resolvedBusinessName ?? '').trim().isEmpty && businessId != null) {
+        try {
+          final bizRow = await SupabaseService.instance.client
+              .from('businesses')
+              .select('name')
+              .eq('id', businessId)
+              .maybeSingle();
+          resolvedBusinessName = bizRow?['name'] as String?;
+        } catch (_) {}
+      }
+      final businessDisplayName = buildBusinessDisplayName(resolvedBusinessName);
+
       final receiptData = {
         'receipt_number': receiptNumber,
         'deal_authorization_id': widget.dealAuthorizationId,
-        'business_name': businessData?['name'] ?? 'Unknown Business',
+        'business_name': businessDisplayName,
         'business_id': businessId,
-        'member_name':
-            '${memberData?['name'] ?? 'Unknown'} ${memberData?['surname'] ?? 'Member'}',
+        'member_name': memberDisplayName,
         'member_email': memberData?['email'] ?? 'N/A',
         'discount_name': discountData?['name'] ?? 'Unknown Deal',
         'amount': dealData['amount'] ?? 0.0,
@@ -224,7 +245,7 @@ class _ReceiptGeneratorPageState extends State<ReceiptGeneratorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Receipt Generator'),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,

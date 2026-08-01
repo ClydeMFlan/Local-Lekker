@@ -1,5 +1,87 @@
 # Local Lekker - AI Agent Instructions
 
+## Workspace Preset (Default)
+
+Preset name: Local Lekker Hybrid Mode (4-Agent)
+
+Apply this preset by default whenever this workspace is opened.
+
+### Agent Mix
+
+1. GPT-5.4 - Primary Builder
+- Default model for all tasks.
+- Use for Flutter, Dart, SQL, Supabase RPC, RLS, UI generation, refactors, and multi-file scaffolding.
+- This is the main model for Local Lekker development.
+
+2. Claude Opus 4.8 - Deep Analysis
+- Auto-switch only when the task clearly requires long-context reasoning, repo-wide analysis, dependency mapping, or architecture review.
+- Use this for reading the entire Local Lekker project, scanning migrations, or understanding complex flows.
+
+3. Gemini 2.5 Pro - Schema & Type Validator
+- Auto-switch only when the task clearly involves SQL validation, type-checking, API contract verification, or JSON schema correctness.
+- Use this for validating Supabase migrations, RPC signatures, and Dart type alignment.
+
+4. GPT-5.5 - Creative Mode
+- Auto-switch only when the task clearly involves creative ideation, naming, UX copywriting, branding, conceptual exploration, or narrative design.
+
+### Switching Rules
+
+- Auto-switch only when the intent is unambiguous.
+- Manual overrides always take priority.
+- After switching, stay on that model until I say otherwise.
+- All agents share the same session and workspace context.
+- Never reset context when switching.
+- Maintain full awareness of Local Lekker architecture, schema, RPCs, RLS, and Flutter module structure.
+- Apply this routing behavior to every new chat inside this workspace.
+
+### Schema Awareness (Supabase)
+
+Always maintain awareness of the Local Lekker Supabase schema.
+Continuously reference the following schema sources inside this workspace:
+
+- `supabase/migrations/**` (canonical schema source)
+- `supabase/functions/**` (RPCs, edge functions)
+- `supabase/seed.sql` (if present)
+- `lib/services/**` (Dart-side API wrappers)
+- `lib/models/**` (Dart data models)
+- `supabase/types/**` (generated types, if present)
+
+Schema Rules:
+- Treat the migrations folder as the single source of truth for tables, columns, relationships, constraints, triggers, enums, and policies.
+- When generating SQL, Dart models, RPC calls, or RLS policies, always align with the latest migration state.
+- When analyzing or validating code, automatically infer table structures, foreign keys, and relationships from the migrations.
+- When generating queries or Supabase client code, ensure column names, types, and relationships match the schema.
+- When the schema changes (new migration added), automatically update internal schema awareness for all agents.
+- Treat migrations as the single source of truth for schema behavior.
+- Apply schema awareness to all agents:
+  - GPT-5.4 (Primary Builder)
+  - Claude Opus 4.8 (Deep Analysis)
+  - Gemini 2.5 Pro (Schema & Type Validator)
+  - GPT-5.5 (Creative Mode)
+
+### Payment Flow Awareness
+
+Always maintain awareness of the Local Lekker payment system:
+
+- Payment provider logic
+- Dart payment services
+- Webhook flow
+- Supabase payment tables
+- Subscription lifecycle logic
+
+Validate all payment-related code for correctness and safety before finalizing.
+
+### App Architecture Awareness
+
+Always maintain awareness of:
+
+- Folder structure
+- Navigation flows
+- Service patterns
+- Model patterns
+- Business rules
+- Critical logic that must never break
+
 ## Project Overview
 Local Lekker is a Flutter mobile app for **smart receipt scanning and local business payments** with instant discounts. It's a **subscription-based platform** connecting members with local businesses through QR code payments and OCR-powered receipt processing.
 

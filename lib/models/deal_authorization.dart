@@ -79,18 +79,16 @@ class DealAuthorization {
 
     // Throw descriptive error if critical fields are missing
     if (id == null) throw Exception('Deal authorization missing id');
-    if (memberId == null) {
-      throw Exception('Deal authorization missing member_id');
-    }
     if (trustedPartnerId == null) {
       throw Exception(
         'Deal authorization missing trusted_partner_id/business_id',
       );
     }
-    // Note: discount_id may be null for legacy or partially-created records
-    // (e.g. bill discount requests where the original discount link wasn't
-    // recorded). We tolerate this so the trusted partner can still see and
-    // act on the request rather than the whole list failing to load.
+    // member_id and discount_id may be null for legacy or partially-created
+    // records (e.g. once-off / bill discount requests). We tolerate this so
+    // the trusted partner can still see and act on the request rather than
+    // the whole list failing to load.
+    final safeMemberId = memberId ?? '';
     final safeDiscountId = discountId ?? '';
 
     // Extract business_id separately (distinct from trusted_partner_id)
@@ -98,7 +96,7 @@ class DealAuthorization {
 
     return DealAuthorization(
       id: id,
-      memberId: memberId,
+      memberId: safeMemberId,
       trustedPartnerId: trustedPartnerId,
       discountId: safeDiscountId,
       status: json['status'] as String? ?? 'pending',
@@ -150,8 +148,13 @@ class DealAuthorization {
                     json['trusted_partner_discounts'] as Map<String, dynamic>,
                   )
                 : null),
+      // Prefer the business linked via the discount, but fall back to the
+      // business embedded directly off deal_authorizations.business_id (e.g.
+      // once-off / bill deals that have no discount row).
       businessName:
-          json['trusted_partner_discounts']?['businesses']?['name'] as String?,
+          (json['trusted_partner_discounts']?['businesses']?['name']
+              as String?) ??
+          (json['businesses']?['name'] as String?),
     );
   }
 

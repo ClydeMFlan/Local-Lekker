@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
 import '../../services/supabase_service.dart';
 import '../../services/paystack_service.dart';
 import '../../services/admin_service.dart';
 import '../../services/chat_service.dart';
 import '../../services/cache_service.dart';
+import '../../services/navigation_service.dart';
 import '../chat/chat_thread_page.dart';
 import 'change_password_page.dart';
 import 'payment_method_webview_page.dart';
@@ -14,6 +18,7 @@ import 'notifications_page.dart';
 import 'deactivation_confirmation_page.dart';
 import 'widgets/trusted_partner_key_dialog.dart';
 import 'package:flutter/foundation.dart';
+import '../../widgets/profile_photo.dart';
 
 // Custom input formatter for expiry date (MM/YY)
 class ExpiryDateInputFormatter extends TextInputFormatter {
@@ -47,6 +52,42 @@ class ExpiryDateInputFormatter extends TextInputFormatter {
   }
 }
 
+class _MemberProfileSnapshot {
+  final DateTime capturedAt;
+  final String? profilePhotoUrl;
+  final String name;
+  final String surname;
+  final String email;
+  final String street;
+  final String suburb;
+  final String contact;
+  final String? gender;
+  final String? ethnicity;
+  final String? province;
+  final String? city;
+  final DateTime? dateOfBirth;
+  final bool isTpMember;
+  final List<Map<String, dynamic>> trustedPartners;
+
+  const _MemberProfileSnapshot({
+    required this.capturedAt,
+    required this.profilePhotoUrl,
+    required this.name,
+    required this.surname,
+    required this.email,
+    required this.street,
+    required this.suburb,
+    required this.contact,
+    required this.gender,
+    required this.ethnicity,
+    required this.province,
+    required this.city,
+    required this.dateOfBirth,
+    required this.isTpMember,
+    required this.trustedPartners,
+  });
+}
+
 class MemberProfilePage extends StatefulWidget {
   const MemberProfilePage({super.key});
 
@@ -55,8 +96,12 @@ class MemberProfilePage extends StatefulWidget {
 }
 
 class _MemberProfilePageState extends State<MemberProfilePage> {
+  static final Map<String, _MemberProfileSnapshot> _sessionSnapshots = {};
+  static const Duration _snapshotTtl = Duration(minutes: 5);
+
   final Logger _logger = Logger();
   final _formKey = GlobalKey<FormState>();
+  final ImagePicker _imagePicker = ImagePicker();
 
   // Personal Information Controllers
   final _nameController = TextEditingController();
@@ -148,6 +193,9 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isTpMember = false;
+  bool _showDobValidationError = false;
+  String? _profilePhotoUrl;
+  Uint8List? _profilePhotoBytes;
 
   // Trusted partners linked to this member (via past authorizations)
   List<Map<String, dynamic>> _trustedPartners = [];
@@ -156,7 +204,12 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadUserProfile();
+    final restored = _restoreFromSessionSnapshot();
+    if (restored) {
+      unawaited(_loadUserProfile(showLoading: false));
+    } else {
+      _loadUserProfile();
+    }
   }
 
   @override
@@ -170,9 +223,70 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
     super.dispose();
   }
 
-  Future<void> _loadUserProfile() async {
+  bool _restoreFromSessionSnapshot() {
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return false;
+
+    final snapshot = _sessionSnapshots[user.id];
+    if (snapshot == null) return false;
+
+    final age = DateTime.now().difference(snapshot.capturedAt);
+    if (age > _snapshotTtl) {
+      _sessionSnapshots.remove(user.id);
+      return false;
+    }
+
+    _nameController.text = snapshot.name;
+    _surnameController.text = snapshot.surname;
+    _emailController.text = snapshot.email;
+    _profilePhotoUrl = snapshot.profilePhotoUrl;
+    _profilePhotoBytes = null;
+    _streetController.text = snapshot.street;
+    _suburbController.text = snapshot.suburb;
+    _contactController.text = snapshot.contact;
+    _selectedGender = snapshot.gender;
+    _selectedEthnicity = snapshot.ethnicity;
+    _selectedProvince = snapshot.province;
+    _selectedCity = snapshot.city;
+    _selectedDate = snapshot.dateOfBirth;
+    _isTpMember = snapshot.isTpMember;
+    _trustedPartners = snapshot.trustedPartners;
+    _isLoading = false;
+
+    if (kDebugMode) {
+      print('⚡ Restored member-profile snapshot (${age.inSeconds}s old)');
+    }
+    return true;
+  }
+
+  void _saveSessionSnapshot() {
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return;
+
+    _sessionSnapshots[user.id] = _MemberProfileSnapshot(
+      capturedAt: DateTime.now(),
+      profilePhotoUrl: _profilePhotoUrl,
+      name: _nameController.text,
+      surname: _surnameController.text,
+      email: _emailController.text,
+      street: _streetController.text,
+      suburb: _suburbController.text,
+      contact: _contactController.text,
+      gender: _selectedGender,
+      ethnicity: _selectedEthnicity,
+      province: _selectedProvince,
+      city: _selectedCity,
+      dateOfBirth: _selectedDate,
+      isTpMember: _isTpMember,
+      trustedPartners: List<Map<String, dynamic>>.from(_trustedPartners),
+    );
+  }
+
+  Future<void> _loadUserProfile({bool showLoading = true}) async {
     try {
-      setState(() => _isLoading = true);
+      if (showLoading) {
+        setState(() => _isLoading = true);
+      }
 
       // First check if user is authenticated
       final currentUser = SupabaseService.instance.getCurrentUser();
@@ -222,6 +336,8 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
         // Update all form fields with loaded data
         setState(() {
           // Personal Information
+          _profilePhotoUrl = profileData['profile_photo_url'] as String?;
+          _profilePhotoBytes = null;
           _nameController.text = profileData['name'] ?? '';
           _surnameController.text = profileData['surname'] ?? '';
           _emailController.text = profileData['email'] ?? '';
@@ -305,6 +421,7 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
         }
         // Load trusted partners after profile data
         await _loadMemberPartners(currentUser.id);
+        _saveSessionSnapshot();
       } else {
         // Profile doesn't exist, create initial profile
         if (kDebugMode) {
@@ -321,6 +438,8 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
           if (newProfileData != null) {
             setState(() {
               // Personal Information
+              _profilePhotoUrl = newProfileData['profile_photo_url'] as String?;
+              _profilePhotoBytes = null;
               _nameController.text = newProfileData['name'] ?? '';
               _surnameController.text = newProfileData['surname'] ?? '';
               _emailController.text = newProfileData['email'] ?? '';
@@ -393,6 +512,7 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                 'Name: ${_nameController.text}, Email: ${_emailController.text}',
               );
             }
+            _saveSessionSnapshot();
           } else {
             if (kDebugMode) {
               print('Failed to load profile after creation');
@@ -501,6 +621,7 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
         setState(() {
           _trustedPartners = partners;
         });
+        _saveSessionSnapshot();
       }
     } catch (e) {
       if (kDebugMode) {
@@ -573,23 +694,82 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
       lastDate: DateTime.now(),
     );
     if (picked != null && picked != _selectedDate) {
-      setState(() => _selectedDate = picked);
+      setState(() {
+        _selectedDate = picked;
+        _showDobValidationError = false;
+      });
     }
+  }
+
+  Future<void> _pickProfilePhoto() async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 82,
+        maxWidth: 1200,
+      );
+      if (image == null) return;
+
+      final bytes = await image.readAsBytes();
+      if (!mounted) return;
+
+      setState(() {
+        _profilePhotoBytes = bytes;
+      });
+    } catch (e) {
+      _logger.e('Error picking profile photo: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load selected image: $e')),
+      );
+    }
+  }
+
+  Future<String?> _uploadProfilePhoto(String userId) async {
+    if (_profilePhotoBytes == null || _profilePhotoBytes!.isEmpty) {
+      return _profilePhotoUrl;
+    }
+
+    final path = '$userId/profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    return SupabaseService.instance.uploadImage(
+      bucket: 'member-profile-photos',
+      path: path,
+      bytes: _profilePhotoBytes!,
+      contentType: 'image/jpeg',
+    );
   }
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_selectedDate == null) {
+      setState(() => _showDobValidationError = true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please complete required field: Date of Birth'),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _showDobValidationError = false);
+
     try {
       setState(() => _isSaving = true);
 
       final supabaseService = SupabaseService.instance;
+      final currentUser = supabaseService.client.auth.currentUser;
+      if (currentUser == null) throw Exception('User not authenticated');
+      final uploadedProfilePhotoUrl = await _uploadProfilePhoto(currentUser.id);
 
       // Save ALL profile fields that match what is stored in Supabase during signup
       final profileData = {
         // Personal Information (matches signup)
         'name': _nameController.text.trim(),
         'surname': _surnameController.text.trim(),
+        'profile_photo_url': uploadedProfilePhotoUrl,
 
         // Security Information removed: in_app_password deprecated
 
@@ -605,7 +785,7 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
         'gender': _selectedGender,
         'ethnicity': _selectedEthnicity,
         'province': _selectedProvince,
-        'date_of_birth': _selectedDate?.toIso8601String(),
+        'date_of_birth': _selectedDate?.toIso8601String().split('T').first,
 
         // Note: TP member banking details are NOT needed here
         // Payment method will be saved to Paystack after first purchase
@@ -617,19 +797,86 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
         );
       }
 
-      final currentUser = supabaseService.client.auth.currentUser;
-      if (currentUser == null) throw Exception('User not authenticated');
-
-      await supabaseService.updateUserProfile(
+      final updated = await supabaseService.updateUserProfile(
         userId: currentUser.id,
         profileData: profileData,
       );
 
+      if (!updated) {
+        throw Exception('Profile update failed');
+      }
+
+      final refreshedProfile = await supabaseService.getUserProfile();
+      if (refreshedProfile == null) {
+        throw Exception('Profile update did not persist to the database');
+      }
+
+      final expectedProfile = <String, String?>{
+        'name': profileData['name']?.toString(),
+        'surname': profileData['surname']?.toString(),
+        'street': profileData['street']?.toString(),
+        'suburb': profileData['suburb']?.toString(),
+        'city': profileData['city']?.toString(),
+        'contact': profileData['contact']?.toString(),
+        'gender': profileData['gender']?.toString(),
+        'ethnicity': profileData['ethnicity']?.toString(),
+        'province': profileData['province']?.toString(),
+        'date_of_birth': profileData['date_of_birth']?.toString(),
+      };
+      final mismatches = <String>[];
+      expectedProfile.forEach((field, expected) {
+        final actual = refreshedProfile[field]?.toString().trim();
+        final normalizedExpected = expected?.trim();
+
+        if (normalizedExpected == null || normalizedExpected.isEmpty) {
+          // If no value was expected for this field, do not enforce empty.
+          // Update payloads may intentionally omit nullable fields, in which
+          // case the database can retain a previous non-empty value.
+          return;
+        }
+
+        if (field == 'date_of_birth') {
+          final actualDate = actual?.split('T').first;
+          if (actualDate == null || actualDate.isEmpty) {
+            // In fallback mode, DOB may be skipped by server-side profile RPC.
+            // Do not fail the entire save if other fields persisted.
+            return;
+          }
+          if (actualDate != normalizedExpected) {
+            mismatches.add('$field expected "$normalizedExpected" but was "$actual"');
+          }
+          return;
+        }
+
+        if (actual != normalizedExpected) {
+          mismatches.add('$field expected "$normalizedExpected" but was "$actual"');
+        }
+      });
+
+      if (mismatches.isNotEmpty) {
+        throw Exception(
+          'Some profile fields did not persist: ${mismatches.join(', ')}',
+        );
+      }
+
+      _saveSessionSnapshot();
+  _profilePhotoUrl = uploadedProfilePhotoUrl;
+  _profilePhotoBytes = null;
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
         );
-        Navigator.of(context).pop();
+
+        final navigator = Navigator.of(context);
+        if (navigator.canPop()) {
+          navigator.pop(true);
+        } else {
+          // When this page is the root route (e.g. first-run profile completion),
+          // popping would leave a blank/black screen. Route to the proper home flow.
+          await NavigationService().navigateToHomeAfterAuth(context);
+        }
       }
     } catch (e) {
       _logger.e('Error saving user profile: $e');
@@ -649,13 +896,13 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('User Profile')),
+        appBar: BrandedAppBar(title: const Text('User Profile')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('User Profile'),
         actions: [
           TextButton(
@@ -676,6 +923,57 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
           key: _formKey,
           child: ListView(
             children: [
+              _buildSectionHeader('Profile Photo'),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _isSaving ? null : _pickProfilePhoto,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        ProfilePhoto(
+                          imageUrl: _profilePhotoUrl,
+                          memoryBytes: _profilePhotoBytes,
+                          displayName:
+                              '${_nameController.text} ${_surnameController.text}'.trim(),
+                          size: 88,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Upload a square or portrait photo so it fits the member header area cleanly.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.black54, fontSize: 13),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _isSaving ? null : _pickProfilePhoto,
+                            icon: const Icon(Icons.photo_camera_outlined),
+                            label: Text(
+                              _profilePhotoUrl?.trim().isNotEmpty == true ||
+                                      _profilePhotoBytes != null
+                                  ? 'Change Profile Photo'
+                                  : 'Upload Profile Photo',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
               // Debug info (remove in production)
               if (_nameController.text.isNotEmpty)
                 Padding(
@@ -744,6 +1042,18 @@ class _MemberProfilePageState extends State<MemberProfilePage> {
                         ),
                       ],
                     ),
+                    if (_showDobValidationError)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Please select your date of birth',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -1317,13 +1627,38 @@ class _MemberBankingDetailsDialogState
 
   final List<String> _banks = [
     'Absa Bank',
-    'FNB',
-    'Standard Bank',
-    'Nedbank',
-    'Capitec Bank',
-    'Investec',
+    'Access Bank',
     'African Bank',
+    'African Business Bank',
+    'Albaraka Bank',
+    'Bank of China',
+    'Bank Zero',
+    'Bidvest Bank',
+    'Capitec Bank',
+    'Capitec Business',
+    'CitiBank',
     'Discovery Bank',
+    'Finbond EPE',
+    'Finbond Mutual Bank',
+    'FNB',
+    'FirstRand Bank',
+    'HBZ Bank',
+    'HSBC',
+    'Investec',
+    'JP Morgan',
+    'Nedbank',
+    'Olympus Mobile',
+    'OM Bank',
+    'Rand Merchant Bank',
+    'RMB Private Bank',
+    'SASFIN Bank',
+    'Société Générale',
+    'South African Bank of Athens',
+    'Standard Bank',
+    'Standard Chartered',
+    'TymeBank',
+    'Ubank',
+    'VBS Mutual Bank',
     'Other',
   ];
 
@@ -1497,6 +1832,29 @@ class _MemberBankingDetailsDialogState
                       setState(() => _isSaving = true);
 
                       final paystackService = PaystackService();
+
+                      // Enforce the saved-cards limit BEFORE initializing the
+                      // R1 tokenization charge, so members at the limit aren't
+                      // charged for a card that then fails to save.
+                      final cardCount = await paystackService
+                          .getActiveCardCount(user.id);
+                      if (cardCount >= PaystackService.maxSavedCards) {
+                        setState(() => _isSaving = false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'You can only save up to '
+                                '${PaystackService.maxSavedCards} cards. '
+                                'Delete a card first to add a new one.',
+                              ),
+                              backgroundColor: Colors.orange.shade800,
+                            ),
+                          );
+                        }
+                        return;
+                      }
+
                       final authUrl = await paystackService
                           .initializePaymentMethod(
                             userId: user.id,
@@ -1943,20 +2301,70 @@ class _MemberBankingDetailsDialogState
     switch (bankName.toLowerCase()) {
       case 'absa bank':
         return '632005';
-      case 'fnb':
-        return '250655';
-      case 'standard bank':
-        return '051001';
-      case 'nedbank':
-        return '198765';
-      case 'capitec bank':
-        return '470010';
-      case 'investec':
-        return '580105';
+      case 'access bank':
+        return '410506';
       case 'african bank':
         return '430000';
+      case 'african business bank':
+        return '584000';
+      case 'albaraka bank':
+        return '800000';
+      case 'bank of china':
+        return '686000';
+      case 'bank zero':
+        return '888000';
+      case 'bidvest bank':
+        return '462005';
+      case 'capitec bank':
+        return '470010';
+      case 'capitec business':
+        return '450105';
+      case 'citibank':
+        return '350005';
       case 'discovery bank':
         return '679000';
+      case 'finbond epe':
+        return '591000';
+      case 'finbond mutual bank':
+        return '589000';
+      case 'fnb':
+        return '250655';
+      case 'firstrand bank':
+        return '201419';
+      case 'hbz bank':
+        return '570226';
+      case 'hsbc':
+        return '587000';
+      case 'investec':
+        return '580105';
+      case 'jp morgan':
+        return '432000';
+      case 'nedbank':
+        return '198765';
+      case 'olympus mobile':
+        return '585001';
+      case 'om bank':
+        return '352000';
+      case 'rand merchant bank':
+        return '261251';
+      case 'rmb private bank':
+        return '222026';
+      case 'sasfin bank':
+        return '683000';
+      case 'société générale':
+        return '351005';
+      case 'south african bank of athens':
+        return '410105';
+      case 'standard bank':
+        return '051001';
+      case 'standard chartered':
+        return '730020';
+      case 'tymebank':
+        return '678910';
+      case 'ubank':
+        return '431010';
+      case 'vbs mutual bank':
+        return '588000';
       default:
         return '632005'; // Default to Absa
     }

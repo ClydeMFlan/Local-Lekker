@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
 import 'package:logger/logger.dart';
@@ -6,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/notification_service.dart';
 import '../auth/discount_management_page.dart';
 import 'admin_edit_partner_screen.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 class AdminPartnerDetailScreen extends StatefulWidget {
   final Map<String, dynamic> partner;
@@ -330,7 +332,7 @@ class _AdminPartnerDetailScreenState extends State<AdminPartnerDetailScreen> {
         : null;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: Text(bizName, overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
@@ -376,7 +378,7 @@ class _AdminPartnerDetailScreenState extends State<AdminPartnerDetailScreen> {
                           CircleAvatar(
                             radius: 40,
                             backgroundColor: termsAccepted
-                                ? Colors.teal.shade100
+                                ? AppColors.primarySwatch.shade100
                                 : Colors.orange.shade100,
                             backgroundImage: _business?['logo_url'] != null
                                 ? NetworkImage(
@@ -386,7 +388,7 @@ class _AdminPartnerDetailScreenState extends State<AdminPartnerDetailScreen> {
                                 ? Icon(Icons.store,
                                     size: 40,
                                     color: termsAccepted
-                                        ? Colors.teal.shade700
+                                        ? AppColors.primarySwatch.shade700
                                         : Colors.orange.shade700)
                                 : null,
                           ),
@@ -412,7 +414,7 @@ class _AdminPartnerDetailScreenState extends State<AdminPartnerDetailScreen> {
                                     ? 'Activated'
                                     : 'Pending T&Cs',
                                 color: termsAccepted
-                                    ? Colors.teal
+                                    ? AppColors.primary
                                     : Colors.orange,
                               ),
                               if (verified) ...[
@@ -709,7 +711,7 @@ class _AdminPartnerDetailScreenState extends State<AdminPartnerDetailScreen> {
                       icon: const Icon(Icons.local_offer),
                       label: Text('Manage Deals ($_dealCount)'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(

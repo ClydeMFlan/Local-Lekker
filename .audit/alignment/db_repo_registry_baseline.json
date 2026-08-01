@@ -1,0 +1,80 @@
+﻿{
+    "generated_at_utc":  "2026-06-18T08:14:20.0364714Z",
+    "project_ref":  "qdrotavcmmevhgveodcp",
+    "migration_counts":  {
+                             "db_applied":  89,
+                             "repo_files":  108,
+                             "repo_not_applied_to_db_raw":  19,
+                             "repo_not_applied_to_db_actionable":  14,
+                             "repo_not_applied_to_db_expected":  5,
+                             "db_applied_missing_in_repo":  0
+                         },
+    "edge_function_counts":  {
+                                 "db_deployed":  20,
+                                 "repo_dirs":  20,
+                                 "repo_not_deployed_raw":  1,
+                                 "repo_not_deployed_actionable":  0,
+                                 "repo_not_deployed_expected":  1,
+                                 "db_deployed_missing_in_repo":  1
+                             },
+    "repo_not_applied_to_db_raw":  [
+                                       "20251125100511_update_trigger_for_trusted_partner",
+                                       "20251125100512_add_admin_created_password_set_columns",
+                                       "20251125120000_fix_trusted_partner_deletion_function",
+                                       "20260207182830_fix_deal_image_upload_rls",
+                                       "20260518090000_allow_null_discount_id_on_deal_authorizations",
+                                       "20260613000000_add_member_terms_acceptance_rpc",
+                                       "20260613010000_add_member_terms_status_rpc",
+                                       "20260613020000_fix_businesses_rls_recursion",
+                                       "20260613123000_fix_create_user_profile_date_cast",
+                                       "20260613130000_fix_create_user_profile_preserve_subscription",
+                                       "20260614093000_add_validate_member_qr_scan_rpc",
+                                       "20260617090000_add_accept_tp_payment_terms_rpc",
+                                       "20260617093000_activate_tp_member_profile_rpc",
+                                       "20260618101000_cleanup_deal_image_storage_policies",
+                                       "temp_20250915090000_create_get_my_role",
+                                       "temp_20250915102000_create_complete_merchant_signup",
+                                       "temp_20250916123000_fix_missing_profiles_for_memberships",
+                                       "temp_20250916124500_add_validation_to_complete_merchant_signup",
+                                       "temp_20250916125000_create_complete_business_profile"
+                                   ],
+    "repo_not_applied_to_db_actionable":  [
+                                              "20251125100511_update_trigger_for_trusted_partner",
+                                              "20251125100512_add_admin_created_password_set_columns",
+                                              "20251125120000_fix_trusted_partner_deletion_function",
+                                              "20260207182830_fix_deal_image_upload_rls",
+                                              "20260518090000_allow_null_discount_id_on_deal_authorizations",
+                                              "20260613000000_add_member_terms_acceptance_rpc",
+                                              "20260613010000_add_member_terms_status_rpc",
+                                              "20260613020000_fix_businesses_rls_recursion",
+                                              "20260613123000_fix_create_user_profile_date_cast",
+                                              "20260613130000_fix_create_user_profile_preserve_subscription",
+                                              "20260614093000_add_validate_member_qr_scan_rpc",
+                                              "20260617090000_add_accept_tp_payment_terms_rpc",
+                                              "20260617093000_activate_tp_member_profile_rpc",
+                                              "20260618101000_cleanup_deal_image_storage_policies"
+                                          ],
+    "repo_not_applied_to_db_expected":  [
+                                            "temp_20250915090000_create_get_my_role",
+                                            "temp_20250915102000_create_complete_merchant_signup",
+                                            "temp_20250916123000_fix_missing_profiles_for_memberships",
+                                            "temp_20250916124500_add_validation_to_complete_merchant_signup",
+                                            "temp_20250916125000_create_complete_business_profile"
+                                        ],
+    "db_applied_missing_in_repo":  [
+
+                                   ],
+    "edge_functions_repo_not_deployed_raw":  [
+                                                 "create-profile-function"
+                                             ],
+    "edge_functions_repo_not_deployed_actionable":  [
+
+                                                    ],
+    "edge_functions_repo_not_deployed_expected":  [
+                                                      "create-profile-function"
+                                                  ],
+    "edge_functions_db_deployed_missing_in_repo":  [
+                                                       "create-payfast-checkout"
+                                                   ],
+    "allowlist_file":  ".audit/alignment/drift_allowlist.json"
+}

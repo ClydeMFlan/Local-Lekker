@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
@@ -166,6 +167,13 @@ class ChatService {
   /// Returns the number of conversations for the current user that contain
   /// at least one unread message (sent by someone else and not yet in the
   /// user's `read_by` array).
+  ///
+  /// A message is treated as read if EITHER the user is already in its
+  /// `read_by` array OR the conversation's locally-stored "last read"
+  /// timestamp is at/after the message. The local timestamp is written every
+  /// time the user opens the thread, so simply opening (reading) a
+  /// conversation reliably clears its unread state even if the RLS-gated
+  /// `read_by` update on messages the user did not send is delayed or blocked.
   Future<int> fetchUnreadConversationCount() async {
     final user = SupabaseService.instance.getCurrentUser();
     if (user == null) return 0;
@@ -176,21 +184,44 @@ class ChatService {
 
       final rows = await _client
           .from('chat_messages')
-          .select('conversation_id,sender_id,read_by')
+          .select('conversation_id,sender_id,read_by,created_at')
           .inFilter('conversation_id', ids)
           .neq('sender_id', user.id);
+
+      final prefs = await SharedPreferences.getInstance();
+      final lastReadCache = <String, DateTime?>{};
 
       final unreadConvos = <String>{};
       for (final row in rows as List<dynamic>) {
         final convId = row['conversation_id'] as String?;
         if (convId == null) continue;
+
         final readByRaw = row['read_by'];
         final readBy = readByRaw is List
             ? readByRaw.map((e) => e.toString()).toSet()
             : <String>{};
-        if (!readBy.contains(user.id)) {
-          unreadConvos.add(convId);
+        if (readBy.contains(user.id)) continue;
+
+        // Respect the locally-stored "last read" marker written when the user
+        // opens the conversation thread.
+        final lastRead = lastReadCache.putIfAbsent(convId, () {
+          final millis = prefs.getInt('chat_last_read_$convId');
+          return millis != null
+              ? DateTime.fromMillisecondsSinceEpoch(millis)
+              : null;
+        });
+
+        final createdRaw = row['created_at'];
+        final createdAt = createdRaw is String
+            ? DateTime.tryParse(createdRaw)
+            : null;
+        if (lastRead != null &&
+            createdAt != null &&
+            !createdAt.isAfter(lastRead)) {
+          continue;
         }
+
+        unreadConvos.add(convId);
       }
       return unreadConvos.length;
     } catch (e) {
@@ -221,6 +252,39 @@ class ChatService {
     } catch (e) {
       _logger.e('Failed to fetch latest messages: $e');
       return {};
+    }
+  }
+
+  /// Returns the number of admin support conversations that have at least
+  /// one unread message (sent by someone other than the current admin and
+  /// newer than the locally-stored "last read" timestamp for that
+  /// conversation). Mirrors the logic used by `AdminSupportInboxScreen`.
+  Future<int> fetchAdminUnreadConversationCount() async {
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return 0;
+    try {
+      final conversations = await fetchAllAdminConversations();
+      if (conversations.isEmpty) return 0;
+      final ids = conversations.map((c) => c.id).toList(growable: false);
+      final latest = await fetchLatestMessagesForConversations(ids);
+      if (latest.isEmpty) return 0;
+
+      final prefs = await SharedPreferences.getInstance();
+      var count = 0;
+      latest.forEach((conversationId, msg) {
+        if (msg.senderId == user.id) return;
+        final lastReadMillis = prefs.getInt('chat_last_read_$conversationId');
+        final lastRead = lastReadMillis != null
+            ? DateTime.fromMillisecondsSinceEpoch(lastReadMillis)
+            : null;
+        if (lastRead == null || msg.createdAt.isAfter(lastRead)) {
+          count++;
+        }
+      });
+      return count;
+    } catch (e) {
+      _logger.w('Failed to compute admin unread count: $e');
+      return 0;
     }
   }
 
@@ -336,16 +400,6 @@ class ChatService {
       final conversation = await fetchConversationById(conversationId);
       if (conversation == null) return;
 
-      // Skip email for admin conversations
-      if (conversation.isAdmin) return;
-
-      // Find the other participant (the recipient)
-      final recipientId = conversation.participantIds.firstWhere(
-        (id) => id != senderId,
-        orElse: () => '',
-      );
-      if (recipientId.isEmpty) return;
-
       // Get sender display name (prefer business name, fallback to profile name)
       String senderName;
       final businessName = await fetchBusinessNameForUser(senderId);
@@ -355,6 +409,50 @@ class ChatService {
         final names = await fetchDisplayNames([senderId]);
         senderName = names[senderId] ?? 'A Local Lekker user';
       }
+
+      if (conversation.isAdmin) {
+        // Support conversation: participant_ids contains only the member/TP.
+        // - If sender IS a participant → member/TP sent the message → notify admin(s).
+        // - If sender is NOT a participant → admin replied → notify the member/TP.
+        final senderIsParticipant =
+            conversation.participantIds.contains(senderId);
+
+        if (senderIsParticipant) {
+          // Member/TP → admin notification (edge function looks up admin profiles)
+          await _client.functions.invoke(
+            'send-chat-message-email',
+            body: {
+              'notify_admin': true,
+              'sender_name': senderName,
+              'message_preview': messageContent,
+            },
+          );
+          _logger.i('Support email dispatched to admin(s) from $senderName');
+        } else {
+          // Admin → member/TP notification
+          final recipientId = conversation.participantIds.isNotEmpty
+              ? conversation.participantIds.first
+              : '';
+          if (recipientId.isEmpty) return;
+          await _client.functions.invoke(
+            'send-chat-message-email',
+            body: {
+              'recipient_id': recipientId,
+              'sender_name': senderName,
+              'message_preview': messageContent,
+            },
+          );
+          _logger.i('Support reply email sent to member $recipientId');
+        }
+        return;
+      }
+
+      // Regular P2P conversation: find the other participant
+      final recipientId = conversation.participantIds.firstWhere(
+        (id) => id != senderId,
+        orElse: () => '',
+      );
+      if (recipientId.isEmpty) return;
 
       await _client.functions.invoke(
         'send-chat-message-email',

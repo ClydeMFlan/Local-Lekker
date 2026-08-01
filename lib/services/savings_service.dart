@@ -32,6 +32,7 @@ class SavingsService {
             deal_authorization_id,
             deal_authorizations!inner (
               amount,
+              payment_method,
               quantity,
               discount_id,
               bill_data,
@@ -58,6 +59,8 @@ class SavingsService {
       double totalTips = 0;
       double totalPaid =
           0; // Sum of what user actually paid (final_amount for bills)
+        double totalInAppPayments = 0;
+        double totalPosPayments = 0;
       int totalDeals = response.length;
       Map<String, int> partnerCounts = {};
 
@@ -69,6 +72,9 @@ class SavingsService {
           final dealAmount = authorization['amount'] != null
               ? (authorization['amount'] as num).toDouble()
               : 0.0;
+          final paymentMethod = authorization['payment_method']?.toString();
+          double methodPaymentAmount = 0.0;
+          bool hasMethodPaymentAmount = false;
 
           _logger.d('  Deal amount: $dealAmount');
 
@@ -98,17 +104,19 @@ class SavingsService {
                     ? (billData['final_amount'] as num).toDouble()
                     : 0.0;
 
-                if (originalBillAmount > 0 && discountAmount > 0) {
-                  totalSaved += discountAmount;
+                if (originalBillAmount > 0 && finalAmount > 0) {
+                  totalSaved += discountAmount; // may be 0 if no discount
                   totalSpent += originalBillAmount;
                   totalTips += tipAmount;
                   totalPaid += finalAmount; // Use final_amount for paid
+                  methodPaymentAmount = finalAmount;
+                  hasMethodPaymentAmount = true;
 
                   _logger.d(
                     '  Bill discount (from bill_data): Original: R$originalBillAmount, Discount: R$discountAmount, Tip: R$tipAmount, Paid: R$finalAmount',
                   );
                 } else {
-                  _logger.w('  ⚠️ Bill data missing or invalid');
+                  _logger.w('  ⚠️ Bill data missing or invalid (originalBillAmount=$originalBillAmount, finalAmount=$finalAmount)');
                 }
               } else {
                 // Fallback: try to parse from notes or estimate
@@ -138,6 +146,9 @@ class SavingsService {
                   }
 
                   totalSaved += saved;
+                  totalPaid += dealAmount; // Track payment even in fallback path
+                  methodPaymentAmount = dealAmount;
+                  hasMethodPaymentAmount = true;
                   _logger.d(
                     '  Bill discount (fallback): Amount paid: R$dealAmount, Saved: R$saved',
                   );
@@ -189,55 +200,109 @@ class SavingsService {
                 }
 
                 final kg = quantity / 1000.0;
-                final originalCost = itemPrice * kg;
+                double originalCost = itemPrice * kg;
 
                 double saved = 0.0;
-                if (fixedAmount > 0) {
-                  saved = fixedAmount * kg;
-                } else if (percentage > 0) {
-                  saved = originalCost * (percentage / 100);
+                if (itemPrice > 0) {
+                  if (fixedAmount > 0) {
+                    saved = fixedAmount * kg;
+                  } else if (percentage > 0) {
+                    saved = originalCost * (percentage / 100);
+                  }
+                } else {
+                  // item_price missing: reverse-calculate from discount type if possible
+                  if (percentage > 0 && dealAmount > 0) {
+                    originalCost = dealAmount / (1.0 - percentage / 100.0);
+                    saved = originalCost - dealAmount;
+                    _logger.w(
+                      '  ⚠️ Weight: item_price=0, reverse-calculated from percentage: Original=R${originalCost.toStringAsFixed(2)}, Saved=R${saved.toStringAsFixed(2)}',
+                    );
+                  } else {
+                    // Can't calculate; use paid amount as a floor for originalCost
+                    originalCost = dealAmount;
+                    saved = 0.0;
+                    _logger.w(
+                      '  ⚠️ Weight: item_price=0 and no percentage, using dealAmount as originalCost',
+                    );
+                  }
                 }
 
                 totalSpent += originalCost;
                 totalSaved += saved;
                 totalPaid +=
                     dealAmount; // Add the actual amount paid for weight deal
+                methodPaymentAmount = dealAmount;
+                hasMethodPaymentAmount = true;
                 _logger.d(
-                  '  Weight calc: ${quantity.toStringAsFixed(0)}g = ${kg.toStringAsFixed(3)}kg, Original: R$originalCost, Saved: R$saved',
+                  '  Weight calc: ${quantity.toStringAsFixed(0)}g = ${kg.toStringAsFixed(3)}kg, Original: R${originalCost.toStringAsFixed(2)}, Saved: R${saved.toStringAsFixed(2)}',
                 );
               } else {
                 // Regular item-based: dealAmount is the FINAL DISCOUNTED PRICE, not quantity!
                 // We need to reverse-calculate the quantity from the stored amount
 
-                // Calculate the discounted price per item (dealPrice)
-                double dealPrice;
-                if (fixedAmount > 0) {
-                  dealPrice = itemPrice - fixedAmount;
-                } else if (percentage > 0) {
-                  dealPrice = itemPrice * (1 - percentage / 100);
-                } else {
-                  // No discount? Shouldn't happen but handle it
-                  dealPrice = itemPrice;
-                }
-
-                // Reverse-calculate quantity: quantity = finalAmount / dealPrice
-                final quantity = dealPrice > 0 ? dealAmount / dealPrice : 0.0;
-                final originalCost = itemPrice * quantity;
-
+                double originalCost;
                 double saved = 0.0;
-                if (fixedAmount > 0) {
-                  saved = fixedAmount * quantity;
-                } else if (percentage > 0) {
-                  saved = originalCost * (percentage / 100);
+
+                if (itemPrice > 0) {
+                  // Normal path: calculate using item_price
+                  double dealPrice;
+                  if (fixedAmount > 0) {
+                    dealPrice = itemPrice - fixedAmount;
+                  } else if (percentage > 0) {
+                    dealPrice = itemPrice * (1 - percentage / 100);
+                  } else {
+                    dealPrice = itemPrice;
+                  }
+
+                  // Reverse-calculate quantity: quantity = finalAmount / dealPrice
+                  final quantity = dealPrice > 0 ? dealAmount / dealPrice : 0.0;
+                  originalCost = itemPrice * quantity;
+
+                  if (fixedAmount > 0) {
+                    saved = fixedAmount * quantity;
+                  } else if (percentage > 0) {
+                    saved = originalCost * (percentage / 100);
+                  }
+                  _logger.d(
+                    '  Item calc: Paid R$dealAmount for ${quantity.toStringAsFixed(2)}x @ R$itemPrice, Original: R${originalCost.toStringAsFixed(2)}, Saved: R${saved.toStringAsFixed(2)}',
+                  );
+                } else if (percentage > 0 && dealAmount > 0) {
+                  // item_price missing: reverse-calculate original cost from the percentage
+                  originalCost = dealAmount / (1.0 - percentage / 100.0);
+                  saved = originalCost - dealAmount;
+                  _logger.w(
+                    '  ⚠️ Item: item_price=0, reverse-calculated from percentage: Original=R${originalCost.toStringAsFixed(2)}, Saved=R${saved.toStringAsFixed(2)}',
+                  );
+                } else if (fixedAmount > 0 && dealAmount > 0) {
+                  // item_price missing but fixed discount known: assume 1 unit
+                  originalCost = dealAmount + fixedAmount;
+                  saved = fixedAmount;
+                  _logger.w(
+                    '  ⚠️ Item: item_price=0, estimated 1 unit from fixedAmount: Original=R${originalCost.toStringAsFixed(2)}, Saved=R${saved.toStringAsFixed(2)}',
+                  );
+                } else {
+                  // Cannot determine original cost; use paid amount as a floor
+                  originalCost = dealAmount;
+                  saved = 0.0;
+                  _logger.w(
+                    '  ⚠️ Item: item_price=0 with no discount params, using dealAmount as originalCost',
+                  );
                 }
 
                 totalSpent += originalCost;
                 totalSaved += saved;
                 totalPaid +=
                     dealAmount; // Add the actual amount paid for item deal
-                _logger.d(
-                  '  Item calc: Paid R$dealAmount for ${quantity.toStringAsFixed(2)}x @ R$itemPrice, Original: R${originalCost.toStringAsFixed(2)}, Saved: R${saved.toStringAsFixed(2)}',
-                );
+                methodPaymentAmount = dealAmount;
+                hasMethodPaymentAmount = true;
+              }
+            }
+
+            if (hasMethodPaymentAmount) {
+              if (paymentMethod == 'in_app') {
+                totalInAppPayments += methodPaymentAmount;
+              } else if (paymentMethod == 'pos') {
+                totalPosPayments += methodPaymentAmount;
               }
             }
           } else {
@@ -270,11 +335,13 @@ class SavingsService {
         'totalSpent': totalSpent,
         'totalPaid': totalPaid,
         'totalTips': totalTips,
+        'totalInAppPayments': totalInAppPayments,
+        'totalPosPayments': totalPosPayments,
         'mostUsedPartner': mostUsedPartner,
       };
 
       _logger.i(
-        '💰 Final savings stats: Deals=$totalDeals, Spent=R${totalSpent.toStringAsFixed(2)}, Saved=R${totalSaved.toStringAsFixed(2)}, Tips=R${totalTips.toStringAsFixed(2)}, Paid=R${totalPaid.toStringAsFixed(2)}',
+        '💰 Final savings stats: Deals=$totalDeals, Spent=R${totalSpent.toStringAsFixed(2)}, Saved=R${totalSaved.toStringAsFixed(2)}, Tips=R${totalTips.toStringAsFixed(2)}, Paid=R${totalPaid.toStringAsFixed(2)}, InApp=R${totalInAppPayments.toStringAsFixed(2)}, POS=R${totalPosPayments.toStringAsFixed(2)}',
       );
       return stats;
     } catch (e, stackTrace) {

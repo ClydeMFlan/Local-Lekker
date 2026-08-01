@@ -10,6 +10,7 @@ import 'package:local_lekker/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
 import 'package:flutter/foundation.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 
 class PaystackWebViewPage extends StatefulWidget {
   final String authorizationUrl;
@@ -41,6 +42,7 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
   bool _showManualVerify = false;
   bool _checkoutLoaded = false;
   bool _awaitingExternalAuth = false;
+  bool _paymentDeclined = false; // Paystack showed an "unable to process" / risk-block page
   bool _paymentHandled = false; // Once true, no detection mechanism can re-trigger
   String _processingStatus = 'Processing payment...';
   bool _pollingActive = false; // Prevent multiple concurrent polling timers
@@ -92,6 +94,41 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
     } catch (e) {
       _logger.w('Failed to parse reference from URL: $e');
       return null;
+    }
+  }
+
+  /// Phrases Paystack's hosted checkout shows when the bank or Paystack's
+  /// risk engine rejects a charge (e.g. the generic "Unable to process
+  /// transaction" screen — common after several rapid attempts on the same
+  /// customer). Kept specific to avoid false positives on the card form.
+  static const List<String> _declineIndicators = [
+    'unable to process transaction',
+    'unable to process your transaction',
+    'transaction could not be completed',
+    'transaction was not completed',
+    'transaction failed',
+    'payment could not be completed',
+    'this transaction has been declined',
+    'card was declined',
+    'declined by your bank',
+  ];
+
+  /// Surface a clear in-app banner when Paystack declines the charge, so the
+  /// member is not left staring at a generic error with no explanation. The
+  /// flag is re-evaluated on every poll, so it clears itself the moment the
+  /// member navigates back to the card form ("Try another card").
+  void _evaluateDeclineText(String bodyText) {
+    if (!mounted) return;
+    if (_paymentHandled || _showingSuccess || _processingPayment) {
+      if (_paymentDeclined) setState(() => _paymentDeclined = false);
+      return;
+    }
+    final looksDeclined = _declineIndicators.any(bodyText.contains);
+    if (looksDeclined != _paymentDeclined) {
+      if (looksDeclined) {
+        _logger.w('Detected Paystack decline/risk page — showing member guidance');
+      }
+      setState(() => _paymentDeclined = looksDeclined);
     }
   }
 
@@ -740,6 +777,10 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
           await _verifyAndHandlePayment(url: currentUrl);
           return;
         }
+
+        // Detect a decline/risk-block state (Paystack checkout is an SPA, so
+        // this renders without a page reload — polling is the reliable catch).
+        _evaluateDeclineText(bodyText);
       } catch (e) {
         _logger.w('Subscription polling error: $e');
       }
@@ -789,7 +830,12 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
-            setState(() => _loading = true);
+            setState(() {
+              _loading = true;
+              // A fresh navigation (e.g. "Try another card") clears any
+              // stale decline banner.
+              _paymentDeclined = false;
+            });
             _logger.d('Page started loading: $url');
             if (kDebugMode) {
               print('🌐 WebView Page Started: $url');
@@ -878,6 +924,9 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
                     return;
                   }
                 }
+
+                // Detect a decline/risk-block state on the loaded page.
+                _evaluateDeclineText(bodyText);
               } catch (e) {
                 _logger.w('Could not check page content: $e');
               }
@@ -897,29 +946,51 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
                   (function() {
                     if (window.__llOpenOverride) return;
                     window.__llOpenOverride = true;
+
+                    function _llNavigate(u) {
+                      if (!u || u === '' || u === 'about:blank') return;
+                      if (typeof PaystackPopup !== 'undefined') {
+                        PaystackPopup.postMessage(u);
+                      } else {
+                        window.location.href = u;
+                      }
+                    }
+
                     window.open = function(url, target, features) {
                       // Always return a truthy fake window so Paystack's
                       // popup-capability probe (window.open('', '_blank'))
                       // succeeds. Without this the first Pay click is seen
                       // as popup-blocked and Paystack resets the card form
                       // instead of opening the 3DS authenticate page.
+                      //
+                      // IMPORTANT: fakeWin.location uses Object.defineProperty
+                      // so that assignments like `fakeWin.location.href = url`
+                      // (Paystack's two-step popup approach: open empty popup
+                      // then set location) also trigger navigation here.
+                      var _navigated = false;
+                      var _locHref = url || '';
+                      var locObj = {};
+                      Object.defineProperty(locObj, 'href', {
+                        get: function() { return _locHref; },
+                        set: function(newUrl) {
+                          _locHref = newUrl;
+                          if (!_navigated) {
+                            _navigated = true;
+                            _llNavigate(newUrl);
+                          }
+                        },
+                        configurable: true
+                      });
                       var fakeWin = {
                         focus: function(){},
                         close: function(){},
                         closed: false,
-                        location: { href: url || '' }
+                        location: locObj
                       };
+                      // Handle direct URL (single-step window.open approach)
                       if (url && url !== '' && url !== 'about:blank') {
-                        // Use the JavaScriptChannel to hand the URL to Flutter.
-                        // This triggers a native loadRequest which runs outside
-                        // the JS execution context, preventing Paystack's own
-                        // subsequent window.location assignments from racing
-                        // against our navigation to the bank auth page.
-                        if (typeof PaystackPopup !== 'undefined') {
-                          PaystackPopup.postMessage(url);
-                        } else {
-                          window.location.href = url;
-                        }
+                        _navigated = true;
+                        _llNavigate(url);
                       }
                       return fakeWin;
                     };
@@ -1026,7 +1097,7 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
         }
       },
       child: Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: Text(_showingSuccess ? 'Payment Complete' : 'Secure Payment'),
         leading: _showingSuccess
             ? IconButton(
@@ -1038,9 +1109,7 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
               )
             : IconButton(
                 icon: const Icon(Icons.close),
-                onPressed: _processingPayment
-                    ? null
-                    : () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(context).pop(),
               ),
       ),
       body: Stack(
@@ -1048,6 +1117,59 @@ class _PaystackWebViewPageState extends State<PaystackWebViewPage> with WidgetsB
           WebViewWidget(controller: _controller),
           if (_loading && !_processingPayment)
             const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          if (_paymentDeclined && !_processingPayment && !_showingSuccess)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 16,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.red.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.red.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "Payment couldn't be processed",
+                              style: TextStyle(
+                                color: Colors.red.shade900,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Your bank or card provider declined this payment, often '
+                        'for security reasons after several attempts. You can try a '
+                        'different card above, or go back and try again in a few '
+                        'minutes. If it keeps happening, contact your bank to '
+                        'approve the payment.',
+                        style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Go back'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           if (_processingPayment)
             Container(
               color: Colors.white,

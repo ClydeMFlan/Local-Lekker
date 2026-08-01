@@ -1,0 +1,15 @@
+delete-auth-user	lib\services\admin_service.dart
+send-chat-message-email	lib\services\chat_service.dart
+send-deal-approval-email	lib\services\deal_authorization_service.dart
+send-deal-cancellation-email	lib\features\payments\pending_payments_page.dart
+send-deal-rejection-email	lib\services\deal_authorization_service.dart
+send-deal-request-email	lib\services\deal_authorization_service.dart
+send-key-request-email	lib\features\auth\business_profile_page.dart
+send-member-payment-success-email	lib\features\payments\deal_payment_webview_page.dart
+send-new-key-email	lib\features\admin\admin_partner_detail_screen.dart
+send-new-key-email	lib\features\admin\admin_partners_screen.dart
+send-new-key-email	lib\features\admin\widgets\admin_promo_key_dialog.dart
+send-payment-success-email	lib\features\payments\deal_payment_webview_page.dart
+send-promo-confirmation-email	lib\features\admin\admin_promotion_detail_screen.dart
+send-promo-signup-email	lib\features\auth\promotion_detail_page.dart
+send-tp-inquiry-email	lib\features\auth\tp_interest_form_page.dart

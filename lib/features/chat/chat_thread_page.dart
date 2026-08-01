@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:logger/logger.dart';
 import '../../services/chat_service.dart';
 import '../../services/supabase_service.dart';
@@ -22,16 +23,26 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   bool _showEmojiPicker = false;
   bool _isSending = false;
   final Map<String, String> _nameCache = {};
+  final Map<String, String> _businessNameCache = {};
   // null = not yet fetched / no logo. Use a sentinel via separate _logoFetched set.
   final Map<String, String?> _logoCache = {};
   final Set<String> _logoFetchInFlight = {};
   String? _currentUserId;
   String _threadTitle = 'Chat';
+  bool _isAdminConversation = false;
+  bool _isCurrentUserAdmin = false;
+  // Cache the messages stream so it isn't recreated on every setState()
+  // (recreating it causes StreamBuilder to fall back to ConnectionState.waiting
+  // which makes the screen flash with a CircularProgressIndicator).
+  late final Stream<List<ChatMessage>> _messagesStream;
 
   @override
   void initState() {
     super.initState();
     _currentUserId = SupabaseService.instance.getCurrentUser()?.id;
+    _messagesStream = ChatService.instance.streamMessages(
+      widget.conversationId,
+    );
     _prefetchParticipantNames();
     _loadThreadTitle();
   }
@@ -46,7 +57,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   Widget build(BuildContext context) {
     final user = SupabaseService.instance.getCurrentUser();
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: Text(_threadTitle),
         actions: [
           IconButton(
@@ -60,9 +71,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
         children: [
           Expanded(
             child: StreamBuilder<List<ChatMessage>>(
-              stream: ChatService.instance.streamMessages(
-                widget.conversationId,
-              ),
+              stream: _messagesStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   _logger.e('Stream error: ${snapshot.error}');
@@ -379,13 +388,17 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
           if (mounted) {
             setState(() {
               _threadTitle = 'Support: $displayName';
+              _isAdminConversation = true;
+              _isCurrentUserAdmin = true;
             });
           }
         } else {
           // Member/Partner viewing admin support
           if (mounted) {
             setState(() {
-              _threadTitle = 'Support Chat';
+              _threadTitle = 'Local Lekker Club';
+              _isAdminConversation = true;
+              _isCurrentUserAdmin = false;
             });
           }
         }
@@ -456,9 +469,12 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
 
     try {
       final names = await ChatService.instance.fetchDisplayNames(ids);
+      final businessNames = await ChatService.instance
+          .fetchBusinessNamesForUsers(ids);
       if (!mounted) return;
       setState(() {
         _nameCache.addAll(names);
+        _businessNameCache.addAll(businessNames);
       });
     } catch (e) {
       _logger.w('Failed to prefetch participant names: $e');
@@ -506,10 +522,31 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
         .catchError((e) {
           _logger.w('Failed to load sender names: $e');
         });
+
+    ChatService.instance
+        .fetchBusinessNamesForUsers(missingIds.toList())
+        .then((bNames) {
+          if (!mounted) return;
+          setState(() {
+            _businessNameCache.addAll(bNames);
+          });
+        })
+        .catchError((e) {
+          _logger.w('Failed to load sender business names: $e');
+        });
   }
 
+  bool _isAdminSender(String senderId) =>
+      _isAdminConversation && !_isCurrentUserAdmin && senderId != _currentUserId;
+
   String _nameFor(String senderId) {
-    // Always show the actual name from the name cache
+    if (_isAdminSender(senderId)) return 'Local Lekker Club';
+    // Prefer business name for trusted partners
+    final bName = _businessNameCache[senderId];
+    if (bName != null && bName.trim().isNotEmpty) {
+      return bName;
+    }
+    // Fall back to profile name
     final name = _nameCache[senderId];
     if (name != null && name.trim().isNotEmpty) {
       return name;
@@ -551,6 +588,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   }
 
   void _ensureLogo(String senderId) {
+    if (_isAdminSender(senderId)) return;
     if (_logoCache.containsKey(senderId)) return;
     if (_logoFetchInFlight.contains(senderId)) return;
     _logoFetchInFlight.add(senderId);
@@ -566,6 +604,20 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   }
 
   Widget _buildAvatar(String senderId) {
+    if (_isAdminSender(senderId)) {
+      return CircleAvatar(
+        radius: 16,
+        backgroundColor: Colors.white,
+        child: ClipOval(
+          child: Image.asset(
+            'assets/heart_flag.png',
+            fit: BoxFit.cover,
+            width: 32,
+            height: 32,
+          ),
+        ),
+      );
+    }
     final logo = _logoCache[senderId];
     if (logo != null && logo.isNotEmpty) {
       return CircleAvatar(

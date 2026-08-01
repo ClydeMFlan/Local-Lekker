@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 
 class MemberReceiptsPage extends StatefulWidget {
   const MemberReceiptsPage({super.key});
@@ -156,7 +157,7 @@ class _MemberReceiptsPageState extends State<MemberReceiptsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('My Receipts'),
         actions: [
           IconButton(

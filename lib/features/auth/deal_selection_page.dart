@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -22,11 +23,11 @@ class DealSelectionPage extends StatefulWidget {
 class _DealSelectionPageState extends State<DealSelectionPage> {
   // Brand colors
   // Pantone 340 C — primary action / "Request" button & header
-  static const Color _kBrandGreen = Color(0xFF007749);
+  static const Color _kBrandGreen = Color(0xFF3C8C44);
   // 50% lighter shade of the brand green — secondary green accents
   static const Color _kAccentGreen = Color(0xFF7FBBA4);
-  // Brand blue — partner/category accents (was _kBrandBlue / Colors.teal)
-  static const Color _kBrandBlue = Color(0xFF001489);
+  // Brand blue — partner/category accents (was _kBrandBlue / AppColors.primary)
+  static const Color _kBrandBlue = Color(0xFF0E5BA0);
 
   final DiscountService _discountService = DiscountService();
   Map<String, List<Map<String, dynamic>>> _dealsByPartner = {};
@@ -515,10 +516,8 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: Text(widget.isAdminMode ? 'Browse Deals (Admin)' : 'Browse Deals'),
-        backgroundColor: _kBrandGreen,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -1826,7 +1825,6 @@ class _DealSelectionPageState extends State<DealSelectionPage> {
 
   Widget _buildDealCard(Map<String, dynamic> deal) {
     final discount = Discount.fromJson(deal);
-    final dealId = deal['id'] as String;
     final isWeightBased = discount.isWeightBased;
     final isBillDiscount = discount.isBillDiscount;
 
@@ -2367,9 +2365,9 @@ class BillDiscountDialog extends StatefulWidget {
 
 class _BillDiscountDialogState extends State<BillDiscountDialog> {
   // Brand colors (match deal card)
-  static const Color _kRequestGreen = Color(0xFF007749);
+  static const Color _kRequestGreen = Color(0xFF3C8C44);
   static const Color _kAccentGreen = Color(0xFF7FBBA4);
-  static const Color _kBrandBlue = Color(0xFF001489);
+  static const Color _kBrandBlue = Color(0xFF0E5BA0);
 
   final TextEditingController _billAmountController = TextEditingController();
   final Map<String, int> _exclusionQuantities =
@@ -2377,7 +2375,7 @@ class _BillDiscountDialogState extends State<BillDiscountDialog> {
   bool _addTip = false;
   bool _tipIsPercentage = true;
   final TextEditingController _tipController = TextEditingController();
-  String _paymentMethod = 'pos'; // Default to POS payment
+  String _paymentMethod = 'in_app'; // Default to in-app payment (consistent with all other deal types)
 
   @override
   void dispose() {

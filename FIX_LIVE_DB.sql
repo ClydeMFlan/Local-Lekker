@@ -246,10 +246,28 @@ END $$;
 -- =====================================================================
 
 -- notifications table MUST have realtime for push notification stream
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
-
 -- chat_messages table MUST have realtime for live chat
-ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+-- Idempotent: only add each table if it is not already a member of the publication.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'chat_messages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+  END IF;
+END $$;
 
 -- =====================================================================
 -- VERIFICATION: Re-run checks to confirm all fixes applied

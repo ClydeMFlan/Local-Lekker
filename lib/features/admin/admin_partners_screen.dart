@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
+import 'dart:io';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/admin_service.dart';
@@ -9,6 +10,7 @@ import '../auth/discount_management_page.dart';
 import 'admin_add_partner_screen.dart';
 import 'admin_edit_partner_screen.dart';
 import 'admin_partner_detail_screen.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 enum _PartnerStatus { activated, pending }
 
@@ -16,11 +18,14 @@ class AdminPartnersScreen extends StatefulWidget {
   const AdminPartnersScreen({super.key});
 
   @override
-  State<AdminPartnersScreen> createState() => _AdminPartnersScreenState();
+  State<AdminPartnersScreen> createState() => AdminPartnersScreenState();
 }
 
-class _AdminPartnersScreenState extends State<AdminPartnersScreen>
+class AdminPartnersScreenState extends State<AdminPartnersScreen>
     with SingleTickerProviderStateMixin {
+  /// Public entry point used by the parent dashboard's AppBar action.
+  Future<void> navigateToAddPartner() => _navigateToAddPartner();
+
   final _logger = Logger();
   final _adminService = AdminService();
   final _supabase = Supabase.instance.client;
@@ -82,83 +87,114 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
   }
 
   Future<void> _fetchPartners({required bool silent}) async {
-    try {
-      // 1) Load all non-deactivated trusted partners in ONE query
-      final allTps = await _supabase
-          .from('profiles')
-          .select('*')
-          .eq('role', 'trusted_partner')
-          .or('is_deactivated.is.null,is_deactivated.eq.false')
-          .order('created_at', ascending: false);
+    const maxAttempts = 2;
+    Object? lastError;
 
-      // 2) Batch-fetch business info for ALL partners in ONE query
-      final tpIds = allTps
-          .map<String>((p) => p['id'] as String)
-          .toList();
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        // 1) Load all non-deactivated trusted partners in ONE query
+        final allTps = await _supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'trusted_partner')
+            .neq('is_deactivated', true)
+            .order('created_at', ascending: false);
 
-      final Map<String, Map<String, dynamic>> bizByOwner = {};
-      final Map<String, String> tpBizNames = {};
-      if (tpIds.isNotEmpty) {
-        final results = await Future.wait([
-          _supabase
-              .from('businesses')
-              .select('owner_member_id, name, category, city')
-              .inFilter('owner_member_id', tpIds),
-          _supabase
-              .from('trusted_partners')
-              .select('user_id, business_name')
-              .inFilter('user_id', tpIds),
-        ]);
-        for (final biz in results[0] as List) {
-          bizByOwner[biz['owner_member_id'] as String] =
-              Map<String, dynamic>.from(biz);
-        }
-        for (final tp in results[1] as List) {
-          final bn = tp['business_name']?.toString() ?? '';
-          if (bn.isNotEmpty) {
-            tpBizNames[tp['user_id'] as String] = bn;
+        // 2) Batch-fetch business info for ALL partners in ONE query
+        final tpIds = allTps
+            .map<String>((p) => p['id'] as String)
+            .toList();
+
+        final Map<String, Map<String, dynamic>> bizByOwner = {};
+        final Map<String, String> tpBizNames = {};
+        if (tpIds.isNotEmpty) {
+          final results = await Future.wait([
+            _supabase
+                .from('businesses')
+                .select('owner_member_id, name, category, city')
+                .inFilter('owner_member_id', tpIds),
+            _supabase
+                .from('trusted_partners')
+                .select('user_id, business_name')
+                .inFilter('user_id', tpIds),
+          ]);
+          for (final biz in results[0] as List) {
+            bizByOwner[biz['owner_member_id'] as String] =
+                Map<String, dynamic>.from(biz);
+          }
+          for (final tp in results[1] as List) {
+            final bn = tp['business_name']?.toString() ?? '';
+            if (bn.isNotEmpty) {
+              tpBizNames[tp['user_id'] as String] = bn;
+            }
           }
         }
-      }
 
-      // 3) Merge & split in-memory (instant, no extra queries)
-      final activated = <Map<String, dynamic>>[];
-      final pending = <Map<String, dynamic>>[];
-      for (final p in allTps) {
-        final map = Map<String, dynamic>.from(p);
-        final biz = bizByOwner[p['id']];
-        if (biz != null) {
-          map['business_name'] = biz['name'];
-          map['business_category'] = biz['category'];
-          map['business_city'] = biz['city'];
-        } else if (tpBizNames.containsKey(p['id'])) {
-          // Fallback: use business_name from trusted_partners table
-          map['business_name'] = tpBizNames[p['id']];
+        // 3) Merge & split in-memory (instant, no extra queries)
+        final activated = <Map<String, dynamic>>[];
+        final pending = <Map<String, dynamic>>[];
+        for (final p in allTps) {
+          final map = Map<String, dynamic>.from(p);
+          final biz = bizByOwner[p['id']];
+          if (biz != null) {
+            map['business_name'] = biz['name'];
+            map['business_category'] = biz['category'];
+            map['business_city'] = biz['city'];
+          } else if (tpBizNames.containsKey(p['id'])) {
+            // Fallback: use business_name from trusted_partners table
+            map['business_name'] = tpBizNames[p['id']];
+          }
+          if (map['partner_terms_accepted'] == true) {
+            activated.add(map);
+          } else {
+            pending.add(map);
+          }
         }
-        if (map['partner_terms_accepted'] == true) {
-          activated.add(map);
-        } else {
-          pending.add(map);
+
+        // 4) Update cache
+        _cachedActivated = activated;
+        _cachedPending = pending;
+        _cacheTimestamp = DateTime.now();
+
+        if (!mounted) return;
+        setState(() {
+          _activatedPartners = activated;
+          _pendingPartners = pending;
+          _isLoading = false;
+        });
+        return;
+      } catch (e) {
+        lastError = e;
+        final isTransientNetworkError = e is SocketException ||
+            e.toString().contains('SocketException') ||
+            e.toString().contains('ClientException') ||
+            e.toString().contains('Failed host lookup') ||
+            e.toString().contains('connection abort');
+
+        if (!(isTransientNetworkError && attempt < maxAttempts)) {
+          break;
         }
+        _logger.w('Transient partner fetch failure (attempt $attempt): $e');
       }
+    }
 
-      // 4) Update cache
-      _cachedActivated = activated;
-      _cachedPending = pending;
-      _cacheTimestamp = DateTime.now();
-
-      if (!mounted) return;
-      setState(() {
-        _activatedPartners = activated;
-        _pendingPartners = pending;
-        _isLoading = false;
-      });
-    } catch (e) {
-      _logger.e('Error loading partners: $e');
-      if (!mounted) return;
-      if (!silent) setState(() => _isLoading = false);
+    _logger.e('Error loading partners: $lastError');
+    if (!mounted) return;
+    if (!silent) {
+      setState(() => _isLoading = false);
+      final isNetworkError = lastError is SocketException ||
+          lastError.toString().contains('SocketException') ||
+          lastError.toString().contains('ClientException') ||
+          lastError.toString().contains('Failed host lookup') ||
+          lastError.toString().contains('connection abort');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load partners: $e')),
+        SnackBar(
+          content: Text(
+            isNetworkError
+                ? 'No internet connection. Check your network and try again.'
+                : 'Failed to load partners: $lastError',
+          ),
+        ),
       );
     }
   }
@@ -235,7 +271,16 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
     if (confirmed != true) return;
 
     try {
-      await _adminService.deleteTrustedPartner(partner['id']);
+      final result = await _adminService.deleteTrustedPartner(partner['id']);
+      if (result['success'] != true) {
+        final backendMessage = result['message']?.toString();
+        throw Exception(
+          backendMessage == null || backendMessage.isEmpty
+              ? 'Failed to delete trusted partner.'
+              : backendMessage,
+        );
+      }
+
       invalidateCache();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -398,9 +443,7 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Column(
+    return Column(
       children: [
         // Search bar
         Padding(
@@ -429,7 +472,7 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
         // Tabs
         TabBar(
           controller: _tabController,
-          labelColor: Colors.teal,
+          labelColor: AppColors.primary,
           unselectedLabelColor: Colors.grey,
           tabs: [
             Tab(text: 'Activated (${_activatedPartners.length})'),
@@ -453,20 +496,6 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
                     ),
                   ],
                 ),
-        ),
-      ],
-    ),
-        // FAB to add new trusted partner
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton.extended(
-            onPressed: _navigateToAddPartner,
-            backgroundColor: Colors.teal,
-            foregroundColor: Colors.white,
-            icon: const Icon(Icons.person_add),
-            label: const Text('Add Partner'),
-          ),
         ),
       ],
     );
@@ -535,10 +564,10 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
               },
               child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: isActivated ? Colors.teal.shade100 : Colors.orange.shade100,
+                backgroundColor: isActivated ? AppColors.primarySwatch.shade100 : Colors.orange.shade100,
                 child: Icon(
                   isActivated ? Icons.store : Icons.hourglass_top,
-                  color: isActivated ? Colors.teal.shade700 : Colors.orange.shade700,
+                  color: isActivated ? AppColors.primarySwatch.shade700 : Colors.orange.shade700,
                 ),
               ),
               title: Row(
@@ -626,7 +655,7 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
                     onPressed: () => _issueMemberKey(p),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.local_offer, color: Colors.teal, size: 20),
+                    icon: const Icon(Icons.local_offer, color: AppColors.primary, size: 20),
                     tooltip: 'Add Deal',
                     visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -662,7 +691,7 @@ class _AdminPartnersScreenState extends State<AdminPartnersScreen>
                       const PopupMenuItem(
                         value: 'edit',
                         child: ListTile(
-                          leading: Icon(Icons.edit, color: Colors.teal),
+                          leading: Icon(Icons.edit, color: AppColors.primary),
                           title: Text('Edit Partner'),
                           dense: true,
                           contentPadding: EdgeInsets.zero,

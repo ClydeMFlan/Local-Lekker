@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/supabase_service.dart';
 import '../../services/navigation_service.dart';
 
@@ -56,7 +57,7 @@ class _TrustedPartnerTermsPageState extends State<TrustedPartnerTermsPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Trusted Partner Agreement'),
         automaticallyImplyLeading: false, // enforce acceptance before leaving
       ),

@@ -103,13 +103,13 @@ class _SavingsSummaryCardState extends State<SavingsSummaryCard>
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF001489).withValues(
+                              color: const Color(0xFF0E5BA0).withValues(
                                 alpha: 0.95,
                               ),
                               borderRadius: BorderRadius.circular(25),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF001489).withValues(
+                                  color: const Color(0xFF0E5BA0).withValues(
                                     alpha: 0.4,
                                   ),
                                   blurRadius: 12,
@@ -285,11 +285,11 @@ class _SavingsSummaryCardState extends State<SavingsSummaryCard>
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFB81C).withValues(alpha: 0.95),
+                        color: const Color(0xFFF4B400).withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFFB81C).withValues(
+                            color: const Color(0xFFF4B400).withValues(
                               alpha: 0.5,
                             ),
                             blurRadius: 16,
@@ -312,7 +312,7 @@ class _SavingsSummaryCardState extends State<SavingsSummaryCard>
                             child: Text(
                               widget.totalSaved > 0
                                   ? 'Keep using Local Lekker to maximize your savings!'
-                                  : 'Click to start saving with Local Lekkers Trusted partners',
+                                  : 'Click to start saving with Local Lekker\'s Trusted partners',
                               style: const TextStyle(
                                 color: Colors.black87,
                                 fontSize: 11,

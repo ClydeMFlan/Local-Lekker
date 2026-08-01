@@ -6,8 +6,59 @@ import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 
+/// Thrown when a member tries to save more than [PaystackService.maxSavedCards]
+/// cards. The UI catches this to prompt the member to delete an existing card
+/// before adding a new one.
+class CardLimitException implements Exception {
+  CardLimitException(this.maxCards);
+
+  final int maxCards;
+
+  @override
+  String toString() =>
+      'You can only save up to $maxCards cards. Delete a card to add a new one.';
+}
+
 class PaystackService {
   final Logger _logger = Logger();
+
+  /// Maximum number of active saved cards a member can keep on file at once
+  /// (the original signup card plus two additional cards). To add another card
+  /// beyond this limit the member must first delete an existing one.
+  static const int maxSavedCards = 3;
+
+  String? get _paystackLogoUrl {
+    final raw = dotenv.env['PAYSTACK_LOGO_URL']?.trim();
+    if (raw != null && raw.isNotEmpty) {
+      return raw;
+    }
+
+    // For Flutter web local testing, fall back to a tighter brand asset that
+    // Paystack can fetch from the same local dev server. This makes the hosted
+    // card-details page materially more visible than the padded wordmark.
+    if (kIsWeb && (Uri.base.scheme == 'http' || Uri.base.scheme == 'https')) {
+      return Uri.base.resolve('assets/heart_flag.png').toString();
+    }
+
+    return null;
+  }
+
+  Map<String, dynamic> _buildCheckoutCustomizations({
+    required String title,
+    required String description,
+  }) {
+    final customizations = <String, dynamic>{
+      'title': title,
+      'description': description,
+    };
+
+    final logoUrl = _paystackLogoUrl;
+    if (logoUrl != null) {
+      customizations['logo'] = logoUrl;
+    }
+
+    return customizations;
+  }
 
   // ── Server-side proxy ──────────────────────────────────────────────
   // All Paystack secret-key calls are routed through the paystack-proxy
@@ -30,12 +81,32 @@ class PaystackService {
     required String path,
     String method = 'GET',
     Map<String, dynamic>? body,
-    int maxRetries = 2,
+    int maxRetries = 1,
+    Duration requestTimeout = const Duration(seconds: 15),
   }) async {
     final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
-    final session = Supabase.instance.client.auth.currentSession;
-    final accessToken = session?.accessToken;
+    final auth = Supabase.instance.client.auth;
+    Session? session = auth.currentSession;
 
+    // Refresh the token if it is missing, already expired, or within
+    // 60s of expiring — otherwise the Edge Function's local JWT verify
+    // will reject it with 401 "Invalid or expired token".
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final expiresAt = session?.expiresAt ?? 0;
+    final needsRefresh = session == null || expiresAt - nowSec < 60;
+    if (needsRefresh) {
+      try {
+        _logger.i('PaystackService: Refreshing expired/near-expired session');
+        final refreshed = await auth.refreshSession().timeout(
+          const Duration(seconds: 8),
+        );
+        session = refreshed.session ?? auth.currentSession;
+      } catch (e) {
+        _logger.w('PaystackService: Session refresh failed: $e');
+      }
+    }
+
+    final accessToken = session?.accessToken;
     if (accessToken == null || accessToken.isEmpty) {
       _logger.e('PaystackService: No valid session token for proxy request to $path');
       // Return a synthetic 401 response so callers handle it gracefully
@@ -57,13 +128,34 @@ class PaystackService {
       if (body != null) 'body': body,
     });
 
+    bool retriedAfter401 = false;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         final response = await http.post(
           url,
           headers: headers,
           body: requestBody,
-        ).timeout(const Duration(seconds: 30));
+        ).timeout(requestTimeout);
+
+        // If the proxy still says "Invalid or expired token", force a
+        // refresh and retry once — covers the edge case where the local
+        // clock skew differs from the Edge Function's server clock.
+        if (response.statusCode == 401 && !retriedAfter401) {
+          retriedAfter401 = true;
+          _logger.w('PaystackService: Got 401 from proxy, forcing session refresh and retrying');
+          try {
+            final refreshed = await auth.refreshSession().timeout(
+              const Duration(seconds: 8),
+            );
+            final newToken = (refreshed.session ?? auth.currentSession)?.accessToken;
+            if (newToken != null && newToken.isNotEmpty) {
+              headers['Authorization'] = 'Bearer $newToken';
+              continue; // retry with fresh token (doesn't consume an attempt)
+            }
+          } catch (e) {
+            _logger.e('PaystackService: Forced refresh after 401 failed: $e');
+          }
+        }
 
         if (response.statusCode >= 400) {
           _logger.e('PaystackService: Proxy $method $path returned ${response.statusCode}: ${response.body}');
@@ -145,6 +237,10 @@ class PaystackService {
     String? subaccountCode, // Optional subaccount for split payments
     String? businessName, // Optional - used for Paystack customizations
     Map<String, dynamic>? extraMetadata, // Extra metadata (e.g. deal_authorization_id)
+    bool useCustomerCode =
+        true, // When false, do not attach Paystack customer_code so the
+              // hosted checkout shows the new-card entry form instead of
+              // defaulting to the member's saved card.
   }) async {
     // In development mode, simulate successful payment without Paystack redirect
     if (_isDevelopmentMode) {
@@ -167,12 +263,20 @@ class PaystackService {
           'locallekker://payment/callback';
 
       // If we have a Paystack customer_code saved for this user, include it
-      // so Paystack shows the saved card and only requires CVV.
-      String? customerCode = await getPaystackCustomerCode(userId);
-      customerCode ??= await _ensurePaystackCustomer(
-        userId: userId,
-        email: userEmail,
-      );
+      // so Paystack shows the saved card and only requires CVV. Skipped when
+      // useCustomerCode == false (member explicitly wants to enter a new card).
+      String? customerCode;
+      if (useCustomerCode) {
+        customerCode = await getPaystackCustomerCode(userId);
+        customerCode ??= await _ensurePaystackCustomer(
+          userId: userId,
+          email: userEmail,
+        );
+      } else {
+        _logger.i(
+          'PaystackService: Skipping customer_code attachment (new card flow)',
+        );
+      }
 
       final String transactionReference =
           'one_time_${userId}_${DateTime.now().millisecondsSinceEpoch}';
@@ -205,13 +309,17 @@ class PaystackService {
       // Add subaccount for DIRECT settlement to partner if provided
       if (subaccountCode != null && subaccountCode.isNotEmpty) {
         paymentData['subaccount'] = subaccountCode;
-        // Ensure fees are borne by the subaccount (partner) so platform is not charged
-        paymentData['bearer'] = 'subaccount';
+        // IMPORTANT: Use bearer='account' so Paystack deducts its transaction fee
+        // from the Local Lekker main account balance, NOT from the subaccount.
+        // bearer='subaccount' caused ZAR transactions to go pending for ~24h then
+        // fail because Paystack cannot verify SA bank accounts and the fee
+        // deduction from the unverified subaccount triggers a settlement failure.
+        paymentData['bearer'] = 'account';
         _logger.i(
           'PaystackService: Including subaccount in payment: $subaccountCode',
         );
         if (kDebugMode) {
-          print('✅ SUBACCOUNT INCLUDED: $subaccountCode');
+          print('✅ SUBACCOUNT INCLUDED: $subaccountCode (bearer=account)');
         }
       } else {
         _logger.w(
@@ -222,14 +330,14 @@ class PaystackService {
         }
       }
 
-      // Add visual customization for checkout title/description
-      final displayName = await _getMemberDisplayName(userId, userEmail);
-      paymentData['customizations'] = {
-        'title': businessName != null && businessName.isNotEmpty
-            ? '$displayName paying $businessName'
-            : displayName,
-        'description': itemName,
-      };
+      // Keep the hosted checkout brand-forward so the Local Lekker logo has
+      // maximum visibility on Paystack's page.
+      paymentData['customizations'] = _buildCheckoutCustomizations(
+        title: 'Local Lekker',
+        description: businessName != null && businessName.isNotEmpty
+            ? '$itemName via $businessName'
+            : itemName,
+      );
 
       // Log full payload for debugging
       if (kDebugMode) {
@@ -237,11 +345,14 @@ class PaystackService {
       }
       _logger.i('🔍 Full payment data: $paymentData');
 
-      // Initialize transaction via server-side proxy
+      // Initialize transaction via server-side proxy.
+      // Use a 10s per-attempt timeout so two attempts + delay (10+2+10=22s)
+      // complete well within the 35s outer timeout applied by the caller.
       final initResponse = await _proxyRequest(
         path: '/transaction/initialize',
         method: 'POST',
         body: paymentData,
+        requestTimeout: const Duration(seconds: 10),
       );
 
       if (initResponse.statusCode == 200) {
@@ -283,13 +394,42 @@ class PaystackService {
         } catch (e) {
           if (e.toString().contains('invalid_api_key')) rethrow;
         }
+
+        String? parsedMessage;
+        try {
+          final errorData = jsonDecode(initResponse.body);
+          parsedMessage =
+              (errorData['message'] ?? errorData['error'] ?? '').toString();
+        } catch (_) {
+          parsedMessage = null;
+        }
+
+        final isNetworkFailure = initResponse.statusCode == 503 &&
+            (parsedMessage?.toLowerCase().contains('connection failed') ??
+                false);
+        final isAuthFailure = initResponse.statusCode == 401;
+
+        if (isNetworkFailure) {
+          throw Exception(
+            'Failed to initialize Paystack payment: network_error - ${parsedMessage ?? 'Connection failed'}',
+          );
+        }
+
+        if (isAuthFailure) {
+          throw Exception(
+            'Failed to initialize Paystack payment: auth_error - ${parsedMessage ?? 'Session expired. Please sign in again.'}',
+          );
+        }
+
         throw Exception(
-          'Failed to initialize Paystack payment: ${initResponse.body}',
+          'Failed to initialize Paystack payment: server_error (${initResponse.statusCode}) - ${parsedMessage?.isNotEmpty == true ? parsedMessage : initResponse.body}',
         );
       }
     } catch (e) {
       _logger.e('PaystackService: Error starting one-time payment: $e');
-      throw Exception('Failed to start payment: $e');
+      // Re-throw without wrapping so the caller sees the underlying
+      // status/body instead of "Failed to start payment: Exception: ..."
+      rethrow;
     }
   }
 
@@ -540,7 +680,8 @@ class PaystackService {
           .from('profiles')
           .select('name, surname')
           .eq('id', userId)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 3));
       if (profile != null) {
         final first = (profile['name'] as String?)?.trim() ?? '';
         final last = (profile['surname'] as String?)?.trim() ?? '';
@@ -853,27 +994,76 @@ class PaystackService {
 
   // Helper method to get bank name from bank code
   String _getBankNameFromCode(String bankCode) {
-    // This is a simplified reverse mapping - in production you'd use Paystack's bank list API
     switch (bankCode) {
       case '632005':
         return 'Absa Bank';
+      case '410506':
+        return 'Access Bank';
+      case '430000':
+        return 'African Bank';
+      case '584000':
+        return 'African Business Bank';
+      case '800000':
+        return 'Albaraka Bank';
+      case '686000':
+        return 'Bank of China';
+      case '888000':
+        return 'Bank Zero';
+      case '462005':
+        return 'Bidvest Bank';
       case '470010':
         return 'Capitec Bank';
+      case '450105':
+        return 'Capitec Business';
+      case '350005':
+        return 'CitiBank';
+      case '679000':
+        return 'Discovery Bank';
+      case '591000':
+        return 'Finbond EPE';
+      case '589000':
+        return 'Finbond Mutual Bank';
       case '250655':
       case '253665': // Alternative FNB code
         return 'FNB';
-      case '198765':
-        return 'Nedbank';
-      case '051001':
-        return 'Standard Bank';
+      case '201419':
+        return 'FirstRand Bank';
+      case '570226':
+        return 'HBZ Bank';
+      case '587000':
+        return 'HSBC';
       case '580105':
         return 'Investec';
-      case '430000':
-        return 'African Bank';
-      case '679000':
-        return 'Discovery Bank';
+      case '432000':
+        return 'JP Morgan';
+      case '198765':
+        return 'Nedbank';
+      case '585001':
+        return 'Olympus Mobile';
+      case '352000':
+        return 'OM Bank';
+      case '261251':
+        return 'Rand Merchant Bank';
+      case '222026':
+        return 'RMB Private Bank';
+      case '683000':
+        return 'SASFIN Bank';
+      case '351005':
+        return 'Société Générale';
+      case '410105':
+        return 'South African Bank of Athens';
+      case '051001':
+        return 'Standard Bank';
+      case '730020':
+        return 'Standard Chartered';
+      case '678910':
+        return 'TymeBank';
+      case '431010':
+        return 'Ubank';
+      case '588000':
+        return 'VBS Mutual Bank';
       default:
-        return 'Other'; // Changed from 'Unknown Bank' to match dropdown options
+        return 'Other';
     }
   }
 
@@ -963,6 +1153,22 @@ class PaystackService {
     }
   }
 
+  /// Returns how many active (non-deleted) saved cards a member currently has.
+  /// Used to enforce the [maxSavedCards] limit before adding a new card.
+  Future<int> getActiveCardCount(String userId) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('members_card_details')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_active', true);
+      return response.length;
+    } catch (e) {
+      _logger.e('PaystackService: Error counting saved cards: $e');
+      return 0;
+    }
+  }
+
   Future<String?> getPrimaryPaymentMethod(String userId) async {
     try {
       final response = await Supabase.instance.client
@@ -995,15 +1201,48 @@ class PaystackService {
     String authorizationCode,
   ) async {
     try {
+      final client = Supabase.instance.client;
+
+      // Check whether the card being deleted is the member's primary card so
+      // we can promote a replacement afterwards. Leaving a member with no
+      // primary card would break subscription auto-renewal (which charges the
+      // primary authorization).
+      final target = await client
+          .from('members_card_details')
+          .select('is_primary')
+          .eq('user_id', userId)
+          .eq('authorization_code', authorizationCode)
+          .eq('is_active', true)
+          .maybeSingle();
+      final wasPrimary = target != null && target['is_primary'] == true;
+
       // Soft delete by setting is_active to false
-      await Supabase.instance.client
+      await client
           .from('members_card_details')
           .update({
             'is_active': false,
+            'is_primary': false,
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('user_id', userId)
           .eq('authorization_code', authorizationCode);
+
+      // If we just removed the primary card, promote the most recently added
+      // remaining active card so the member always has a usable primary.
+      if (wasPrimary) {
+        final remaining = await client
+            .from('members_card_details')
+            .select('authorization_code')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .order('created_at', ascending: false)
+            .limit(1)
+            .maybeSingle();
+        final newPrimaryCode = remaining?['authorization_code'] as String?;
+        if (newPrimaryCode != null && newPrimaryCode.isNotEmpty) {
+          await setPrimaryPaymentMethod(userId, newPrimaryCode);
+        }
+      }
 
       _logger.i('PaystackService: Payment method deleted successfully');
     } catch (e) {
@@ -1052,6 +1291,7 @@ class PaystackService {
     required double amount,
     required String userId,
     required String userEmail,
+    String? cvv,
     String paymentType = 'subscription',
     String? subaccountCode,
     Map<String, dynamic>? extraMetadata,
@@ -1083,10 +1323,18 @@ class PaystackService {
         },
       };
 
-      // Add subaccount for direct settlement to partner
+      // Include CVV for the charge if the member entered it (some card types
+      // require CVV verification on charge_authorization).
+      if (cvv != null && cvv.isNotEmpty) {
+        body['cvv'] = cvv;
+      }
+
+      // Add subaccount for direct settlement to partner.
+      // bearer='account' so Paystack fees come from the Local Lekker main
+      // balance, not the subaccount — avoids ZAR settlement failure.
       if (subaccountCode != null && subaccountCode.isNotEmpty) {
         body['subaccount'] = subaccountCode;
-        body['bearer'] = 'subaccount';
+        body['bearer'] = 'account';
       }
 
       final chargeResponse = await _proxyRequest(
@@ -1103,10 +1351,13 @@ class PaystackService {
           _logger.i('PaystackService: Saved card charged successfully');
           return 'success';
         } else {
+          final gatewayResponse = responseData['data']?['gateway_response']
+              as String? ?? responseData['message'] as String? ?? status;
           _logger.w(
-            'PaystackService: Saved card charge failed with status: $status',
+            'PaystackService: Saved card charge failed: $gatewayResponse (status=$status)',
           );
-          return null;
+          // Return the gateway message so the UI can surface it.
+          return 'failed:$gatewayResponse';
         }
       } else {
         throw Exception('Failed to charge saved card: ${chargeResponse.body}');
@@ -1173,23 +1424,91 @@ class PaystackService {
     Map<String, dynamic> cardDetails,
   ) async {
     try {
-      // Save payment method to members_card_details table
-      await Supabase.instance.client.from('members_card_details').insert({
-        'user_id': userId,
-        'authorization_code': authorizationCode,
+      final makePrimary = cardDetails['is_primary'] == true;
+      final client = Supabase.instance.client;
+
+      // Build the card payload once so the insert and the dedup-update paths
+      // stay in sync.
+      final cardPayload = <String, dynamic>{
         'card_type': cardDetails['card_type'] ?? 'card',
         'last4': cardDetails['last4'] ?? '****',
         'exp_month': cardDetails['exp_month'],
         'exp_year': cardDetails['exp_year'],
         'bank': cardDetails['bank'],
         'brand': cardDetails['brand'],
-        'is_primary': cardDetails['is_primary'] ?? false,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      // The partial unique index `members_card_details_user_primary`
+      // (UNIQUE (user_id) WHERE is_primary = true) allows only ONE primary
+      // card per user. Inserting a second row with is_primary=true throws a
+      // unique-constraint violation. This bit members who already had a
+      // primary card (e.g. the signup card) and then added another card and
+      // marked it primary — the insert failed, so the new card was never
+      // saved and the add-card flow appeared broken. Demote any existing
+      // primary BEFORE inserting the new primary row so there is never more
+      // than one primary at a time.
+      if (makePrimary) {
+        await client
+            .from('members_card_details')
+            .update({
+              'is_primary': false,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', userId)
+            .eq('is_primary', true);
+      }
+
+      // Dedup: if this exact Paystack authorization is already on file (active
+      // or previously soft-deleted), reactivate/refresh it instead of inserting
+      // a duplicate row. Paying with the same card twice must NOT create two
+      // saved-card entries — that would both clutter the card picker and
+      // wrongly count against the max-cards limit.
+      final existing = await client
+          .from('members_card_details')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('authorization_code', authorizationCode)
+          .maybeSingle();
+
+      if (existing != null) {
+        await client
+            .from('members_card_details')
+            .update({
+              ...cardPayload,
+              'is_primary': makePrimary,
+              'is_active': true,
+            })
+            .eq('id', existing['id']);
+        _logger.i('PaystackService: Existing payment method refreshed');
+        return;
+      }
+
+      // New card: enforce the max-cards limit before inserting. The database
+      // also enforces this via a trigger as a defensive backstop, but checking
+      // here lets us surface a clean, typed error to the UI.
+      final activeCount = await getActiveCardCount(userId);
+      if (activeCount >= maxSavedCards) {
+        _logger.w(
+          'PaystackService: Card limit reached ($activeCount/$maxSavedCards) '
+          'for user $userId — refusing to add new card',
+        );
+        throw CardLimitException(maxSavedCards);
+      }
+
+      // Save payment method to members_card_details table
+      await client.from('members_card_details').insert({
+        'user_id': userId,
+        'authorization_code': authorizationCode,
+        ...cardPayload,
+        'is_primary': makePrimary,
         'is_active': true,
         'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
       });
 
       _logger.i('PaystackService: Payment method added successfully');
+    } on CardLimitException {
+      rethrow;
     } catch (e) {
       _logger.e('PaystackService: Error adding payment method: $e');
       throw Exception('Failed to add payment method: $e');
@@ -1217,6 +1536,7 @@ class PaystackService {
     required int frequency,
     required String userId,
     required String userEmail,
+    bool useCustomerCode = true,
   }) async {
     // In development mode, simulate successful subscription initialization
     if (_isDevelopmentMode) {
@@ -1229,16 +1549,48 @@ class PaystackService {
 
     try {
       // Get the plan code from environment variables based on frequency
-      final planCode = _getPlanCode(frequency);
+      String? planCode = _getPlanCode(frequency);
 
       if (planCode == null || planCode.isEmpty) {
-        _logger.e(
-          'PaystackService: PAYSTACK_MONTHLY_PLAN_CODE is missing from .env! '
-          'Create a plan in Paystack dashboard and add its code to .env',
+        // No env-configured plan code — try to auto-create/fetch one on
+        // Paystack (matches the original behaviour before the promo refactor).
+        // This keeps real subscription auto-renewal working without requiring
+        // PAYSTACK_MONTHLY_PLAN_CODE to be set in .env.
+        _logger.w(
+          'PaystackService: PAYSTACK_MONTHLY_PLAN_CODE not set — attempting '
+          'to auto-create/fetch a Paystack plan for $plan ($frequency months).',
         );
-        throw Exception(
-          'No Paystack plan code configured for frequency: $frequency months. '
-          'Ensure PAYSTACK_MONTHLY_PLAN_CODE is set in .env.',
+        planCode = await _ensurePaystackPlan(
+          plan: plan,
+          amount: amount,
+          frequency: frequency,
+        );
+      }
+
+      if (planCode == null || planCode.isEmpty) {
+        // Auto-create also failed — fall back to a one-off transaction so the
+        // member can still pay. SubscriptionService.processManualPayment will
+        // activate the 30-day local subscription on success. The member will
+        // need to renew manually until a plan code is available.
+        _logger.w(
+          'PaystackService: Plan auto-create failed — falling back to one-off '
+          'transaction. Add PAYSTACK_MONTHLY_PLAN_CODE to .env to re-enable '
+          'Paystack-side auto-renewal.',
+        );
+        return await startOneTimePayment(
+          itemName: 'Local Lekker $plan subscription',
+          itemDescription: 'Local Lekker $plan subscription',
+          amount: amount,
+          userId: userId,
+          userEmail: userEmail,
+          useCustomerCode: useCustomerCode,
+          extraMetadata: {
+            'subscription_type': 'manual_renewal',
+            'frequency': frequency,
+            'plan_name': plan,
+            'payment_type': 'subscription',
+            'fallback_reason': 'no_plan_code_available',
+          },
         );
       }
 
@@ -1246,11 +1598,16 @@ class PaystackService {
         'PaystackService: Initializing subscription with plan: $planCode, amount: ${(amount * 100).round()} kobo',
       );
 
-      // Ensure we have a named Paystack customer for proper dashboard display
-      final customerCode = await _ensurePaystackCustomer(
-        userId: userId,
-        email: userEmail,
-      );
+      // For "new card" checkout, skip attaching existing customer_code so
+      // Paystack opens the full card details form.
+      String? customerCode;
+      if (useCustomerCode) {
+        // Ensure we have a named Paystack customer for proper dashboard display.
+        customerCode = await _ensurePaystackCustomer(
+          userId: userId,
+          email: userEmail,
+        );
+      }
 
       // Generate the transaction reference upfront so we can return it
       final reference = 'sub_${userId}_${DateTime.now().millisecondsSinceEpoch}';
@@ -1278,10 +1635,10 @@ class PaystackService {
             'plan_code': planCode,
             'payment_type': 'subscription',
           },
-          'customizations': {
-            'title': await _getMemberDisplayName(userId, userEmail),
-            'description': 'Local Lekker $plan subscription',
-          },
+          'customizations': _buildCheckoutCustomizations(
+            title: 'Local Lekker',
+            description: 'Complete your $plan membership checkout',
+          ),
         },
       );
 
@@ -1294,11 +1651,13 @@ class PaystackService {
       } else {
         // Parse the error for better diagnostics
         String errorDetail = response.body;
+        String? parsedMessage;
         try {
           final errorData = jsonDecode(response.body);
-          final errorMessage = errorData['message'] ?? '';
+          final errorMessage = errorData['message'] ?? errorData['error'] ?? '';
           final errorCode = errorData['code'] ?? '';
-          if (errorCode == 'invalid_Key' || errorMessage.toString().contains('Invalid key')) {
+          parsedMessage = errorMessage.toString();
+          if (errorCode == 'invalid_Key' || parsedMessage.contains('Invalid key')) {
             _logger.e(
               'PaystackService: INVALID KEY ERROR - The PAYSTACK_SECRET_KEY in Supabase Edge Function secrets is invalid. '
               'Please verify: 1) Key starts with sk_live_ or sk_test_, '
@@ -1314,12 +1673,133 @@ class PaystackService {
           if (e.toString().contains('invalid_api_key')) rethrow;
           // Could not parse error JSON, use raw body
         }
-        throw Exception('Failed to initialize subscription: $errorDetail');
+
+        // Tag errors so the UI layer can show accurate messages
+        // (the proxy returns a synthetic 503 with this error text on real
+        // network failures; everything else is a server / config issue).
+        final isNetworkFailure = response.statusCode == 503 &&
+            (parsedMessage?.toLowerCase().contains('connection failed') ?? false);
+        final isAuthFailure = response.statusCode == 401;
+
+        if (isNetworkFailure) {
+          throw Exception(
+            'Failed to initialize subscription: network_error - ${parsedMessage ?? 'Connection failed'}',
+          );
+        }
+        if (isAuthFailure) {
+          throw Exception(
+            'Failed to initialize subscription: auth_error - ${parsedMessage ?? 'Session expired. Please sign in again.'}',
+          );
+        }
+        throw Exception(
+          'Failed to initialize subscription: server_error (${response.statusCode}) - ${parsedMessage?.isNotEmpty == true ? parsedMessage : errorDetail}',
+        );
       }
     } catch (e) {
       _logger.e('PaystackService: Error initializing subscription: $e');
-      throw Exception('Failed to initialize subscription: $e');
+      // Preserve already-tagged messages so we don't double-wrap them
+      if (e is Exception && e.toString().contains('Failed to initialize subscription')) {
+        rethrow;
+      }
+      throw Exception('Failed to initialize subscription: unexpected_error - $e');
     }
+  }
+
+  /// Auto-create (or look up) a Paystack plan when no env-configured plan
+  /// code is available. Mirrors the original behaviour of REV_01's
+  /// `startSubscription` so subscription auto-renewal keeps working out of
+  /// the box without requiring PAYSTACK_MONTHLY_PLAN_CODE in .env.
+  ///
+  /// Returns the plan code on success, or null if both creation and lookup
+  /// fail (callers should fall back to a one-off transaction).
+  Future<String?> _ensurePaystackPlan({
+    required String plan,
+    required double amount,
+    required int frequency,
+  }) async {
+    final interval = frequency == 12
+        ? 'annually'
+        : frequency == 3
+            ? 'quarterly'
+            : frequency == 6
+                ? 'biannually'
+                : 'monthly';
+    final planName = 'Local Lekker $plan Subscription';
+    final amountKobo = (amount * 100).round();
+
+    try {
+      // Try to create the plan. Paystack accepts duplicate names but returns
+      // an error code we can recover from by listing existing plans.
+      final createResponse = await _proxyRequest(
+        path: '/plan',
+        method: 'POST',
+        body: {
+          'name': planName,
+          'interval': interval,
+          'amount': amountKobo,
+          'currency': 'ZAR',
+          'description': '$plan subscription plan',
+        },
+      );
+
+      if (createResponse.statusCode == 200 || createResponse.statusCode == 201) {
+        try {
+          final data = jsonDecode(createResponse.body);
+          final code = data['data']?['plan_code'] as String?;
+          if (code != null && code.isNotEmpty) {
+            _logger.i('PaystackService: Auto-created Paystack plan $code ($planName)');
+            return code;
+          }
+        } catch (e) {
+          _logger.w('PaystackService: Could not parse plan create response: $e');
+        }
+      } else {
+        _logger.w(
+          'PaystackService: Plan create returned ${createResponse.statusCode}: ${createResponse.body}',
+        );
+      }
+
+      // Fall back to listing plans and finding ours by name + interval + amount.
+      final listResponse = await _proxyRequest(
+        path: '/plan?perPage=100',
+      );
+
+      if (listResponse.statusCode == 200) {
+        final data = jsonDecode(listResponse.body);
+        final plans = (data['data'] as List?) ?? const [];
+        for (final p in plans) {
+          if (p is Map &&
+              p['name'] == planName &&
+              p['interval'] == interval &&
+              (p['amount'] as num?)?.toInt() == amountKobo) {
+            final code = p['plan_code'] as String?;
+            if (code != null && code.isNotEmpty) {
+              _logger.i('PaystackService: Found existing Paystack plan $code ($planName)');
+              return code;
+            }
+          }
+        }
+        // Loose match by name only as a last resort
+        for (final p in plans) {
+          if (p is Map && p['name'] == planName) {
+            final code = p['plan_code'] as String?;
+            if (code != null && code.isNotEmpty) {
+              _logger.w(
+                'PaystackService: Using loose-matched plan $code for $planName (amount/interval differ)',
+              );
+              return code;
+            }
+          }
+        }
+      } else {
+        _logger.w(
+          'PaystackService: Plan list returned ${listResponse.statusCode}: ${listResponse.body}',
+        );
+      }
+    } catch (e) {
+      _logger.e('PaystackService: _ensurePaystackPlan failed: $e');
+    }
+    return null;
   }
 
   /// Get the Paystack plan code from environment variables based on billing frequency
@@ -1747,6 +2227,10 @@ class PaystackService {
             'payment_type': 'payment_method_setup',
             'purpose': 'card_tokenization',
           },
+          'customizations': _buildCheckoutCustomizations(
+            title: 'Local Lekker',
+            description: 'Securely save your credit/debit card',
+          ),
         },
       );
 

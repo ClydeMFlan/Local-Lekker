@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/admin_service.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
+import '../../widgets/profile_photo.dart';
 
 enum _MemberTab { active, pending, deactivated }
 
@@ -139,7 +142,7 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.teal),
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
             child: const Text('Reactivate'),
           ),
         ],
@@ -227,7 +230,14 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
       closeProgress();
       if (!mounted) return;
       final errorMsg = e.toString();
-      final isPartialDelete = errorMsg.contains('auth account removal failed') ||
+      // A TimeoutException means the operation exceeded the 2-minute budget.
+      // The DB data is almost certainly deleted by then; only the auth account
+      // deletion (Edge Function) may be incomplete.
+      final isTimeout = e is TimeoutException ||
+          errorMsg.contains('TimeoutException') ||
+          errorMsg.contains('Future not completed');
+      final isPartialDelete = isTimeout ||
+          errorMsg.contains('auth account removal failed') ||
           errorMsg.contains('Failed to delete auth user');
 
       if (isPartialDelete) {
@@ -319,7 +329,7 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
         // Tabs
         TabBar(
           controller: _tabController,
-          labelColor: Colors.teal,
+          labelColor: AppColors.primary,
           unselectedLabelColor: Colors.grey,
           tabs: [
             Tab(text: 'Active (${_activeMembers.length})'),
@@ -399,23 +409,20 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
             margin: const EdgeInsets.only(bottom: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: ListTile(
-              leading: CircleAvatar(
+              leading: ProfilePhoto(
+                imageUrl: m['profile_photo_url'] as String?,
+                displayName: name,
+                size: 40,
                 backgroundColor: isDeactivated
                     ? Colors.grey.shade300
                     : isActive
-                        ? Colors.teal.shade100
+                        ? AppColors.primarySwatch.shade100
                         : Colors.orange.shade100,
-                child: Text(
-                  (m['name'] ?? '?')[0].toUpperCase(),
-                  style: TextStyle(
-                    color: isDeactivated
-                        ? Colors.grey.shade600
-                        : isActive
-                            ? Colors.teal.shade700
-                            : Colors.orange.shade700,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                foregroundColor: isDeactivated
+                    ? Colors.grey.shade600
+                    : isActive
+                        ? AppColors.primarySwatch.shade700
+                        : Colors.orange.shade700,
               ),
               title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Column(
@@ -471,7 +478,7 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
                     const PopupMenuItem(
                       value: 'reactivate',
                       child: ListTile(
-                        leading: Icon(Icons.check_circle, color: Colors.teal),
+                        leading: Icon(Icons.check_circle, color: AppColors.primary),
                         title: Text('Reactivate'),
                         dense: true,
                         contentPadding: EdgeInsets.zero,

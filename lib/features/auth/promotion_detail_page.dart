@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:logger/logger.dart';
 import '../../services/supabase_service.dart';
 import '../../services/notification_service.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 class PromotionDetailPage extends StatefulWidget {
   final Map<String, dynamic> promotion;
@@ -106,6 +108,15 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> {
         _signupStatus = 'pending';
       });
 
+      // IMPORTANT: Do NOT mark the participant email as claimed here.
+      // The `is_claimed` flag gates the R1 intro-campaign price — the
+      // eligibility RPC (check_promo_eligibility_for_email) only returns the
+      // R1 offer while `is_claimed = false`. Claiming it now, before payment,
+      // silently removes the R1 offer so the member is charged the standard
+      // R99 instead. The email is marked claimed only after the intro payment
+      // completes (SubscriptionService.activateIntroCampaignSubscription).
+      // Admins still see this signup via the `promotion_signups` list.
+
       // Send email notification to admin
       try {
         await SupabaseService.instance.client.functions.invoke(
@@ -193,12 +204,13 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> {
     final promo = widget.promotion;
     final imageUrl = promo['image_url'] as String?;
     final freeMonths = promo['free_months'];
-    final durationText =
-        freeMonths != null ? '$freeMonths month(s) free' : 'Lifetime access';
+    final durationText = freeMonths != null
+      ? '$freeMonths month(s) free'
+      : 'Free lifetime membership';
     final endsAt = promo['ends_at'];
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: Text(promo['name'] ?? 'Promotion'),
       ),
       body: SingleChildScrollView(
@@ -214,18 +226,18 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> {
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   height: 120,
-                  color: Colors.teal.shade50,
+                  color: AppColors.primarySwatch.shade50,
                   child: const Center(
-                    child: Icon(Icons.campaign, size: 48, color: Colors.teal),
+                    child: Icon(Icons.campaign, size: 48, color: AppColors.primary),
                   ),
                 ),
               )
             else
               Container(
                 height: 120,
-                color: Colors.teal.shade50,
+                color: AppColors.primarySwatch.shade50,
                 child: const Center(
-                  child: Icon(Icons.campaign, size: 48, color: Colors.teal),
+                  child: Icon(Icons.campaign, size: 48, color: AppColors.primary),
                 ),
               ),
 
@@ -272,6 +284,16 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> {
                     ),
                   ),
 
+                  const SizedBox(height: 12),
+                  Text(
+                    _buildPromoNote(freeMonths),
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 1.45,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+
                   // End date countdown
                   if (endsAt != null) ...[
                     const SizedBox(height: 12),
@@ -299,6 +321,17 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> {
         ),
       ),
     );
+  }
+
+  String _buildPromoNote(dynamic freeMonthsValue) {
+    final freeMonths = freeMonthsValue as int?;
+    const initialChargeText = 'R1.00';
+
+    if (freeMonths == null) {
+      return 'Pay $initialChargeText signup and enjoy a free lifetime membership.';
+    }
+
+    return 'Pay $initialChargeText signup and enjoy $freeMonths month(s) free.';
   }
 
   Widget _buildEndDateInfo(String endsAt) {
@@ -399,7 +432,7 @@ class _PromotionDetailPageState extends State<PromotionDetailPage> {
           style: const TextStyle(fontSize: 16),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.teal,
+          backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

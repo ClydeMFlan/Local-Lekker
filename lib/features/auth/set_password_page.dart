@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:logger/logger.dart';
 import '../../services/supabase_service.dart';
 import 'package:local_lekker/services/navigation_service.dart';
@@ -120,7 +121,7 @@ class _SetPasswordPageState extends State<SetPasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Create Your Password'),
         automaticallyImplyLeading: false,
       ),

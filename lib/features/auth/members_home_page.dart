@@ -1,17 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
+import 'package:image_picker/image_picker.dart';
 import '../../services/supabase_service.dart';
 import '../../services/subscription_service.dart';
 import '../../services/deal_approval_popup_service.dart';
 import '../../services/savings_service.dart';
 import '../../services/cache_service.dart';
+import '../../services/qr_code_service.dart';
 import '../../models/notification.dart';
 import '../../widgets/custom_qr_code.dart';
 import '../../widgets/savings_summary_card.dart';
 import '../payments/payments_feature.dart';
-import 'welcome_page.dart';
 import 'member_profile_page.dart';
-import 'admin_chat_page.dart';
 import '../chat/chat_list_page.dart';
 import '../../services/chat_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
@@ -24,23 +26,61 @@ import 'promotion_detail_page.dart';
 import '../../services/promotion_campaign_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
+import 'package:screen_protector/screen_protector.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions, RealtimeChannel;
+import '../../widgets/profile_photo.dart';
+import 'welcome_page.dart';
 
 class MembersHomePage extends StatefulWidget {
   final bool hideAppBar;
+  final bool isTrustedPartner;
+  final double embeddedTopPadding;
+  final bool hideEmbeddedHero;
 
-  const MembersHomePage({super.key, this.hideAppBar = false});
+  const MembersHomePage({
+    super.key,
+    this.hideAppBar = false,
+    this.isTrustedPartner = false,
+    this.embeddedTopPadding = 0,
+    this.hideEmbeddedHero = false,
+  });
 
   @override
   State<MembersHomePage> createState() => _MembersHomePageState();
 }
 
+class _MemberHomeSnapshot {
+  final DateTime capturedAt;
+  final Map<String, dynamic>? userProfile;
+  final Map<String, dynamic>? subscriptionStatus;
+  final Map<String, dynamic>? userQrData;
+  final Map<String, dynamic>? savingsStats;
+  final bool isSubscriptionExpired;
+  final bool isTrustedPartner;
+
+  const _MemberHomeSnapshot({
+    required this.capturedAt,
+    required this.userProfile,
+    required this.subscriptionStatus,
+    required this.userQrData,
+    required this.savingsStats,
+    required this.isSubscriptionExpired,
+    required this.isTrustedPartner,
+  });
+}
+
 class _MembersHomePageState extends State<MembersHomePage>
   with WidgetsBindingObserver {
+  static final Map<String, _MemberHomeSnapshot> _sessionSnapshots = {};
+  static const Duration _snapshotTtl = Duration(minutes: 5);
+
   final SubscriptionService _subscriptionService = SubscriptionService();
   final DealApprovalPopupService _dealApprovalService =
       DealApprovalPopupService();
   final SavingsService _savingsService = SavingsService();
   final CacheService _cacheService = CacheService.instance;
+  final ImagePicker _profilePhotoPicker = ImagePicker();
   StreamSubscription<List<NotificationModel>>? _notificationSubscription;
   Map<String, dynamic>? _userQrData;
   Duration _timeUntilPayment = Duration.zero;
@@ -57,8 +97,12 @@ class _MembersHomePageState extends State<MembersHomePage>
   int _pendingPaymentsCount = 0;
   bool _isLoadingPendingPayments = true;
   bool _isTrustedPartner = false;
+  bool _isUploadingProfilePhoto = false;
+  bool _obscureSensitiveContent = false;
+  bool _isRotatingQr = false;
   DateTime? _lastApprovalSyncAt;
   bool _isResubscribingApprovals = false;
+  final ScrollController _homeScrollController = ScrollController();
 
   // Promotions
   List<Map<String, dynamic>> _activePromotions = [];
@@ -66,6 +110,11 @@ class _MembersHomePageState extends State<MembersHomePage>
   // Unread chat count for AppBar badge
   int _unreadChatCount = 0;
   Timer? _unreadChatTimer;
+
+  // Bottom nav
+  int _selectedNavIndex = 0;
+  Timer? _qrRotationTimer;
+  Timer? _countdownTimer;
   RealtimeChannel? _chatMessagesChannel;
 
   // City/Area filter
@@ -203,8 +252,12 @@ class _MembersHomePageState extends State<MembersHomePage>
   @override
   void initState() {
     super.initState();
+    _seedProfileFromSession();
     WidgetsBinding.instance.addObserver(this);
-    _loadUserData();
+    final usedSnapshot = _restoreFromSessionSnapshot();
+    if (!usedSnapshot) {
+      _loadUserData();
+    }
     _loadTrustedPartnersCount();
     _loadPendingPaymentsCount();
     _loadMemberCityProvince();
@@ -219,6 +272,390 @@ class _MembersHomePageState extends State<MembersHomePage>
       _chatMessagesChannel = ChatService.instance
           .subscribeToChatMessageChanges(onChange: _loadUnreadChatCount);
     } catch (_) {}
+
+    _enableSecureScreenProtection();
+    _startQrRotation();
+  }
+
+  Future<void> _pickAndSaveProfilePhoto() async {
+    if (_isUploadingProfilePhoto) return;
+
+    try {
+      final user = SupabaseService.instance.getCurrentUser();
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You need to be signed in to update your profile photo.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final XFile? image = await _profilePhotoPicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 88,
+      );
+
+      if (image == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No image selected.')),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() => _isUploadingProfilePhoto = true);
+      }
+
+      final rawBytes = await image.readAsBytes();
+      const bucketId = 'member-profile-photos';
+      const ext = 'jpg';
+      final filePath = '${user.id}/profile_photo.$ext';
+
+      await SupabaseService.instance.client.storage
+          .from(bucketId)
+          .uploadBinary(
+            filePath,
+            rawBytes,
+            fileOptions: const FileOptions(
+              upsert: true,
+              contentType: 'image/jpeg',
+            ),
+          );
+
+      final publicUrlBase = SupabaseService.instance.client.storage
+          .from(bucketId)
+          .getPublicUrl(filePath);
+      final publicUrl =
+          '$publicUrlBase?v=${DateTime.now().millisecondsSinceEpoch}';
+
+      await SupabaseService.instance.updateUserProfile(
+        userId: user.id,
+        profileData: {'profile_photo_url': publicUrl},
+      );
+
+      final refreshedProfile = await SupabaseService.instance.getUserProfile(
+        userId: user.id,
+      );
+      final persistedPhotoUrl =
+          refreshedProfile?['profile_photo_url']?.toString().trim();
+
+      if (persistedPhotoUrl == null || persistedPhotoUrl.isEmpty) {
+        await SupabaseService.instance.client.rpc(
+          'create_user_profile',
+          params: {
+            'p_user_id': user.id,
+            'p_user_data': {
+              'email': user.email,
+              'profile_photo_url': publicUrl,
+            },
+          },
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          _userProfile = {
+            ...?_userProfile,
+            'profile_photo_url': publicUrl,
+          };
+        });
+        _saveSessionSnapshot();
+      }
+
+      await _loadUserData();
+
+      if (!mounted) return;
+      setState(() => _isUploadingProfilePhoto = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile photo updated successfully.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error updating profile photo: $e');
+      }
+      if (!mounted) return;
+      setState(() => _isUploadingProfilePhoto = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update profile photo: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showProfilePhotoEditor(String displayName, String? profilePhotoUrl) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Profile Photo',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ProfilePhoto(
+                  imageUrl: profilePhotoUrl,
+                  displayName: displayName,
+                  size: 88,
+                  shape: ProfilePhotoShape.roundedRect,
+                  borderRadius: 24,
+                  backgroundColor:
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  fit: BoxFit.contain,
+                  adaptiveBox: true,
+                  minAdaptiveWidthFactor: 0.45,
+                  maxAdaptiveWidthFactor: 1.13,
+                  minAdaptiveHeightFactor: 0.45,
+                  maxAdaptiveHeightFactor: 0.95,
+                  adaptiveTargetAreaFactor: 0.48,
+                  adaptiveMinAspectRatio: 0.6,
+                  adaptiveMaxAspectRatio: 1.8,
+                  adaptiveCornerRadiusFactor: 0.26,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  profilePhotoUrl?.trim().isNotEmpty == true
+                      ? 'Change your homepage profile photo.'
+                      : 'Upload a photo for your homepage profile block.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _isUploadingProfilePhoto
+                        ? null
+                        : () {
+                            Navigator.of(dialogContext).pop();
+                            _pickAndSaveProfilePhoto();
+                          },
+                    icon: _isUploadingProfilePhoto
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.photo_camera_outlined),
+                    label: Text(
+                      _isUploadingProfilePhoto
+                          ? 'Uploading...'
+                          : profilePhotoUrl?.trim().isNotEmpty == true
+                              ? 'Change Profile Photo'
+                              : 'Upload Profile Photo',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _enableSecureScreenProtection() async {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
+      return;
+    }
+
+    try {
+      await ScreenProtector.preventScreenshotOn();
+      if (kDebugMode) {
+        print('🔒 Enabled screenshot protection for member QR view');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ Failed to enable secure window protection: $e');
+      }
+    }
+  }
+
+  Future<void> _disableSecureScreenProtection() async {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
+      return;
+    }
+
+    try {
+      await ScreenProtector.preventScreenshotOff();
+      if (kDebugMode) {
+        print('🔓 Cleared screenshot protection for member QR view');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ Failed to clear secure window protection: $e');
+      }
+    }
+  }
+
+  void _startQrRotation() {
+    _qrRotationTimer?.cancel();
+    _qrRotationTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _rotateQrCodeIfNeeded(),
+    );
+    unawaited(_rotateQrCodeIfNeeded(force: true));
+  }
+
+  Future<void> _rotateQrCodeIfNeeded({bool force = false}) async {
+    if (_isRotatingQr || _obscureSensitiveContent) {
+      return;
+    }
+
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) {
+      return;
+    }
+
+    final hasActiveQr = _userQrData?['is_active'] == true;
+    if (!hasActiveQr) {
+      return;
+    }
+
+    final existingQr = _userQrData?['qr_code'] as String?;
+    if (!force && existingQr != null) {
+      try {
+        final decoded = jsonDecode(existingQr);
+        if (decoded is Map<String, dynamic>) {
+          final exp = decoded['exp'];
+          if (exp is int) {
+            final nowEpoch = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+            final secondsLeft = exp - nowEpoch;
+            if (secondsLeft > 15) {
+              return;
+            }
+          }
+        }
+      } catch (_) {
+        // Legacy payloads should be rotated.
+      }
+    }
+
+    _isRotatingQr = true;
+    final updatedAt = DateTime.now().toUtc().toIso8601String();
+    try {
+      final newQr = await QrCodeService().generateEphemeralQrCode(user.id);
+      await SupabaseService.instance.client
+          .from('user_qr_codes')
+          .update({'qr_code': newQr, 'updated_at': updatedAt})
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+
+      if (mounted) {
+        setState(() {
+          _userQrData = {
+            ...?_userQrData,
+            'qr_code': newQr,
+            'updated_at': updatedAt,
+          };
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ QR rotation failed: $e');
+      }
+    } finally {
+      _isRotatingQr = false;
+    }
+  }
+
+  void _seedProfileFromSession() {
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return;
+
+    final metadata = user.userMetadata ?? const <String, dynamic>{};
+    final firstName = (metadata['name'] as String?)?.trim();
+    final lastName = (metadata['surname'] as String?)?.trim();
+    final fallbackName = (user.email ?? 'User').split('@').first;
+
+    if (_userProfile == null) {
+      _userProfile = {
+        'name': (firstName != null && firstName.isNotEmpty)
+            ? firstName
+            : fallbackName,
+        'surname': (lastName != null && lastName.isNotEmpty) ? lastName : '',
+      };
+    }
+  }
+
+  bool _restoreFromSessionSnapshot() {
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return false;
+
+    final snapshot = _sessionSnapshots[user.id];
+    if (snapshot == null) return false;
+
+    final age = DateTime.now().difference(snapshot.capturedAt);
+    if (age > _snapshotTtl) {
+      _sessionSnapshots.remove(user.id);
+      return false;
+    }
+
+    _userProfile = snapshot.userProfile;
+    _subscriptionStatus = snapshot.subscriptionStatus;
+    _userQrData = snapshot.userQrData;
+    _savingsStats = snapshot.savingsStats;
+    _isSubscriptionExpired = snapshot.isSubscriptionExpired;
+    _isSavingsLoading = false;
+    _isTrustedPartner = snapshot.isTrustedPartner;
+
+    if (kDebugMode) {
+      print('⚡ Restored member-home snapshot (${age.inSeconds}s old)');
+    }
+    return true;
+  }
+
+  void _saveSessionSnapshot() {
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return;
+
+    _sessionSnapshots[user.id] = _MemberHomeSnapshot(
+      capturedAt: DateTime.now(),
+      userProfile: _userProfile,
+      subscriptionStatus: _subscriptionStatus,
+      userQrData: _userQrData,
+      savingsStats: _savingsStats,
+      isSubscriptionExpired: _isSubscriptionExpired,
+      isTrustedPartner: _isTrustedPartner,
+    );
   }
 
   Future<void> _loadUnreadChatCount() async {
@@ -334,7 +771,15 @@ class _MembersHomePageState extends State<MembersHomePage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final shouldObscure = state != AppLifecycleState.resumed;
+    if (mounted && shouldObscure != _obscureSensitiveContent) {
+      setState(() {
+        _obscureSensitiveContent = shouldObscure;
+      });
+    }
+
     if (state == AppLifecycleState.resumed) {
+      unawaited(_rotateQrCodeIfNeeded(force: true));
       unawaited(_refreshApprovalNotificationsOnResume());
     }
   }
@@ -342,9 +787,13 @@ class _MembersHomePageState extends State<MembersHomePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _homeScrollController.dispose();
     _notificationSubscription?.cancel();
     _unreadChatTimer?.cancel();
+    _qrRotationTimer?.cancel();
+    _countdownTimer?.cancel();
     _chatMessagesChannel?.unsubscribe();
+    _disableSecureScreenProtection();
     super.dispose();
   }
 
@@ -354,6 +803,49 @@ class _MembersHomePageState extends State<MembersHomePage>
   // Placeholder to keep the file compiling if any dead references remain.
   // (none expected)
 
+  Future<void> _signOut(BuildContext context) async {
+    try {
+      await SupabaseService.instance.signOut();
+
+      if (!context.mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const WelcomePage()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign out failed: $e')),
+      );
+    }
+  }
+
+  Future<void> _confirmAndSignOut(BuildContext context) async {
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+          'You will need to sign in again to access your membership.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (shouldSignOut == true && context.mounted) {
+      await _signOut(context);
+    }
+  }
+
   Future<void> _loadUserData() async {
     try {
       final user = SupabaseService.instance.getCurrentUser();
@@ -362,29 +854,32 @@ class _MembersHomePageState extends State<MembersHomePage>
           print('🔄 Loading user data for user: ${user.id}');
         }
 
-        // ⏰ CHECK FOR EXPIRED SUBSCRIPTION FIRST
-        final wasExpired = await _subscriptionService
-            .checkAndHandleExpiredSubscription(user.id);
-        if (wasExpired) {
-          if (kDebugMode) {
-            print('🚨 Subscription was expired - QR codes deactivated');
-          }
-        }
+        // Run slower operations in parallel so member details render quickly.
+        final wasExpiredFuture = _subscriptionService
+          .checkAndHandleExpiredSubscription(user.id)
+          .catchError((_) => false);
+        final tpCheckFuture = SupabaseService.instance.client
+          .from('trusted_partners')
+          .select('user_id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+          .catchError((_) => null);
+        final statusFuture = _subscriptionService
+          .getSubscriptionStatus(user.id)
+          .catchError((_) => null);
+        final qrFuture = _subscriptionService
+          .getUserQrCode(user.id)
+          .catchError((_) => null);
+        final savingsFuture = _savingsService
+          .getUserSavingsStats(user.id)
+          .catchError((_) => null);
 
-        // Check if user is a trusted partner (has record in trusted_partners table)
-        final tpCheck = await SupabaseService.instance.client
-            .from('trusted_partners')
-            .select('user_id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-        _isTrustedPartner = tpCheck != null;
-
-        // Get user profile data with single() to ensure we get one record
+        // Fetch profile first and paint immediately (name/surname in header).
         final profileResponse = await SupabaseService.instance.client
-            .from('profiles')
-            .select('name, surname, is_tp_member, city, province')
-            .eq('id', user.id)
-            .single();
+          .from('profiles')
+          .select('name, surname, is_tp_member, city, province, profile_photo_url')
+          .eq('id', user.id)
+          .single();
 
         if (kDebugMode) {
           print('👤 User profile result: $profileResponse');
@@ -395,10 +890,23 @@ class _MembersHomePageState extends State<MembersHomePage>
           );
         }
 
+        if (mounted) {
+          setState(() {
+            _userProfile = profileResponse;
+          });
+        }
+
+        final wasExpired = await wasExpiredFuture;
+        if (wasExpired == true && kDebugMode) {
+          print('🚨 Subscription was expired - QR codes deactivated');
+        }
+
+        // Check if user is a trusted partner (has record in trusted_partners table)
+        final tpCheck = await tpCheckFuture;
+        _isTrustedPartner = tpCheck != null;
+
         // Get comprehensive subscription status
-        final status = await _subscriptionService.getSubscriptionStatus(
-          user.id,
-        );
+        final status = await statusFuture;
         if (kDebugMode) {
           print('📊 Subscription status result: $status');
         }
@@ -426,14 +934,14 @@ class _MembersHomePageState extends State<MembersHomePage>
         });
 
         // Also get QR code data for display
-        final qrData = await _subscriptionService.getUserQrCode(user.id);
+        final qrData = await qrFuture;
         if (kDebugMode) {
           print('📱 QR code data result: $qrData');
         }
 
         // Load savings statistics
         setState(() => _isSavingsLoading = true);
-        final savingsData = await _savingsService.getUserSavingsStats(user.id);
+        final savingsData = await savingsFuture;
         if (kDebugMode) {
           print('💰 Savings stats result: $savingsData');
         }
@@ -445,6 +953,8 @@ class _MembersHomePageState extends State<MembersHomePage>
           _savingsStats = savingsData;
           _isSavingsLoading = false;
         });
+        unawaited(_rotateQrCodeIfNeeded(force: true));
+        _saveSessionSnapshot();
 
         // Check for pending approval notifications and show popup
         if (mounted) {
@@ -481,16 +991,7 @@ class _MembersHomePageState extends State<MembersHomePage>
           _startCountdownTimer();
         }
 
-        // Check for pending deal approval notifications
-        if (kDebugMode) {
-          print('🔔 Checking for deal approval notifications');
-        }
-        if (mounted) {
-          await _dealApprovalService.checkAndShowApprovalPopup(
-            context,
-            user.id,
-          );
-        }
+        // (duplicate checkAndShowApprovalPopup call removed — already called above)
       }
     } catch (e) {
       if (kDebugMode) {
@@ -779,7 +1280,7 @@ class _MembersHomePageState extends State<MembersHomePage>
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
-                          const Icon(Icons.location_on, color: Colors.teal),
+                          const Icon(Icons.location_on, color: AppColors.primary),
                           const SizedBox(width: 8),
                           const Text(
                             'Select Province & City',
@@ -885,6 +1386,7 @@ class _MembersHomePageState extends State<MembersHomePage>
   }
 
   void _startCountdownTimer() {
+    _countdownTimer?.cancel();
     if (_subscriptionStatus != null &&
         _subscriptionStatus?['subscription_end_date'] != null) {
       final subscriptionEndDate = DateTime.parse(
@@ -895,15 +1397,13 @@ class _MembersHomePageState extends State<MembersHomePage>
       );
 
       // Update timer every second
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          setState(() {
-            _timeUntilPayment = _subscriptionService.getTimeUntilNextPayment(
-              subscriptionEndDate,
-            );
-          });
-          _startCountdownTimer();
-        }
+      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        setState(() {
+          _timeUntilPayment = _subscriptionService.getTimeUntilNextPayment(
+            subscriptionEndDate,
+          );
+        });
       });
     }
   }
@@ -1106,10 +1606,8 @@ class _MembersHomePageState extends State<MembersHomePage>
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
                     height: 80,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.teal.shade400, Colors.green.shade400],
-                      ),
+                    decoration: const BoxDecoration(
+                      gradient: AppColors.primaryGradient,
                     ),
                     child: const Center(
                       child: Icon(Icons.campaign, size: 36, color: Colors.white),
@@ -1119,10 +1617,8 @@ class _MembersHomePageState extends State<MembersHomePage>
               else
                 Container(
                   height: 80,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.teal.shade400, Colors.green.shade400],
-                    ),
+                  decoration: const BoxDecoration(
+                    gradient: AppColors.primaryGradient,
                   ),
                   child: const Center(
                     child: Icon(Icons.campaign, size: 36, color: Colors.white),
@@ -1165,7 +1661,7 @@ class _MembersHomePageState extends State<MembersHomePage>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.teal,
+                        color: AppColors.primary,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
@@ -1249,516 +1745,1230 @@ class _MembersHomePageState extends State<MembersHomePage>
 
   @override
   Widget build(BuildContext context) {
+    // When embedded by TP page (hideAppBar=true), use a compact version without the hero.
+    if (widget.hideAppBar) {
+      return _buildCompactMemberBody(context);
+    }
+
+    final String displayName = () {
+      final name = _userProfile?['name'] ?? 'User';
+      final surname = _userProfile?['surname'] ?? '';
+      if (surname.isNotEmpty && !name.contains(surname)) return '$name $surname';
+      return name;
+    }();
+
+    final double totalSaved = _savingsStats?['totalSaved']?.toDouble() ?? 0.0;
+    final double totalTips = _savingsStats?['totalTips']?.toDouble() ?? 0.0;
+    final double totalPaid = _savingsStats?['totalPaid']?.toDouble() ?? 0.0;
+    final double totalInAppPayments =
+      _savingsStats?['totalInAppPayments']?.toDouble() ?? 0.0;
+    final double totalPosPayments =
+      _savingsStats?['totalPosPayments']?.toDouble() ?? 0.0;
+    final int totalDeals = _savingsStats?['totalDeals'] ?? 0;
+
     return Scaffold(
-      appBar: widget.hideAppBar
-          ? null
-          : AppBar(
-              toolbarHeight: 100,
-              title: Image.asset(
-                'assets/locallekker_logo.png',
-                height: 200,
-                fit: BoxFit.contain,
+      backgroundColor: AppColors.background,
+      bottomNavigationBar: _buildBottomNav(context),
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          controller: _homeScrollController,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Hero ────────────────────────────────────────────────────
+              _buildMemberHero(
+                context,
+                displayName,
+                totalSaved,
+                totalTips,
+                totalPaid,
+                totalInAppPayments,
+                totalPosPayments,
+                totalDeals,
               ),
-              centerTitle: true,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.person),
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MemberProfilePage(),
-                      ),
-                    );
-                    // Reload data in case user activated promo key or changed profile
-                    _loadUserData();
-                  },
-                  tooltip: 'My Profile',
-                ),
-                // Messages
-                IconButton(
-                  tooltip: 'Messages',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ChatListPage(),
-                      ),
-                    ).then((_) => _loadUnreadChatCount());
-                  },
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.chat_bubble_outline),
-                      if (_unreadChatCount > 0)
-                        Positioned(
-                          right: -6,
-                          top: -4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 1.5,
-                              ),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 18,
-                              minHeight: 18,
-                            ),
-                            child: Text(
-                              _unreadChatCount > 9
-                                  ? '9+'
-                                  : '$_unreadChatCount',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                    ],
+
+              // ── Promo banners ────────────────────────────────────────────
+              if (_activePromotions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Column(
+                    children: _activePromotions
+                        .map((p) => _buildPromoBanner(p))
+                        .toList(),
                   ),
                 ),
-                // Trusted Partners quick access
-                IconButton(
-                  icon: const Icon(Icons.storefront_outlined),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            TrustedPartnersByCategoryPage(cityFilter: _selectedCity),
-                      ),
-                    );
-                  },
-                  tooltip: 'Trusted Partners',
+
+              // ── Body ─────────────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Quick actions
+                    _buildSectionHeader('Quick actions'),
+                    const SizedBox(height: 8),
+                    _buildQuickActions(context),
+                    const SizedBox(height: 20),
+
+                    // City filter
+                    if (!_isLoadingCities) ...[
+                      _buildSectionHeader('Your area'),
+                      const SizedBox(height: 8),
+                      _buildCityFilterCard(),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // Pending payments urgent card
+                    if (_pendingPaymentsCount > 0) ...[
+                      _buildPendingPaymentsCard(context),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // Trusted partners
+                    _buildSectionHeader(
+                      'Trusted Partners',
+                      trailing: _buildSeeAll(() {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TrustedPartnersByCategoryPage(
+                              cityFilter: _selectedCity,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildPartnersCard(context),
+
+                    const SizedBox(height: 16), // clearance for bottom nav
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.support_agent),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AdminChatPage(),
-                      ),
-                    );
-                  },
-                  tooltip: 'Support',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Hero ─────────────────────────────────────────────────────────────────
+
+  Widget _buildMemberHero(
+    BuildContext context,
+    String displayName,
+    double totalSaved,
+    double totalTips,
+    double totalPaid,
+    double totalInAppPayments,
+    double totalPosPayments,
+    int totalDeals,
+  ) {
+    final profilePhotoUrl = _userProfile?['profile_photo_url'] as String?;
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0E5BA0), Color(0xFF0A4A8A), Color(0xFF083D73)],
+          stops: [0.0, 0.55, 1.0],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Subtle radial glow
+          Positioned(
+            top: -40,
+            right: -40,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.sky.withValues(alpha: 0.22),
+                    Colors.transparent,
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _loadUserData,
-                  tooltip: 'Refresh',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  onPressed: () async {
-                    await SupabaseService.instance.signOut();
-                    if (!context.mounted) return;
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const WelcomePage(),
-                      ),
-                    );
-                  },
-                  tooltip: 'Logout',
-                ),
-              ],
+              ),
             ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Welcome message
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                () {
-                                  final name = _userProfile?['name'] ?? 'User';
-                                  final surname =
-                                      _userProfile?['surname'] ?? '';
-                                  // Only append surname if it's not empty and not already in name
-                                  if (surname.isNotEmpty &&
-                                      !name.contains(surname)) {
-                                    return '$name $surname';
-                                  }
-                                  return name;
-                                }(),
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.qr_code_scanner,
-                            color: Colors.teal,
-                          ),
-                          onPressed: _showQrCodePopup,
-                          tooltip: 'Show QR Code',
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Promo banner
-                if (_activePromotions.isNotEmpty)
-                  ..._activePromotions.map((promo) => _buildPromoBanner(promo)),
-
-                const SizedBox(height: 12),
-
-                // Area/City Filter Dropdown
-                if (!_isLoadingCities)
-                  Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () {
-                        _showCityFilterBottomSheet();
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              color: _selectedCity != null
-                                  ? Colors.teal
-                                  : Colors.grey,
-                              size: 22,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (_selectedProvince != null)
-                                    Text(
-                                      _selectedProvince!,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade600,
+                // Logo + greeting + chat
+                Row(
+                  children: [
+                    // Profile photo / initials
+                    Tooltip(
+                      message: 'Upload profile photo',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: _isUploadingProfilePhoto
+                              ? null
+                              : () {
+                                  _showProfilePhotoEditor(
+                                    displayName,
+                                    profilePhotoUrl,
+                                  );
+                                },
+                          child: _isUploadingProfilePhoto
+                              ? Container(
+                                  width: 76,
+                                  height: 76,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.18),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.2,
+                                        color: Colors.white.withValues(alpha: 0.92),
                                       ),
                                     ),
-                                  Text(
-                                    _selectedCity ?? 'All Areas',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: _selectedCity != null
-                                          ? Colors.teal.shade800
-                                          : Colors.grey.shade600,
-                                    ),
                                   ),
-                                ],
-                              ),
-                            ),
-                            if (_selectedCity != null)
-                              GestureDetector(
-                                onTap: () {
-                                  _updateMemberCityProvince(null, null);
-                                },
-                                child: Icon(
-                                  Icons.close,
-                                  size: 18,
-                                  color: Colors.grey.shade500,
+                                )
+                              : ProfilePhoto(
+                                  imageUrl: profilePhotoUrl,
+                                  displayName: displayName,
+                                  size: 76,
+                                  shape: ProfilePhotoShape.roundedRect,
+                                  borderRadius: 20,
+                                  backgroundColor: Colors.white.withValues(alpha: 0.08),
+                                  foregroundColor: Colors.white,
+                                  fit: BoxFit.contain,
+                                  adaptiveBox: true,
+                                  minAdaptiveWidthFactor: 0.45,
+                                  maxAdaptiveWidthFactor: 1.13,
+                                  minAdaptiveHeightFactor: 0.45,
+                                  maxAdaptiveHeightFactor: 0.95,
+                                  adaptiveTargetAreaFactor: 0.48,
+                                  adaptiveMinAspectRatio: 0.6,
+                                  adaptiveMaxAspectRatio: 1.8,
+                                  adaptiveCornerRadiusFactor: 0.26,
+                                  borderColor: Colors.white.withValues(alpha: 0.18),
+                                  borderWidth: 1.5,
                                 ),
-                              ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.arrow_drop_down,
-                              color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Greeting
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _getGreeting(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.78),
+                              letterSpacing: 0.04,
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                const SizedBox(height: 12),
-
-                // Savings Summary Card
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF007749), Color(0xFF4FA98A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0x14000000),
-                        blurRadius: 6,
-                        offset: Offset(0, 2),
-                      ),
-                      BoxShadow(
-                        color: Color(0x2E000000),
-                        blurRadius: 18,
-                        offset: Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: SavingsSummaryCard(
-                    totalSpent: _savingsStats?['totalSpent']?.toDouble() ?? 0.0,
-                    totalSaved: _savingsStats?['totalSaved']?.toDouble() ?? 0.0,
-                    totalPaid: _savingsStats?['totalPaid']?.toDouble() ?? 0.0,
-                    totalTips: _savingsStats?['totalTips']?.toDouble() ?? 0.0,
-                    totalDeals: _savingsStats?['totalDeals'] ?? 0,
-                    isLoading: _isSavingsLoading,
-                    onBrowseDeals: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => DealSelectionPage(cityFilter: _selectedCity),
-                        ),
-                      );
-                    },
-                    onViewReceipts: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MemberReceiptsPage(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Trusted Partners List
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF007749), Color(0xFF4FA98A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0x14000000),
-                        blurRadius: 6,
-                        offset: Offset(0, 2),
-                      ),
-                      BoxShadow(
-                        color: Color(0x2E000000),
-                        blurRadius: 18,
-                        offset: Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                TrustedPartnersByCategoryPage(cityFilter: _selectedCity),
                           ),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.storefront_outlined,
-                                size: 32,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Trusted Partners',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  _isLoadingPartnersCount
-                                      ? const Text(
-                                          'Loading...',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.white70,
-                                          ),
-                                        )
-                                      : Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '$_trustedPartnersCount ${_trustedPartnersCount == 1 ? 'partner' : 'partners'} • $_availableDealsCount ${_availableDealsCount == 1 ? 'deal' : 'deals'}',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                color: Colors.white70,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right,
+                          const SizedBox(height: 3),
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
                               color: Colors.white,
-                              size: 32,
+                              letterSpacing: -0.03,
                             ),
-                          ],
-                        ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Pending Payments Card
-                if (_pendingPaymentsCount > 0)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const PendingPaymentsPage(),
-                          ),
-                        ).then((_) {
-                          // Refresh count when returning from pending payments page
-                          _loadPendingPaymentsCount();
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.orange.shade600,
-                              Colors.orange.shade400,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
+                    const SizedBox(width: 8),
+                    // Messages & Support (with unread badge)
+                    _buildHeroMessagesButton(context),
+                    const SizedBox(width: 8),
+                    // Sign out
+                    Tooltip(
+                      message: 'Sign out',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.orange.withAlpha(76),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withAlpha(51),
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                              child: const Icon(
-                                Icons.pending_actions,
-                                size: 28,
-                                color: Colors.white,
+                          onTap: () => _confirmAndSignOut(context),
+                          child: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.18),
+                                width: 1.2,
                               ),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Pending Payments',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  _isLoadingPendingPayments
-                                      ? const Text(
-                                          'Loading...',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.white70,
-                                          ),
-                                        )
-                                      : Text(
-                                          '$_pendingPaymentsCount ${_pendingPaymentsCount == 1 ? 'deal awaiting payment' : 'deals awaiting payment'}',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.white70,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right,
+                            child: const Icon(
+                              Icons.logout_rounded,
                               color: Colors.white,
-                              size: 32,
+                              size: 20,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                if (_pendingPaymentsCount > 0) const SizedBox(height: 12),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth >= 720;
+
+                    final statsPanel = _buildHeroStatsPanel(
+                      totalSaved: totalSaved,
+                      totalTips: totalTips,
+                      totalInAppPayments: totalInAppPayments,
+                      totalPosPayments: totalPosPayments,
+                    );
+
+                    final qrBlock = _buildHeroQrBlock(
+                      context,
+                      totalPaid: totalPaid,
+                      totalDeals: totalDeals,
+                    );
+
+                    if (isWide) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: statsPanel),
+                          const SizedBox(width: 14),
+                          SizedBox(width: 248, child: qrBlock),
+                        ],
+                      );
+                    }
+
+                    return Column(
+                      children: [
+                        qrBlock,
+                        const SizedBox(height: 12),
+                        statsPanel,
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroStatsPanel({
+    required double totalSaved,
+    required double totalTips,
+    required double totalInAppPayments,
+    required double totalPosPayments,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildHeroStatTile(
+            label: 'Saved',
+            value: 'R${totalSaved.toStringAsFixed(0)}',
+            icon: Icons.savings_outlined,
+            accentColor: const Color(0xFF7CE39A),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildHeroStatTile(
+            label: 'Tips',
+            value: 'R${totalTips.toStringAsFixed(0)}',
+            icon: Icons.volunteer_activism,
+            accentColor: const Color(0xFFFF7B7B),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildHeroStatTile(
+            label: 'In-App',
+            value: 'R${totalInAppPayments.toStringAsFixed(0)}',
+            icon: Icons.credit_card,
+            accentColor: const Color(0xFF8CC6FF),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildHeroStatTile(
+            label: 'POS',
+            value: 'R${totalPosPayments.toStringAsFixed(0)}',
+            icon: Icons.storefront_outlined,
+            accentColor: const Color(0xFFFFD56A),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroStatTile({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color accentColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.16),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 15, color: accentColor),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.03,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroQrBlock(
+    BuildContext context, {
+    required double totalPaid,
+    required int totalDeals,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _showQrCodePopup,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.primary, Color(0xFF0A4A8A), Color(0xFF08396A)],
+            stops: [0.0, 0.58, 1.0],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.30),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.qr_code_2_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Your QR Code',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tap to show your QR code',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.74),
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Quick actions ────────────────────────────────────────────────────────
+
+  /// Messages & Support entry point for the hero header.
+  ///
+  /// Opens [ChatListPage] (member conversations + the "Chat with Admin"
+  /// support button) and shows an unread badge so members can see new
+  /// message notifications directly from Home.
+  Widget _buildHeroMessagesButton(BuildContext context) {
+    return Tooltip(
+      message: 'Messages & Support',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ChatListPage()),
+            );
+            // Refresh the badge after returning so read messages clear.
+            _loadUnreadChatCount();
+          },
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    width: 1.2,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.forum_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              if (_unreadChatCount > 0)
+                Positioned(
+                  right: -3,
+                  top: -3,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE53935),
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(
+                        color: const Color(0xFF0A4A8A),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        _unreadChatCount > 9 ? '9+' : '$_unreadChatCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionTile(
+            icon: Icons.local_offer_outlined,
+            label: 'Find Deals',
+            color: AppColors.accent,
+            bgColor: AppColors.accent.withValues(alpha: 0.12),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DealSelectionPage(cityFilter: _selectedCity),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildActionTile(
+            icon: Icons.receipt_long_outlined,
+            label: 'Receipts',
+            color: AppColors.success,
+            bgColor: AppColors.success.withValues(alpha: 0.10),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MemberReceiptsPage()),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildActionTile(
+            icon: Icons.storefront_outlined,
+            label: 'Partners',
+            color: AppColors.primary,
+            bgColor: AppColors.primary.withValues(alpha: 0.08),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TrustedPartnersByCategoryPage(
+                  cityFilter: _selectedCity,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color bgColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.outline, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, size: 20, color: color),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0B2540),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Today stats ──────────────────────────────────────────────────────────
+
+  Widget _buildTodayStats() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            value: _isLoadingPartnersCount ? '—' : '$_trustedPartnersCount',
+            label: 'Partners nearby',
+            barColor: AppColors.primary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildStatCard(
+            value: _isLoadingPartnersCount ? '—' : '$_availableDealsCount',
+            label: 'Active deals',
+            barColor: AppColors.accent,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required String value,
+    required String label,
+    required Color barColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.outline, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.04,
+              color: Color(0xFF0B2540),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            height: 5,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              gradient: LinearGradient(
+                colors: [barColor, barColor.withValues(alpha: 0.5)],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── City filter card ─────────────────────────────────────────────────────
+
+  Widget _buildCityFilterCard() {
+    return GestureDetector(
+      onTap: _showCityFilterBottomSheet,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.outline, width: 1),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.location_on_outlined,
+              color: _selectedCity != null ? AppColors.primary : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_selectedProvince != null)
+                    Text(
+                      _selectedProvince!,
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                    ),
+                  Text(
+                    _selectedCity ?? 'All Areas',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _selectedCity != null
+                          ? AppColors.primarySwatch.shade800
+                          : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_selectedCity != null)
+              GestureDetector(
+                onTap: () => _updateMemberCityProvince(null, null),
+                child: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
+              ),
+            const SizedBox(width: 4),
+            Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade500),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Pending payments card ────────────────────────────────────────────────
+
+  Widget _buildPendingPaymentsCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PendingPaymentsPage()),
+      ).then((_) => _loadPendingPaymentsCount()),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: AppColors.accentGradient,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withValues(alpha: 0.28),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.pending_actions, size: 24, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pending Payments',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _isLoadingPendingPayments
+                        ? 'Loading...'
+                        : '$_pendingPaymentsCount ${_pendingPaymentsCount == 1 ? 'deal awaiting payment' : 'deals awaiting payment'}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 28),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Partners card ─────────────────────────────────────────────────────────
+
+  Widget _buildPartnersCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TrustedPartnersByCategoryPage(cityFilter: _selectedCity),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: AppColors.freshGradient,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.success.withValues(alpha: 0.18),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.storefront_outlined, size: 28, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Trusted Partners',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  _isLoadingPartnersCount
+                      ? Text(
+                          'Loading...',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        )
+                      : Text(
+                          '$_trustedPartnersCount ${_trustedPartnersCount == 1 ? 'partner' : 'partners'} · $_availableDealsCount ${_availableDealsCount == 1 ? 'deal' : 'deals'}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 28),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Bottom navigation bar ────────────────────────────────────────────────
+
+  Widget _buildBottomNav(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppColors.outline, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              _buildNavItem(
+                index: 0,
+                icon: Icons.location_on_outlined,
+                activeIcon: Icons.location_on,
+                label: 'Home',
+                onTap: () => setState(() => _selectedNavIndex = 0),
+              ),
+              _buildNavItem(
+                index: 1,
+                icon: Icons.local_offer_outlined,
+                activeIcon: Icons.local_offer,
+                label: 'Deals',
+                onTap: () {
+                  setState(() => _selectedNavIndex = 1);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DealSelectionPage(cityFilter: _selectedCity),
+                    ),
+                  ).then((_) => setState(() => _selectedNavIndex = 0));
+                },
+              ),
+              _buildNavItem(
+                index: 2,
+                icon: Icons.receipt_long_outlined,
+                activeIcon: Icons.receipt_long,
+                label: 'Receipts',
+                onTap: () {
+                  setState(() => _selectedNavIndex = 2);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MemberReceiptsPage()),
+                  ).then((_) => setState(() => _selectedNavIndex = 0));
+                },
+              ),
+              _buildNavItem(
+                index: 3,
+                icon: Icons.person_outline,
+                activeIcon: Icons.person,
+                label: 'Profile',
+                onTap: () async {
+                  setState(() => _selectedNavIndex = 3);
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MemberProfilePage()),
+                  );
+                  _loadUserData();
+                  if (mounted) setState(() => _selectedNavIndex = 0);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final bool isActive = _selectedNavIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isActive ? activeIcon : icon,
+              size: 24,
+              color: isActive ? AppColors.primary : AppColors.textSecondary,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: isActive ? AppColors.primary : AppColors.textSecondary,
+              ),
+            ),
+            if (isActive)
+              Container(
+                width: 4,
+                height: 4,
+                margin: const EdgeInsets.only(top: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Section helpers ──────────────────────────────────────────────────────
+
+  Widget _buildSectionHeader(String title, {Widget? trailing}) {
+    return Row(
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.06,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const Spacer(),
+        if (trailing != null) trailing,
+      ],
+    );
+  }
+
+  Widget _buildSeeAll(VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: const Text(
+        'See all',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.sky,
+        ),
+      ),
+    );
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  // ── Compact body (used by TP member-view embed) ──────────────────────────
+
+  Widget _buildCompactMemberBody(BuildContext context) {
+    final String displayName = () {
+      final name = _userProfile?['name'] ?? 'User';
+      final surname = _userProfile?['surname'] ?? '';
+      if (surname.isNotEmpty && !name.contains(surname)) return '$name $surname';
+      return name;
+    }();
+    final double totalSaved = _savingsStats?['totalSaved']?.toDouble() ?? 0.0;
+    final double totalTips = _savingsStats?['totalTips']?.toDouble() ?? 0.0;
+    final double totalPaid = _savingsStats?['totalPaid']?.toDouble() ?? 0.0;
+    final double totalInAppPayments =
+      _savingsStats?['totalInAppPayments']?.toDouble() ?? 0.0;
+    final double totalPosPayments =
+      _savingsStats?['totalPosPayments']?.toDouble() ?? 0.0;
+    final int totalDeals = _savingsStats?['totalDeals'] ?? 0;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          controller: _homeScrollController,
+          child: Column(
+            children: [
+              if (widget.embeddedTopPadding > 0)
+                SizedBox(height: widget.embeddedTopPadding),
+              if (!widget.hideEmbeddedHero)
+                _buildMemberHero(
+                  context,
+                  displayName,
+                  totalSaved,
+                  totalTips,
+                  totalPaid,
+                  totalInAppPayments,
+                  totalPosPayments,
+                  totalDeals,
+                ),
+              if (_activePromotions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Column(
+                    children: _activePromotions.map((p) => _buildPromoBanner(p)).toList(),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader('Quick actions'),
+                    const SizedBox(height: 8),
+                    _buildQuickActions(context),
+                    const SizedBox(height: 20),
+                    _buildSectionHeader('Today'),
+                    const SizedBox(height: 8),
+                    _buildTodayStats(),
+                    const SizedBox(height: 20),
+                    if (_pendingPaymentsCount > 0) ...[
+                      _buildPendingPaymentsCard(context),
+                      const SizedBox(height: 20),
+                    ],
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: SavingsSummaryCard(
+                        totalSpent: _savingsStats?['totalSpent']?.toDouble() ?? 0.0,
+                        totalSaved: totalSaved,
+                        totalPaid: _savingsStats?['totalPaid']?.toDouble() ?? 0.0,
+                        totalTips: _savingsStats?['totalTips']?.toDouble() ?? 0.0,
+                        totalDeals: totalDeals,
+                        isLoading: _isSavingsLoading,
+                        onBrowseDeals: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DealSelectionPage(cityFilter: _selectedCity),
+                          ),
+                        ),
+                        onViewReceipts: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MemberReceiptsPage()),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1849,7 +3059,7 @@ class _MembersHomePageState extends State<MembersHomePage>
                   }
                   _navigateToPaymentScreen();
                 },
-                child: const Text('Renew Subscription / Enter Promo Code'),
+                child: Text(widget.isTrustedPartner ? 'Enter TP key to activate' : 'Renew Subscription / Enter Promo Code'),
               ),
             ],
           ),
@@ -1961,10 +3171,16 @@ class _MembersHomePageState extends State<MembersHomePage>
           ),
           child: Column(
             children: [
-              CustomQrCode(
-                data: _userQrData?['qr_code'] ?? 'No QR Code Available',
-                size: 200.0,
-                logoAssetPath: 'assets/heart_flag.png',
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomQrCode(
+                    data: _userQrData?['qr_code'] ?? 'No QR Code Available',
+                    size: 200.0,
+                    logoAssetPath: 'assets/heart_flag.png',
+                  ),
+                  if (_obscureSensitiveContent) _buildSensitiveContentMask(),
+                ],
               ),
               const SizedBox(height: 16),
               Text(
@@ -2045,10 +3261,16 @@ class _MembersHomePageState extends State<MembersHomePage>
           ),
           child: Column(
             children: [
-              CustomQrCode(
-                data: _userQrData?['qr_code'] ?? 'No QR Code Available',
-                size: 200.0,
-                logoAssetPath: 'assets/heart_flag.png',
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomQrCode(
+                    data: _userQrData?['qr_code'] ?? 'No QR Code Available',
+                    size: 200.0,
+                    logoAssetPath: 'assets/heart_flag.png',
+                  ),
+                  if (_obscureSensitiveContent) _buildSensitiveContentMask(),
+                ],
               ),
               const SizedBox(height: 16),
               Text(
@@ -2083,5 +3305,26 @@ class _MembersHomePageState extends State<MembersHomePage>
       'December',
     ];
     return months[month - 1];
+  }
+
+  Widget _buildSensitiveContentMask() {
+    return Container(
+      width: 200,
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      alignment: Alignment.center,
+      child: const Text(
+        'Hidden while app is inactive',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.black54,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
   }
 }

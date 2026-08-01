@@ -1,0 +1,13 @@
+{
+    "project_ref": "qdrotavcmmevhgveodcp",
+    "expected_repo_functions_not_deployed": [
+        "create-profile-function"
+    ],
+    "expected_repo_migrations_not_applied_prefixes": [
+        "temp_"
+    ],
+    "notes": [
+        "create-profile-function is a bootstrap helper for creating SQL RPCs and is intentionally not required in production runtime.",
+        "temp_ migrations are scratch/transition artifacts and should not be applied to production unless explicitly promoted."
+    ]
+}

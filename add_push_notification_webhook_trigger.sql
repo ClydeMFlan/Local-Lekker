@@ -1,5 +1,10 @@
 -- Database webhook trigger: send FCM push notification on every new notification INSERT
 --
+-- ⚠️ ON HOLD: This push-notification trigger is intentionally NOT active yet.
+-- In-app notifications (rows in the notifications table) work without it — the
+-- app reads them directly. This trigger only adds device push (FCM) wake-ups
+-- and is deferred until further app updates. Leave commented out until ready.
+--
 -- This uses Supabase's pg_net extension to call the send-push-notification Edge Function
 -- whenever a row is inserted into the notifications table.
 --

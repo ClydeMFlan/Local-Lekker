@@ -1,0 +1,847 @@
+add_admin_businesses_rls_policy.sql	"Admins can manage all businesses"	public.businesses
+add_admin_can_create_deals_permission.sql	"Admins can create discounts when allowed"	public.trusted_partner_discounts
+add_admin_can_create_deals_permission.sql	"Admins can delete discounts when allowed"	public.trusted_partner_discounts
+add_admin_can_create_deals_permission.sql	"Admins can update discounts when allowed"	public.trusted_partner_discounts
+add_admin_discounts_policy.sql	"Admin full access to trusted_partner_discounts"	public.trusted_partner_discounts
+add_admin_insert_trusted_partners_policy.sql	"Admins can delete trusted_partners"	public.trusted_partners
+add_admin_insert_trusted_partners_policy.sql	"Admins can insert trusted_partners"	public.trusted_partners
+add_admin_insert_trusted_partners_policy.sql	"Admins can update trusted_partners"	public.trusted_partners
+add_admin_policies.sql	"Admins can view all memberships"	public.memberships
+add_admin_policies.sql	"Admins can view all profiles"	public.profiles
+add_admin_promo_keys_table.sql	"admin_full_access_admin_promo_keys"	public.admin_promo_keys
+add_admin_promo_keys_table.sql	"authenticated_read_admin_promo_keys"	public.admin_promo_keys
+add_admin_promo_keys_table.sql	"authenticated_update_admin_promo_keys"	public.admin_promo_keys
+add_chat_tables.sql	chat_conversations_insert	public.chat_conversations
+add_chat_tables.sql	chat_conversations_select	public.chat_conversations
+add_chat_tables.sql	chat_messages_insert	public.chat_messages
+add_chat_tables.sql	chat_messages_select	public.chat_messages
+add_city_filtering_for_deals.sql	"Members can view all active discounts by city"	trusted_partner_discounts
+add_deal_authorization_delete_policies.sql	"Admins can delete deal authorizations"	deal_authorizations
+add_deal_authorization_delete_policies.sql	"Members can delete their own deal authorizations"	deal_authorizations
+add_deal_authorization_delete_policies.sql	"Trusted partners can delete deal authorizations"	deal_authorizations
+add_deal_delete_policies.sql	"Admins can delete any deal"	trusted_partner_discounts
+add_deal_delete_policies.sql	"Trusted partners can delete their own deals"	trusted_partner_discounts
+add_deal_images_rls_policies.sql	"Admins can manage deal images"	storage.objects
+add_deal_images_rls_policies.sql	"Members can view deal images"	storage.objects
+add_deal_images_rls_policies.sql	"Trusted partners can delete deal images"	storage.objects
+add_deal_images_rls_policies.sql	"Trusted partners can update deal images"	storage.objects
+add_deal_images_rls_policies.sql	"Trusted partners can upload deal images"	storage.objects
+add_deal_images_rls_policies.sql	"Trusted partners can view deal images"	storage.objects
+add_deal_images_rls_policies.sql	for trusted partners to delete deal images
+DROP POLICY IF EXISTS "Trusted partners can delete deal images"	storage.objects
+add_deal_images_rls_policies.sql	for trusted partners to update deal images
+DROP POLICY IF EXISTS "Trusted partners can update deal images"	storage.objects
+add_deal_images_rls_policies.sql	for trusted partners to upload deal images
+DROP POLICY IF EXISTS "Trusted partners can upload deal images"	storage.objects
+add_deal_images_rls_policies.sql	for trusted partners to view deal images
+DROP POLICY IF EXISTS "Trusted partners can view deal images"	storage.objects
+add_fcm_token_to_profiles.sql	IF NOT EXISTS "Users can update own fcm_token"	profiles
+add_insert_policy_safe.sql	"Members can insert their own authorizations"	deal_authorizations
+add_intro_campaign_promotions.sql	"admin_full_access_promotion_participant_emails"	public.promotion_participant_emails
+add_intro_campaign_promotions.sql	"members_read_own_promotion_participant_eligibility"	public.promotion_participant_emails
+add_logo_url_to_businesses.sql	"Anyone can view partner logos"	storage.objects
+add_logo_url_to_businesses.sql	"Trusted partners can delete their logos"	storage.objects
+add_logo_url_to_businesses.sql	"Trusted partners can update their logos"	storage.objects
+add_logo_url_to_businesses.sql	"Trusted partners can upload their logos"	storage.objects
+add_member_claim_participant_email_policy.sql	"members_update_own_participant_claim"	public.promotion_participant_emails
+add_member_read_partner_bank_accounts_policy.sql	"Members can view partner bank accounts for payment"	public.trusted_partner_bank_accounts
+add_member_read_partner_logos_policy.sql	"Authenticated users can view partner logos"	storage.objects
+add_member_update_deal_authorizations_policy.sql	"Members and trusted partners can insert receipts"	public.deal_receipts
+add_member_update_deal_authorizations_policy.sql	"Members and trusted partners can insert virtual receipts"	public.virtual_receipts
+add_member_update_deal_authorizations_policy.sql	"Members can update their own deal authorizations"	public.deal_authorizations
+add_notifications_insert_policy.sql	"System can insert notifications"	notifications
+add_partner_logos_admin_storage_policy.sql	"admins can delete partner logos"	storage.objects
+add_partner_logos_admin_storage_policy.sql	"admins can insert partner logos"	storage.objects
+add_partner_logos_admin_storage_policy.sql	"admins can update partner logos"	storage.objects
+add_paystack_fields_to_trusted_partners.sql	"Business owners can manage their trusted partner profile"	public.trusted_partners
+add_paystack_fields_to_trusted_partners.sql	"Members can view all trusted partners"	public.trusted_partners
+add_promotions_part1_tables.sql	"admin_delete_promo_images"	storage.objects
+add_promotions_part1_tables.sql	"admin_full_access_promotion_signups"	public.promotion_signups
+add_promotions_part1_tables.sql	"admin_full_access_promotions"	public.promotions
+add_promotions_part1_tables.sql	"admin_upload_promo_images"	storage.objects
+add_promotions_part1_tables.sql	"authenticated_read_active_promotions"	public.promotions
+add_promotions_part1_tables.sql	"members_insert_own_signups"	public.promotion_signups
+add_promotions_part1_tables.sql	"members_read_own_signups"	public.promotion_signups
+add_promotions_part1_tables.sql	"public_read_promo_images"	storage.objects
+add_promotions_table.sql	"admin_delete_promo_images"	storage.objects
+add_promotions_table.sql	"admin_full_access_promotion_signups"	public.promotion_signups
+add_promotions_table.sql	"admin_full_access_promotions"	public.promotions
+add_promotions_table.sql	"admin_upload_promo_images"	storage.objects
+add_promotions_table.sql	"authenticated_read_active_promotions"	public.promotions
+add_promotions_table.sql	"members_insert_own_signups"	public.promotion_signups
+add_promotions_table.sql	"members_read_own_signups"	public.promotion_signups
+add_promotions_table.sql	"public_read_promo_images"	storage.objects
+add_tp_can_read_member_profiles_policy.sql	"TPs can read profiles of members with deal authorizations"	public.profiles
+add_tp_inquiries_table.sql	"Admin can read TP inquiries"	tp_inquiries
+add_tp_inquiries_table.sql	"Admin can update TP inquiries"	tp_inquiries
+add_tp_inquiries_table.sql	"Anyone can submit a TP inquiry"	tp_inquiries
+add_tp_member_keys_table.sql	"admin_full_access_tp_member_keys"	public.tp_member_keys
+add_tp_member_keys_table.sql	"authenticated_read_tp_member_keys"	public.tp_member_keys
+add_tp_member_keys_table.sql	"authenticated_update_tp_member_keys"	public.tp_member_keys
+align_admin_select_policy.sql	"Admin can view all trusted partner discounts"	public.trusted_partner_discounts
+apply_admin_chat_two_way.sql	chat_messages_insert	public.chat_messages
+apply_admin_chat_two_way.sql	chat_messages_update	public.chat_messages
+APPLY_ADMIN_PASSWORD_CREATION.sql	"Admins can create discounts when allowed"	public.trusted_partner_discounts
+APPLY_ADMIN_PASSWORD_CREATION.sql	"Admins can delete discounts when allowed"	public.trusted_partner_discounts
+APPLY_ADMIN_PASSWORD_CREATION.sql	"Admins can delete profiles"	public.profiles
+APPLY_ADMIN_PASSWORD_CREATION.sql	"Admins can update discounts when allowed"	public.trusted_partner_discounts
+APPLY_ADMIN_PASSWORD_CREATION.sql	"Admins can update profiles"	public.profiles
+APPLY_DEAL_IMAGE_FIX.sql	"Admins can upload deal images for authorized partners"	storage.objects
+APPLY_DEAL_IMAGE_FIX.sql	"Trusted partners can upload deal images"	storage.objects
+apply_payment_flow_migration.sql	"Partners can insert approvals for their bills"	bill_approvals
+apply_payment_flow_migration.sql	"Partners can update their own approvals"	bill_approvals
+apply_payment_flow_migration.sql	"Partners can view their own approvals"	bill_approvals
+apply_payment_flow_migration.sql	"Users can delete own bank accounts"	trusted_partner_bank_accounts
+apply_payment_flow_migration.sql	"Users can insert own bank accounts"	trusted_partner_bank_accounts
+apply_payment_flow_migration.sql	"Users can update own bank accounts"	trusted_partner_bank_accounts
+apply_payment_flow_migration.sql	"Users can view own bank accounts"	trusted_partner_bank_accounts
+cleanup_rls_always_true_policies.sql	"Admins can insert profiles"	profiles
+cleanup_rls_always_true_policies.sql	"Admins can update all profiles"	profiles
+COMPLETE_ADMIN_TRUSTED_PARTNER_FIX.sql	"Admins can insert profiles"	public.profiles
+COMPLETE_ADMIN_TRUSTED_PARTNER_FIX.sql	"Admins can update all profiles"	public.profiles
+COMPLETE_ADMIN_TRUSTED_PARTNER_FIX.sql	"Admins can view all profiles"	public.profiles
+COMPLETE_ADMIN_TRUSTED_PARTNER_FIX.sql	"Authenticated users can view profiles for FK validation"	public.profiles
+COMPLETE_ADMIN_TRUSTED_PARTNER_FIX.sql	"Users can insert own profile"	public.profiles
+COMPLETE_ADMIN_TRUSTED_PARTNER_FIX.sql	"Users can update own profile"	public.profiles
+COMPLETE_ADMIN_TRUSTED_PARTNER_FIX.sql	"Users can view own profile"	public.profiles
+comprehensive_rls_fix.sql	"Admin full access to memberships"	public.memberships
+comprehensive_rls_fix.sql	"Admin full access to profiles"	public.profiles
+comprehensive_rls_fix.sql	"Users can insert own membership"	public.memberships
+comprehensive_rls_fix.sql	"Users can insert own profile"	public.profiles
+comprehensive_rls_fix.sql	"Users can update own membership"	public.memberships
+comprehensive_rls_fix.sql	"Users can update own profile"	public.profiles
+comprehensive_rls_fix.sql	"Users can view own membership"	public.memberships
+comprehensive_rls_fix.sql	"Users can view own profile"	public.profiles
+comprehensive_schema_with_rls.sql	"Admins can manage all businesses"	public.businesses
+comprehensive_schema_with_rls.sql	"Admins can update memberships"	public.memberships
+comprehensive_schema_with_rls.sql	"Admins can update payments"	public.payments
+comprehensive_schema_with_rls.sql	"Admins can view all authorizations"	public.deal_authorizations
+comprehensive_schema_with_rls.sql	"Admins can view all bills"	public.processed_bills
+comprehensive_schema_with_rls.sql	"Admins can view all discounts"	public.trusted_partner_discounts
+comprehensive_schema_with_rls.sql	"Admins can view all memberships"	public.memberships
+comprehensive_schema_with_rls.sql	"Admins can view all notifications"	public.notifications
+comprehensive_schema_with_rls.sql	"Admins can view all payments"	public.payments
+comprehensive_schema_with_rls.sql	"Admins can view all profiles"	public.profiles
+comprehensive_schema_with_rls.sql	"Admins can view all QR codes"	public.user_qr_codes
+comprehensive_schema_with_rls.sql	"Admins can view all subscriptions"	public.subscriptions
+comprehensive_schema_with_rls.sql	"Admins can view all trusted_partners"	public.trusted_partners
+comprehensive_schema_with_rls.sql	"Authenticated members can create businesses"	public.businesses
+comprehensive_schema_with_rls.sql	"Authenticated members can insert notifications"	public.notifications
+comprehensive_schema_with_rls.sql	"Authenticated members can insert payments"	public.payments
+comprehensive_schema_with_rls.sql	"Authenticated members can insert subscriptions"	public.subscriptions
+comprehensive_schema_with_rls.sql	"Authenticated members can insert their profile"	public.profiles
+comprehensive_schema_with_rls.sql	"Authenticated members can insert trusted_partner records"	public.trusted_partners
+comprehensive_schema_with_rls.sql	"Business owners can manage their discounts"	public.trusted_partner_discounts
+comprehensive_schema_with_rls.sql	"Business owners can update authorizations for their business"	public.deal_authorizations
+comprehensive_schema_with_rls.sql	"Business owners can update their business"	public.businesses
+comprehensive_schema_with_rls.sql	"Business owners can view authorizations for their business"	public.deal_authorizations
+comprehensive_schema_with_rls.sql	"Business owners can view bills for their business"	public.processed_bills
+comprehensive_schema_with_rls.sql	"Members can create their own authorizations"	public.deal_authorizations
+comprehensive_schema_with_rls.sql	"Members can insert their own bills"	public.processed_bills
+comprehensive_schema_with_rls.sql	"Members can insert their own QR codes"	public.user_qr_codes
+comprehensive_schema_with_rls.sql	"Members can update their own bills"	public.processed_bills
+comprehensive_schema_with_rls.sql	"Members can update their own notifications"	public.notifications
+comprehensive_schema_with_rls.sql	"Members can update their own profile"	public.profiles
+comprehensive_schema_with_rls.sql	"Members can update their own subscriptions"	public.subscriptions
+comprehensive_schema_with_rls.sql	"Members can update their own trusted_partner record"	public.trusted_partners
+comprehensive_schema_with_rls.sql	"Members can view all active discounts"	public.trusted_partner_discounts
+comprehensive_schema_with_rls.sql	"Members can view all businesses"	public.businesses
+comprehensive_schema_with_rls.sql	"Members can view their own authorizations"	public.deal_authorizations
+comprehensive_schema_with_rls.sql	"Members can view their own bills"	public.processed_bills
+comprehensive_schema_with_rls.sql	"Members can view their own membership"	public.memberships
+comprehensive_schema_with_rls.sql	"Members can view their own notifications"	public.notifications
+comprehensive_schema_with_rls.sql	"Members can view their own payments"	public.payments
+comprehensive_schema_with_rls.sql	"Members can view their own profile"	public.profiles
+comprehensive_schema_with_rls.sql	"Members can view their own QR codes"	public.user_qr_codes
+comprehensive_schema_with_rls.sql	"Members can view their own subscriptions"	public.subscriptions
+comprehensive_schema_with_rls.sql	"Members can view their own trusted_partner record"	public.trusted_partners
+comprehensive_schema_with_rls.sql	"Users can delete own bank accounts"	public.trusted_partner_bank_accounts
+comprehensive_schema_with_rls.sql	"Users can insert own bank accounts"	public.trusted_partner_bank_accounts
+comprehensive_schema_with_rls.sql	"Users can update own bank accounts"	public.trusted_partner_bank_accounts
+comprehensive_schema_with_rls.sql	"Users can view own bank accounts"	public.trusted_partner_bank_accounts
+create_admin_delete_tp_system.sql	"Admins can insert archived payments"	public.archived_pending_payments
+create_admin_delete_tp_system.sql	"Admins can insert archived paystack"	public.archived_paystack_data
+create_admin_delete_tp_system.sql	"Admins can insert archived receipts"	public.archived_receipts
+create_admin_delete_tp_system.sql	"Admins can view archived payments"	public.archived_pending_payments
+create_admin_delete_tp_system.sql	"Admins can view archived paystack"	public.archived_paystack_data
+create_admin_delete_tp_system.sql	"Admins can view archived receipts"	public.archived_receipts
+create_archived_members_table.sql	"Admins can view all archived members"	public.archived_members
+create_archived_members_table.sql	"Anon users can check archived members by email"	public.archived_members
+create_archived_members_table.sql	"Service role can insert archived members"	public.archived_members
+create_calibration_receipts_table.sql	"Business owners can manage their calibration receipts"	calibration_receipts
+create_calibration_receipts_table.sql	"Members can view active calibration receipts"	calibration_receipts
+create_calibration_receipts_table.sql	"Service role can manage all calibration receipts"	calibration_receipts
+create_deal_receipts_table.sql	"Members can view their own receipts"	public.deal_receipts
+create_deal_receipts_table.sql	"System can insert receipts"	public.deal_receipts
+create_deal_receipts_table.sql	"Trusted partners can view their business receipts"	public.deal_receipts
+create_recovery_sessions_table.sql	"Anyone can insert recovery session"	public.recovery_sessions
+create_recovery_sessions_table.sql	"Users can read own recovery sessions"	public.recovery_sessions
+create_subscriptions_table.sql	"Admins can view all subscriptions"	public.subscriptions
+create_subscriptions_table.sql	"Authenticated members can insert subscriptions"	public.subscriptions
+create_subscriptions_table.sql	"Members can update their own subscriptions"	public.subscriptions
+create_subscriptions_table.sql	"Members can view their own subscriptions"	public.subscriptions
+deal_authorization_schema.sql	"Members can view receipts for their authorizations"	virtual_receipts
+deal_authorization_schema.sql	"Members can view their own authorizations"	deal_authorizations
+deal_authorization_schema.sql	"Members can view their own notifications"	notifications
+deal_authorization_schema.sql	"Members can view their own receipts"	member_receipts
+deal_authorization_schema.sql	"Trusted partners can update authorizations for their business"	deal_authorizations
+deal_authorization_schema.sql	"Trusted partners can view authorizations for their business"	deal_authorizations
+deal_authorization_schema.sql	"Trusted partners can view receipts for their authorizations"	virtual_receipts
+enable_admin_view_all_tp_data.sql	"Admin can view all businesses"	businesses
+enable_admin_view_all_tp_data.sql	"Admin can view all memberships"	memberships
+enable_admin_view_all_tp_data.sql	"Admin can view all trusted partner discounts"	trusted_partner_discounts
+enable_admin_view_all_tp_data.sql	"Admin can view all trusted partners"	trusted_partners
+enable_admin_view_all_tp_data.sql	"Admin can view all user QR codes"	user_qr_codes
+final_rls_refinements.sql	"Service role can insert archived members"	archived_members
+fix_admin_chat_messages_policy.sql	chat_messages_insert	public.chat_messages
+fix_admin_deal_creation_rls.sql	"Admins can manage deal images"	storage.objects
+fix_admin_deal_creation_rls.sql	"Admins have full access to trusted_partner_discounts"	public.trusted_partner_discounts
+fix_admin_deal_image_upload_rls_CORRECTED.sql	"Admins can delete deal images for authorized partners"	storage.objects
+fix_admin_deal_image_upload_rls_CORRECTED.sql	"Admins can update deal images for authorized partners"	storage.objects
+fix_admin_deal_image_upload_rls_CORRECTED.sql	"Admins can upload deal images for authorized partners"	storage.objects
+fix_admin_deal_image_upload_rls_CORRECTED.sql	"Admins can view deal images for authorized partners"	storage.objects
+fix_admin_deal_image_upload_rls_CORRECTED.sql	"Members can view deal images"	storage.objects
+fix_admin_deal_image_upload_rls_CORRECTED.sql	"Trusted partners can delete deal images"	storage.objects
+fix_admin_deal_image_upload_rls_CORRECTED.sql	"Trusted partners can update deal images"	storage.objects
+fix_admin_deal_image_upload_rls_CORRECTED.sql	"Trusted partners can upload deal images"	storage.objects
+fix_admin_deal_image_upload_rls_CORRECTED.sql	"Trusted partners can view deal images"	storage.objects
+fix_admin_deal_image_upload_storage_rls.sql	"Admins can delete deal images"	storage.objects
+fix_admin_deal_image_upload_storage_rls.sql	"Admins can update deal images"	storage.objects
+fix_admin_deal_image_upload_storage_rls.sql	"Admins can upload deal images"	storage.objects
+fix_admin_deal_image_upload_storage_rls.sql	"Admins can view all deal images"	storage.objects
+fix_admin_deal_rls.sql	"Admins can manage all discounts"	public.trusted_partner_discounts
+fix_admin_deal_rls.sql	"Admins can manage deal authorizations"	public.deal_authorizations
+fix_admin_email_rls.sql	"admin_memberships_access"	public.memberships
+fix_admin_email_rls.sql	"admin_profiles_access"	public.profiles
+fix_admin_image_visibility_rls.sql	"Admins can view deal images"	storage.objects
+fix_admin_image_visibility_rls.sql	"Members can view deal images"	storage.objects
+fix_admin_image_visibility_rls.sql	"Trusted partners can view deal images"	storage.objects
+fix_admin_notifications_rls.sql	"notifications_select_own"	notifications
+fix_admin_profile_creation_rls.sql	"Admins can insert profiles"	public.profiles
+fix_admin_profile_creation_rls.sql	"Admins can update all profiles"	public.profiles
+fix_admin_profile_creation_rls.sql	"Admins can view all profiles"	public.profiles
+fix_admin_profile_creation_rls.sql	"Users can insert own profile"	public.profiles
+fix_admin_profile_creation_rls.sql	"Users can update own profile"	public.profiles
+fix_admin_profile_creation_rls.sql	"Users can view own profile"	public.profiles
+fix_chat_messages_update_policy.sql	chat_messages_update	public.chat_messages
+fix_deal_authorization_foreign_key_rls.sql	"Authenticated users can create businesses"	public.businesses
+fix_deal_authorization_foreign_key_rls.sql	"Authenticated users can view all active discounts"	public.trusted_partner_discounts
+fix_deal_authorization_foreign_key_rls.sql	"Authenticated users can view all businesses"	public.businesses
+fix_deal_authorization_foreign_key_rls.sql	"Business owners can create discounts"	public.trusted_partner_discounts
+fix_deal_authorization_foreign_key_rls.sql	"Business owners can update their business"	public.businesses
+fix_deal_authorization_foreign_key_rls.sql	"Business owners can update their discounts"	public.trusted_partner_discounts
+fix_deal_authorization_foreign_key_rls.sql	deal_auth_insert_member	public.deal_authorizations
+fix_deal_authorization_foreign_key_rls.sql	deal_auth_select_business	public.deal_authorizations
+fix_deal_authorization_foreign_key_rls.sql	deal_auth_select_member	public.deal_authorizations
+fix_deal_authorization_foreign_key_rls.sql	deal_auth_update_business	public.deal_authorizations
+fix_deal_authorization_rls.sql	"Trusted partners can update authorizations for their business"	deal_authorizations
+fix_deal_authorization_rls.sql	"Trusted partners can view authorizations for their business"	deal_authorizations
+fix_deal_authorizations_rls.sql	"Business owners can update their authorizations"	deal_authorizations
+fix_deal_authorizations_rls.sql	"Business owners can view their authorizations"	deal_authorizations
+fix_deal_authorizations_rls.sql	"Members can insert their authorizations"	deal_authorizations
+fix_deal_authorizations_rls.sql	"Members can view their authorizations"	deal_authorizations
+fix_deal_image_insert_policies.sql	"Admins can upload deal images for authorized partners"	storage.objects
+fix_deal_image_insert_policies.sql	"Trusted partners can upload deal images"	storage.objects
+fix_deal_image_upload_comprehensive.sql	"Admins can manage partner deal images"	storage.objects
+fix_deal_image_upload_comprehensive.sql	"Anyone can view deal images"	storage.objects
+fix_deal_image_upload_comprehensive.sql	"Trusted partners can delete own deal images"	storage.objects
+fix_deal_image_upload_comprehensive.sql	"Trusted partners can update own deal images"	storage.objects
+fix_deal_image_upload_comprehensive.sql	"Trusted partners can upload own deal images"	storage.objects
+fix_deal_receipts_insert_policy.sql	"Trusted partners can insert receipts"	public.deal_receipts
+fix_discount_visibility.sql	"Business owners can manage their discounts"	trusted_partner_discounts
+fix_discount_visibility.sql	"Users can view all discounts"	trusted_partner_discounts
+fix_email_check_rls.sql	to allow anonymous users to SELECT emails only
+CREATE POLICY "Allow anonymous email checks"	profiles
+FIX_LIVE_DB.sql	"Allow authenticated uploads to deal-images"	storage.objects
+FIX_LIVE_DB.sql	"Allow owners to manage deal-images"	storage.objects
+FIX_LIVE_DB.sql	"Allow public read of deal-images"	storage.objects
+FIX_LIVE_DB.sql	"Members can insert their own card details"	public.members_card_details
+FIX_LIVE_DB.sql	"Members can update their own card details"	public.members_card_details
+FIX_LIVE_DB.sql	"Members can view their own card details"	public.members_card_details
+FIX_LIVE_DB.sql	"Users can delete their own subscriptions"	public.subscriptions
+fix_memberships_infinite_recursion.sql	"Admins can view all memberships"	public.memberships
+fix_notifications_and_deal_authorizations_policies.sql	deal_auth_insert_member	public.deal_authorizations
+fix_notifications_and_deal_authorizations_policies.sql	deal_auth_select_business	public.deal_authorizations
+fix_notifications_and_deal_authorizations_policies.sql	deal_auth_select_member	public.deal_authorizations
+fix_notifications_and_deal_authorizations_policies.sql	deal_auth_update_business	public.deal_authorizations
+fix_notifications_and_deal_authorizations_policies.sql	notifications_insert_authenticated	public.notifications
+fix_notifications_and_deal_authorizations_policies.sql	notifications_select_own	public.notifications
+fix_notifications_and_deal_authorizations_policies.sql	notifications_update_own	public.notifications
+fix_notifications_archive_rls.sql	"Admins can delete archived notifications"	notifications_archive
+fix_notifications_archive_rls.sql	"Admins can view archived notifications"	notifications_archive
+fix_notifications_archive_rls.sql	"System can insert into archive"	notifications_archive
+fix_notifications_archive_rls.sql	"Users can view own archived notifications"	notifications_archive
+fix_notifications_insert_cross_user.sql	"Allow authenticated users to create notifications"	notifications
+fix_notifications_insert_final.sql	"notifications_insert_policy"	notifications
+fix_notifications_insert_policy.sql	"Authenticated users can insert notifications"	notifications
+fix_notifications_insert_policy.sql	IF NOT EXISTS "System can insert notifications"	notifications
+fix_notifications_insert_rls.sql	"notifications_insert_authenticated"	public.notifications
+fix_notifications_policy.sql	"Authenticated users can insert notifications"	notifications
+fix_notifications_policy.sql	"Service role can insert notifications"	notifications
+fix_notifications_rls_for_tp.sql	"Authenticated can insert notifications for any user"	notifications
+fix_payment_rls_policy.sql	allowing members to update their own authorizations
+-- Specifically needed for payment_completed_at timestamp after payment
+CREATE POLICY "deal_auth_update_member"	deal_authorizations
+fix_payments_rls.sql	"Admins can insert payments"	public.payments
+fix_payments_rls.sql	"Members can insert their own payments"	public.payments
+fix_payments_rls.sql	"Trusted partners can insert payments"	public.payments
+fix_pre_publish_security.sql	"deal_auth_update_member"	deal_authorizations
+fix_pre_publish_security.sql	"members_insert_own_subscriptions"	subscriptions
+fix_pre_publish_security.sql	"notifications_insert_own"	notifications
+fix_profiles_rls_for_notifications.sql	"Authenticated users can view profiles for FK validation"	profiles
+fix_profiles_rls_infinite_recursion.sql	"Admin can view all trusted partners"	trusted_partners
+fix_profiles_rls_infinite_recursion.sql	tp_can_read_member_profiles	profiles
+fix_profiles_rls_infinite_recursion.sql	tp_can_read_user_qr_codes	user_qr_codes
+fix_promotions_member_rls.sql	"Members can view their eligible promotions"	promotions
+fix_receipt_rls_policies.sql	"Members and trusted partners can insert receipts"	public.deal_receipts
+fix_receipt_rls_policies.sql	"Members and trusted partners can insert virtual receipts"	public.virtual_receipts
+fix_recovery_sessions_rls.sql	"Anyone can insert recovery session"	public.recovery_sessions
+fix_recovery_sessions_rls.sql	"Anyone can read active recovery sessions"	public.recovery_sessions
+fix_rls_always_true_warnings.sql	"Admins can view archived members"	public.archived_members
+fix_rls_always_true_warnings.sql	"Authenticated users can insert recovery sessions"	public.recovery_sessions
+fix_rls_always_true_warnings.sql	"Authenticated users can view basic profiles"	profiles
+fix_rls_always_true_warnings.sql	"Users can insert own notifications"	notifications
+fix_rls_policies.sql	"admin_memberships_access"	public.memberships
+fix_rls_policies.sql	"admin_profiles_access"	public.profiles
+fix_rls_policies.sql	"memberships_insert_policy"	public.memberships
+fix_rls_policies.sql	"memberships_select_policy"	public.memberships
+fix_rls_policies.sql	"memberships_update_policy"	public.memberships
+fix_rls_policies.sql	"profiles_insert_policy"	public.profiles
+fix_rls_policies.sql	"profiles_select_policy"	public.profiles
+fix_rls_policies.sql	"profiles_update_policy"	public.profiles
+fix_subscription_renewals_rls.sql	"Service role can manage renewals"	public.subscription_renewals
+fix_subscription_renewals_rls.sql	"Users can insert their own renewal records"	public.subscription_renewals
+fix_subscription_renewals_rls.sql	"Users can view their own renewal history"	public.subscription_renewals
+fix_tp_deal_image_upload_rls.sql	"Anyone can view deal images"	storage.objects
+fix_tp_deal_image_upload_rls.sql	"Trusted partners can delete own deal images"	storage.objects
+fix_tp_deal_image_upload_rls.sql	"Trusted partners can update own deal images"	storage.objects
+fix_tp_deal_image_upload_rls.sql	to allow trusted partners to upload deal images to their own folder
+CREATE POLICY "Trusted partners can upload own deal images"	storage.objects
+fix_tp_qr_scan_rls_policies.sql	tp_can_read_member_profiles	profiles
+fix_tp_qr_scan_rls_policies.sql	tp_can_read_user_qr_codes	user_qr_codes
+fix_virtual_receipts_insert_policy.sql	"Trusted partners can insert virtual receipts"	public.virtual_receipts
+full_reinstate.sql	"Admins can view all payments"	payments
+full_reinstate.sql	"Admins can view all payments"	public.payments
+full_reinstate.sql	"Authenticated users can insert notifications"	notifications
+full_reinstate.sql	"Business owners can delete their bills"	storage.objects
+full_reinstate.sql	"Business owners can delete their logos"	storage.objects
+full_reinstate.sql	"Business owners can delete their own bills"	business_bills
+full_reinstate.sql	"Business owners can delete their own logos"	business_logos
+full_reinstate.sql	"Business owners can insert their own bills"	business_bills
+full_reinstate.sql	"Business owners can insert their own logos"	business_logos
+full_reinstate.sql	"Business owners can manage their calibration receipts"	calibration_receipts
+full_reinstate.sql	"Business owners can manage their discounts"	trusted_partner_discounts
+full_reinstate.sql	"Business owners can update their bills"	storage.objects
+full_reinstate.sql	"Business owners can update their logos"	storage.objects
+full_reinstate.sql	"Business owners can update their own bills"	business_bills
+full_reinstate.sql	"Business owners can update their own logos"	business_logos
+full_reinstate.sql	"Business owners can upload their bills"	storage.objects
+full_reinstate.sql	"Business owners can upload their logos"	storage.objects
+full_reinstate.sql	"Business owners can view their bills"	storage.objects
+full_reinstate.sql	"Business owners can view their logos"	storage.objects
+full_reinstate.sql	"Business owners can view their own bills"	business_bills
+full_reinstate.sql	"Business owners can view their own logos"	business_logos
+full_reinstate.sql	"Members can delete their own discounts"	public.trusted_partner_discounts
+full_reinstate.sql	"Members can insert own trusted partner record"	public.trusted_partners
+full_reinstate.sql	"Members can insert their own authorizations"	deal_authorizations
+full_reinstate.sql	"Members can insert their own discounts"	public.trusted_partner_discounts
+full_reinstate.sql	"Members can insert their own processed bills"	public.processed_bills
+full_reinstate.sql	"Members can insert their own receipts"	member_receipts
+full_reinstate.sql	"Members can update own trusted partner record"	public.trusted_partners
+full_reinstate.sql	"Members can update their own discounts"	public.trusted_partner_discounts
+full_reinstate.sql	"Members can update their own processed bills"	public.processed_bills
+full_reinstate.sql	"Members can update their own receipts"	member_receipts
+full_reinstate.sql	"Members can view active calibration receipts"	calibration_receipts
+full_reinstate.sql	"Members can view active discounts from all trusted partners"	public.trusted_partner_discounts
+full_reinstate.sql	"Members can view own trusted partner record"	public.merchants
+full_reinstate.sql	"Members can view own trusted partner record"	public.trusted_partners
+full_reinstate.sql	"Members can view their own authorizations"	deal_authorizations
+full_reinstate.sql	"Members can view their own discounts"	public.trusted_partner_discounts
+full_reinstate.sql	"Members can view their own processed bills"	public.processed_bills
+full_reinstate.sql	"Members can view their own receipts"	member_receipts
+full_reinstate.sql	"Members can view their own virtual receipts"	virtual_receipts
+full_reinstate.sql	"Partners can insert approvals for their bills"	bill_approvals
+full_reinstate.sql	"Partners can update their own approvals"	bill_approvals
+full_reinstate.sql	"Partners can view their own approvals"	bill_approvals
+full_reinstate.sql	"Service role can insert profiles"	public.profiles
+full_reinstate.sql	"Service role can manage all businesses"	public.businesses
+full_reinstate.sql	"Service role can manage all calibration receipts"	calibration_receipts
+full_reinstate.sql	"Service role can manage memberships"	public.memberships
+full_reinstate.sql	"Service role can manage payment schedules"	public.payment_schedules
+full_reinstate.sql	"Service role can manage payments"	payments
+full_reinstate.sql	"Service role can manage payments"	public.payments
+full_reinstate.sql	"Service role can manage profiles"	public.profiles
+full_reinstate.sql	"Service role can manage renewals"	public.subscription_renewals
+full_reinstate.sql	"Trusted partners can update authorizations for their business"	deal_authorizations
+full_reinstate.sql	"Trusted partners can update own business"	public.businesses
+full_reinstate.sql	"Trusted partners can view authorizations for their business"	deal_authorizations
+full_reinstate.sql	"Trusted partners can view own business"	public.businesses
+full_reinstate.sql	"Trusted partners can view virtual receipts for their authorizations"	virtual_receipts
+full_reinstate.sql	"Users can delete own bank accounts"	trusted_partner_bank_accounts
+full_reinstate.sql	"Users can delete their own business"	public.businesses
+full_reinstate.sql	"Users can delete their own discounts"	merchant_discounts
+full_reinstate.sql	"Users can delete their own discounts"	public.merchant_discounts
+full_reinstate.sql	"Users can insert own bank accounts"	trusted_partner_bank_accounts
+full_reinstate.sql	"Users can insert own profile"	public.profiles
+full_reinstate.sql	"Users can insert their own business"	public.businesses
+full_reinstate.sql	"Users can insert their own discounts"	merchant_discounts
+full_reinstate.sql	"Users can insert their own discounts"	public.merchant_discounts
+full_reinstate.sql	"Users can insert their own memberships"	public.memberships
+full_reinstate.sql	"Users can insert their own payments"	payments
+full_reinstate.sql	"Users can insert their own payments"	public.payments
+full_reinstate.sql	"Users can insert their own QR codes"	public.user_qr_codes
+full_reinstate.sql	"Users can insert their own renewal records"	public.subscription_renewals
+full_reinstate.sql	"Users can insert their own subscriptions"	public.subscriptions
+full_reinstate.sql	"Users can update own bank accounts"	trusted_partner_bank_accounts
+full_reinstate.sql	"Users can update own business"	public.businesses
+full_reinstate.sql	"Users can update own profile"	public.profiles
+full_reinstate.sql	"Users can update their notifications"	notifications
+full_reinstate.sql	"Users can update their own business"	public.businesses
+full_reinstate.sql	"Users can update their own discounts"	merchant_discounts
+full_reinstate.sql	"Users can update their own discounts"	public.merchant_discounts
+full_reinstate.sql	"Users can update their own memberships"	public.memberships
+full_reinstate.sql	"Users can update their own notifications"	notifications
+full_reinstate.sql	"Users can update their own QR codes"	public.user_qr_codes
+full_reinstate.sql	"Users can update their own subscriptions"	public.subscriptions
+full_reinstate.sql	"Users can view active discounts from all merchants"	merchant_discounts
+full_reinstate.sql	"Users can view all discounts"	trusted_partner_discounts
+full_reinstate.sql	"Users can view business names for offers"	businesses
+full_reinstate.sql	"Users can view own bank accounts"	trusted_partner_bank_accounts
+full_reinstate.sql	"Users can view own business"	public.businesses
+full_reinstate.sql	"Users can view own membership"	public.memberships
+full_reinstate.sql	"Users can view own profile"	public.profiles
+full_reinstate.sql	"Users can view own trusted_partner record"	public.trusted_partners
+full_reinstate.sql	"Users can view own user record"	public.users
+full_reinstate.sql	"Users can view their notifications"	notifications
+full_reinstate.sql	"Users can view their own business"	public.businesses
+full_reinstate.sql	"Users can view their own discounts"	merchant_discounts
+full_reinstate.sql	"Users can view their own discounts"	public.merchant_discounts
+full_reinstate.sql	"Users can view their own memberships"	public.memberships
+full_reinstate.sql	"Users can view their own notifications"	notifications
+full_reinstate.sql	"Users can view their own payment schedules"	public.payment_schedules
+full_reinstate.sql	"Users can view their own payments"	payments
+full_reinstate.sql	"Users can view their own payments"	public.payments
+full_reinstate.sql	"Users can view their own QR codes"	public.user_qr_codes
+full_reinstate.sql	"Users can view their own renewal history"	public.subscription_renewals
+full_reinstate.sql	"Users can view their own subscriptions"	public.subscriptions
+full_reinstate.sql	allow_self_profile_insert	public.profiles
+full_reinstate.sql	allow_self_profile_update	public.profiles
+full_reinstate.sql	allow_self_users_insert	public.users
+full_reinstate.sql	allow_self_users_select	public.users
+full_reinstate.sql	allow_self_users_update	public.users
+migration_deactivation_feature.sql	"Members can view active deals from non-deactivated partners"	trusted_partner_discounts
+migration_deactivation_feature.sql	"Members can view active trusted partners"	profiles
+migration_deactivation_feature.sql	"Members cannot see deactivated profiles"	profiles
+quick_fix_deal_authorization_rls.sql	"Authenticated users can view all businesses"	public.businesses
+recreate_payments_table.sql	"Admins can view all payments"	public.payments
+recreate_payments_table.sql	"Service role can manage payments"	public.payments
+recreate_payments_table.sql	"Users can insert their own payments"	public.payments
+recreate_payments_table.sql	"Users can view their own payments"	public.payments
+REV_01\add_missing_tables.sql	"Merchants can manage their discounts"	public.merchant_discounts
+REV_01\add_missing_tables.sql	"Service role can manage businesses"	public.businesses
+REV_01\add_missing_tables.sql	"Service role can manage merchant discounts"	public.merchant_discounts
+REV_01\add_missing_tables.sql	"Service role can manage merchants"	public.merchants
+REV_01\add_missing_tables.sql	"Service role can manage subscription renewals"	public.subscription_renewals
+REV_01\add_missing_tables.sql	"Service role can manage subscriptions"	public.subscriptions
+REV_01\add_missing_tables.sql	"Trusted partners can manage their businesses"	public.businesses
+REV_01\add_missing_tables.sql	"Users can insert their own merchant profile"	public.merchants
+REV_01\add_missing_tables.sql	"Users can insert their own subscriptions"	public.subscriptions
+REV_01\add_missing_tables.sql	"Users can update their own merchant profile"	public.merchants
+REV_01\add_missing_tables.sql	"Users can update their own subscriptions"	public.subscriptions
+REV_01\add_missing_tables.sql	"Users can view active discounts"	public.merchant_discounts
+REV_01\add_missing_tables.sql	"Users can view businesses"	public.businesses
+REV_01\add_missing_tables.sql	"Users can view their own merchant profile"	public.merchants
+REV_01\add_missing_tables.sql	"Users can view their own renewal history"	public.subscription_renewals
+REV_01\add_missing_tables.sql	"Users can view their own subscriptions"	public.subscriptions
+REV_01\apply_payment_flow_migration.sql	"Partners can insert approvals for their bills"	bill_approvals
+REV_01\apply_payment_flow_migration.sql	"Partners can update their own approvals"	bill_approvals
+REV_01\apply_payment_flow_migration.sql	"Partners can view their own approvals"	bill_approvals
+REV_01\apply_payment_flow_migration.sql	"Users can delete own bank accounts"	trusted_partner_bank_accounts
+REV_01\apply_payment_flow_migration.sql	"Users can insert own bank accounts"	trusted_partner_bank_accounts
+REV_01\apply_payment_flow_migration.sql	"Users can update own bank accounts"	trusted_partner_bank_accounts
+REV_01\apply_payment_flow_migration.sql	"Users can view own bank accounts"	trusted_partner_bank_accounts
+REV_01\complete_signup_fix.sql	"Users can insert memberships"	public.memberships
+REV_01\complete_signup_fix.sql	"Users can insert own profile"	public.profiles
+REV_01\complete_signup_fix.sql	"Users can insert own QR codes"	public.user_qr_codes
+REV_01\complete_signup_fix.sql	"Users can insert own user record"	public.users
+REV_01\complete_signup_fix.sql	"Users can update own profile"	public.profiles
+REV_01\complete_signup_fix.sql	"Users can update own QR codes"	public.user_qr_codes
+REV_01\complete_signup_fix.sql	"Users can view own membership"	public.memberships
+REV_01\complete_signup_fix.sql	"Users can view own profile"	public.profiles
+REV_01\complete_signup_fix.sql	"Users can view own QR codes"	public.user_qr_codes
+REV_01\complete_signup_fix.sql	"Users can view own user record"	public.users
+REV_01\create_merchant_discounts_table.sql	"Users can delete their own discounts"	public.merchant_discounts
+REV_01\create_merchant_discounts_table.sql	"Users can insert their own discounts"	public.merchant_discounts
+REV_01\create_merchant_discounts_table.sql	"Users can update their own discounts"	public.merchant_discounts
+REV_01\create_merchant_discounts_table.sql	"Users can view all active discounts"	public.merchant_discounts
+REV_01\create_merchant_discounts_table.sql	"Users can view their own discounts"	public.merchant_discounts
+REV_01\fix_business_bills_storage.sql	"Business owners can delete their bills"	public.business_bills
+REV_01\fix_business_bills_storage.sql	"Business owners can delete their bills"	storage.objects
+REV_01\fix_business_bills_storage.sql	"Business owners can insert their bills"	public.business_bills
+REV_01\fix_business_bills_storage.sql	"Business owners can update their bills"	public.business_bills
+REV_01\fix_business_bills_storage.sql	"Business owners can update their bills"	storage.objects
+REV_01\fix_business_bills_storage.sql	"Business owners can upload their bills"	storage.objects
+REV_01\fix_business_bills_storage.sql	"Business owners can view their bills"	public.business_bills
+REV_01\fix_business_bills_storage.sql	"Business owners can view their bills"	storage.objects
+REV_01\fix_profile_policy.sql	"Users can insert own profile"	public.profiles
+REV_01\fix_trusted_partner_signup.sql	"Members can delete their own discounts"	public.trusted_partner_discounts
+REV_01\fix_trusted_partner_signup.sql	"Members can insert their own discounts"	public.trusted_partner_discounts
+REV_01\fix_trusted_partner_signup.sql	"Members can update their own discounts"	public.trusted_partner_discounts
+REV_01\fix_trusted_partner_signup.sql	"Members can view active discounts from all trusted partners"	public.trusted_partner_discounts
+REV_01\fix_trusted_partner_signup.sql	"Members can view their own discounts"	public.trusted_partner_discounts
+REV_01\fix_users_memberships_policies.sql	"Users can insert memberships"	public.memberships
+REV_01\fix_users_memberships_policies.sql	"Users can insert own user record"	public.users
+REV_01\recreate_payments_table.sql	"Admins can view all payments"	public.payments
+REV_01\recreate_payments_table.sql	"Service role can manage payments"	public.payments
+REV_01\recreate_payments_table.sql	"Users can insert their own payments"	public.payments
+REV_01\recreate_payments_table.sql	"Users can view their own payments"	public.payments
+REV_01\supabase_backup_working_scripts_20250925.sql	"Business owners can delete their bills"	public.business_bills
+REV_01\supabase_backup_working_scripts_20250925.sql	"Business owners can delete their bills"	storage.objects
+REV_01\supabase_backup_working_scripts_20250925.sql	"Business owners can insert their bills"	public.business_bills
+REV_01\supabase_backup_working_scripts_20250925.sql	"Business owners can update their bills"	public.business_bills
+REV_01\supabase_backup_working_scripts_20250925.sql	"Business owners can update their bills"	storage.objects
+REV_01\supabase_backup_working_scripts_20250925.sql	"Business owners can upload their bills"	storage.objects
+REV_01\supabase_backup_working_scripts_20250925.sql	"Business owners can view their bills"	public.business_bills
+REV_01\supabase_backup_working_scripts_20250925.sql	"Business owners can view their bills"	storage.objects
+REV_01\supabase_sql_fix.sql	"Business owners can delete their bills"	public.business_bills
+REV_01\supabase_sql_fix.sql	"Business owners can delete their bills"	storage.objects
+REV_01\supabase_sql_fix.sql	"Business owners can insert their bills"	public.business_bills
+REV_01\supabase_sql_fix.sql	"Business owners can update their bills"	public.business_bills
+REV_01\supabase_sql_fix.sql	"Business owners can update their bills"	storage.objects
+REV_01\supabase_sql_fix.sql	"Business owners can upload their bills"	storage.objects
+REV_01\supabase_sql_fix.sql	"Business owners can view their bills"	public.business_bills
+REV_01\supabase_sql_fix.sql	"Business owners can view their bills"	storage.objects
+REV_01\temp_debug_policies.sql	"Authenticated users can delete bills"	public.business_bills
+REV_01\temp_debug_policies.sql	"Authenticated users can delete bills"	storage.objects
+REV_01\temp_debug_policies.sql	"Authenticated users can insert bills"	public.business_bills
+REV_01\temp_debug_policies.sql	"Authenticated users can update bills"	public.business_bills
+REV_01\temp_debug_policies.sql	"Authenticated users can update bills"	storage.objects
+REV_01\temp_debug_policies.sql	"Authenticated users can upload bills"	storage.objects
+REV_01\temp_debug_policies.sql	"Authenticated users can view bills"	public.business_bills
+REV_01\temp_debug_policies.sql	"Authenticated users can view bills"	storage.objects
+supabase\migrations\20240913000000_create_base_tables.sql	"Users can update own business"	public.businesses
+supabase\migrations\20240913000000_create_base_tables.sql	"Users can update own profile"	public.profiles
+supabase\migrations\20240913000000_create_base_tables.sql	"Users can view own business"	public.businesses
+supabase\migrations\20240913000000_create_base_tables.sql	"Users can view own membership"	public.memberships
+supabase\migrations\20240913000000_create_base_tables.sql	"Users can view own profile"	public.profiles
+supabase\migrations\20240913000000_create_base_tables.sql	"Users can view own trusted_partner record"	public.trusted_partners
+supabase\migrations\20240913000000_create_base_tables.sql	"Users can view own user record"	public.users
+supabase\migrations\20250916131000_create_missing_users_and_profile_policy.sql	allow_self_profile_insert	public.profiles
+supabase\migrations\20250916131000_create_missing_users_and_profile_policy.sql	allow_self_profile_update	public.profiles
+supabase\migrations\20250917100000_fix_users_policy_recursion.sql	allow_self_users_insert	public.users
+supabase\migrations\20250917100000_fix_users_policy_recursion.sql	allow_self_users_select	public.users
+supabase\migrations\20250917100000_fix_users_policy_recursion.sql	allow_self_users_update	public.users
+supabase\migrations\20250917210000_create_payments_table.sql	"Admins can view all payments"	payments
+supabase\migrations\20250917210000_create_payments_table.sql	"Service role can manage payments"	payments
+supabase\migrations\20250917210000_create_payments_table.sql	"Users can insert their own payments"	payments
+supabase\migrations\20250917210000_create_payments_table.sql	"Users can view their own payments"	payments
+supabase\migrations\20250918000004_add_businesses_rls_policies.sql	"Service role can manage all businesses"	public.businesses
+supabase\migrations\20250918000004_add_businesses_rls_policies.sql	"Users can delete their own business"	public.businesses
+supabase\migrations\20250918000004_add_businesses_rls_policies.sql	"Users can insert their own business"	public.businesses
+supabase\migrations\20250918000004_add_businesses_rls_policies.sql	"Users can update their own business"	public.businesses
+supabase\migrations\20250918000004_add_businesses_rls_policies.sql	"Users can view their own business"	public.businesses
+supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql	"Service role can manage memberships"	public.memberships
+supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql	"Users can insert their own memberships"	public.memberships
+supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql	"Users can update their own memberships"	public.memberships
+supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql	"Users can view their own memberships"	public.memberships
+supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql	"Service role can manage memberships"	public.memberships
+supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql	"Users can insert their own memberships"	public.memberships
+supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql	"Users can update their own memberships"	public.memberships
+supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql	"Users can view their own memberships"	public.memberships
+supabase\migrations\20250919180000_add_trigger_insert_policies.sql	"Service role can insert profiles"	public.profiles
+supabase\migrations\20250919180000_add_trigger_insert_policies.sql	"Service role can manage memberships"	public.memberships
+supabase\migrations\20250919180000_add_trigger_insert_policies.sql	"Service role can manage profiles"	public.profiles
+supabase\migrations\20250921100000_create_merchant_discounts_table.sql	"Users can delete their own discounts"	merchant_discounts
+supabase\migrations\20250921100000_create_merchant_discounts_table.sql	"Users can insert their own discounts"	merchant_discounts
+supabase\migrations\20250921100000_create_merchant_discounts_table.sql	"Users can update their own discounts"	merchant_discounts
+supabase\migrations\20250921100000_create_merchant_discounts_table.sql	"Users can view their own discounts"	merchant_discounts
+supabase\migrations\20250921100002_add_offers_view_policy.sql	"Users can view active discounts from all merchants"	merchant_discounts
+supabase\migrations\20250921100003_add_business_offers_policy.sql	"Users can view business names for offers"	businesses
+supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql	"Users can delete their own discounts"	merchant_discounts
+supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql	"Users can insert their own discounts"	merchant_discounts
+supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql	"Users can update their own discounts"	merchant_discounts
+supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql	"Users can view their own discounts"	merchant_discounts
+supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Members can view own trusted partner record"	public.merchants
+supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Trusted partners can update own business"	public.businesses
+supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Trusted partners can view own business"	public.businesses
+supabase\migrations\20250924133431_update_role_terminology.sql	"Members can view own trusted partner record"	public.merchants
+supabase\migrations\20250924133431_update_role_terminology.sql	"Trusted partners can update own business"	public.businesses
+supabase\migrations\20250924133431_update_role_terminology.sql	"Trusted partners can view own business"	public.businesses
+supabase\migrations\20250924140000_add_profile_insert_policy.sql	"Users can insert own profile"	public.profiles
+supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Members can insert own trusted partner record"	public.trusted_partners
+supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Members can update own trusted partner record"	public.trusted_partners
+supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Members can view own trusted partner record"	public.trusted_partners
+supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql	"Members can delete their own discounts"	public.trusted_partner_discounts
+supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql	"Members can insert their own discounts"	public.trusted_partner_discounts
+supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql	"Members can update their own discounts"	public.trusted_partner_discounts
+supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql	"Members can view active discounts from all trusted partners"	public.trusted_partner_discounts
+supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql	"Members can view their own discounts"	public.trusted_partner_discounts
+supabase\migrations\20250924180000_final_terminology_cleanup.sql	"Members can delete their own discounts"	public.trusted_partner_discounts
+supabase\migrations\20250924180000_final_terminology_cleanup.sql	"Members can insert their own discounts"	public.trusted_partner_discounts
+supabase\migrations\20250924180000_final_terminology_cleanup.sql	"Members can update their own discounts"	public.trusted_partner_discounts
+supabase\migrations\20250924180000_final_terminology_cleanup.sql	"Members can view active discounts from all trusted partners"	public.trusted_partner_discounts
+supabase\migrations\20250924180000_final_terminology_cleanup.sql	"Members can view their own discounts"	public.trusted_partner_discounts
+supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Service role can manage renewals"	public.subscription_renewals
+supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can insert their own QR codes"	public.user_qr_codes
+supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can insert their own subscriptions"	public.subscriptions
+supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can update their own QR codes"	public.user_qr_codes
+supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can update their own subscriptions"	public.subscriptions
+supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can view their own QR codes"	public.user_qr_codes
+supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can view their own renewal history"	public.subscription_renewals
+supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can view their own subscriptions"	public.subscriptions
+supabase\migrations\20250925163139_fix_processed_bills_member_id_column.sql	"Members can insert their own processed bills"	public.processed_bills
+supabase\migrations\20250925163139_fix_processed_bills_member_id_column.sql	"Members can update their own processed bills"	public.processed_bills
+supabase\migrations\20250925163139_fix_processed_bills_member_id_column.sql	"Members can view their own processed bills"	public.processed_bills
+supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql	"Business owners can delete their logos"	storage.objects
+supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql	"Business owners can delete their own logos"	business_logos
+supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql	"Business owners can insert their own logos"	business_logos
+supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql	"Business owners can update their logos"	storage.objects
+supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql	"Business owners can update their own logos"	business_logos
+supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql	"Business owners can upload their logos"	storage.objects
+supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql	"Business owners can view their logos"	storage.objects
+supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql	"Business owners can view their own logos"	business_logos
+supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql	"Business owners can delete their bills"	storage.objects
+supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql	"Business owners can delete their own bills"	business_bills
+supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql	"Business owners can insert their own bills"	business_bills
+supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql	"Business owners can update their bills"	storage.objects
+supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql	"Business owners can update their own bills"	business_bills
+supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql	"Business owners can upload their bills"	storage.objects
+supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql	"Business owners can view their bills"	storage.objects
+supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql	"Business owners can view their own bills"	business_bills
+supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql	"Partners can insert approvals for their bills"	bill_approvals
+supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql	"Partners can update their own approvals"	bill_approvals
+supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql	"Partners can view their own approvals"	bill_approvals
+supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql	"Users can delete own bank accounts"	trusted_partner_bank_accounts
+supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql	"Users can insert own bank accounts"	trusted_partner_bank_accounts
+supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql	"Users can update own bank accounts"	trusted_partner_bank_accounts
+supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql	"Users can view own bank accounts"	trusted_partner_bank_accounts
+supabase\migrations\20250926000000_automatic_qr_payment_management.sql	"Service role can manage payment schedules"	public.payment_schedules
+supabase\migrations\20250926000000_automatic_qr_payment_management.sql	"Users can view their own payment schedules"	public.payment_schedules
+supabase\migrations\20250928100541_create_calibration_receipts_table.sql	"Business owners can manage their calibration receipts"	calibration_receipts
+supabase\migrations\20250928100541_create_calibration_receipts_table.sql	"Members can view active calibration receipts"	calibration_receipts
+supabase\migrations\20250928100541_create_calibration_receipts_table.sql	"Service role can manage all calibration receipts"	calibration_receipts
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Members can insert their own authorizations"	deal_authorizations
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Members can insert their own receipts"	member_receipts
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Members can update their own receipts"	member_receipts
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Members can view their own authorizations"	deal_authorizations
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Members can view their own receipts"	member_receipts
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Members can view their own virtual receipts"	virtual_receipts
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Trusted partners can update authorizations for their business"	deal_authorizations
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Trusted partners can view authorizations for their business"	deal_authorizations
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Trusted partners can view virtual receipts for their authorizations"	virtual_receipts
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Users can update their own notifications"	notifications
+supabase\migrations\20251010130000_create_deal_authorizations.sql	"Users can view their own notifications"	notifications
+supabase\migrations\20251013191852_fix_discount_visibility.sql	"Business owners can manage their discounts"	trusted_partner_discounts
+supabase\migrations\20251013191852_fix_discount_visibility.sql	"Users can view all discounts"	trusted_partner_discounts
+supabase\migrations\20251013193911_fix_notifications_rls_policies.sql	"Authenticated users can insert notifications"	notifications
+supabase\migrations\20251013193911_fix_notifications_rls_policies.sql	"Users can update their notifications"	notifications
+supabase\migrations\20251013193911_fix_notifications_rls_policies.sql	"Users can view their notifications"	notifications
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can manage all businesses"	public.businesses
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can update memberships"	public.memberships
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can update payments"	public.payments
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can view all authorizations"	public.deal_authorizations
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can view all bills"	public.processed_bills
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can view all discounts"	public.trusted_partner_discounts
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can view all memberships"	public.memberships
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can view all notifications"	public.notifications
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can view all payments"	public.payments
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can view all profiles"	public.profiles
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can view all QR codes"	public.user_qr_codes
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can view all subscriptions"	public.subscriptions
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Admins can view all trusted_partners"	public.trusted_partners
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Authenticated users can create businesses"	public.businesses
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Authenticated users can insert notifications"	public.notifications
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Authenticated users can insert payments"	public.payments
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Authenticated users can insert subscriptions"	public.subscriptions
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Authenticated users can insert their profile"	public.profiles
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Authenticated users can insert trusted_partner records"	public.trusted_partners
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Business owners can manage their discounts"	public.trusted_partner_discounts
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Business owners can update authorizations for their business"	public.deal_authorizations
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Business owners can update their business"	public.businesses
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Business owners can view authorizations for their business"	public.deal_authorizations
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Business owners can view bills for their business"	public.processed_bills
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Members can create their own authorizations"	public.deal_authorizations
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Members can insert their own bills"	public.processed_bills
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Members can update their own bills"	public.processed_bills
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Members can view their own authorizations"	public.deal_authorizations
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Members can view their own bills"	public.processed_bills
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Members can view their own payments"	public.payments
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can delete own bank accounts"	public.trusted_partner_bank_accounts
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can insert own bank accounts"	public.trusted_partner_bank_accounts
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can insert their own QR codes"	public.user_qr_codes
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can update own bank accounts"	public.trusted_partner_bank_accounts
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can update their own notifications"	public.notifications
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can update their own profile"	public.profiles
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can update their own subscriptions"	public.subscriptions
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can update their own trusted_partner record"	public.trusted_partners
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can view all active discounts"	public.trusted_partner_discounts
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can view all businesses"	public.businesses
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can view own bank accounts"	public.trusted_partner_bank_accounts
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can view their own membership"	public.memberships
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can view their own notifications"	public.notifications
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can view their own profile"	public.profiles
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can view their own QR codes"	public.user_qr_codes
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can view their own subscriptions"	public.subscriptions
+supabase\migrations\20251013223100_deploy_comprehensive_schema.sql	"Users can view their own trusted_partner record"	public.trusted_partners
+supabase\migrations\20251015160000_add_anon_email_policy.sql	"Anon can check email"	public.profiles
+supabase\migrations\20251015161000_update_anon_policy_to_anon.sql	"Anon can check email"	public.profiles
+supabase\migrations\20251027104032_fix_profiles_rls_for_notifications.sql	"Authenticated users can view profiles for FK validation"	profiles
+supabase\migrations\20251030000002_reorganize_banking_schema.sql	"Members can manage their bank accounts"	public.members_bank_accounts
+supabase\migrations\20251030000002_reorganize_banking_schema.sql	"Members can manage their card details"	public.members_card_details
+supabase\migrations\20251201000000_fix_admin_memberships_infinite_recursion.sql	"Admins can delete any membership"	public.memberships
+supabase\migrations\20251201000000_fix_admin_memberships_infinite_recursion.sql	"Admins can insert any membership"	public.memberships
+supabase\migrations\20251201000000_fix_admin_memberships_infinite_recursion.sql	"Admins can update any membership"	public.memberships
+supabase\migrations\20251201000000_fix_admin_memberships_infinite_recursion.sql	"Admins can view all memberships"	public.memberships
+supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql	"Admins can manage partner deal images"	storage.objects
+supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql	"Anyone can view deal images"	storage.objects
+supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql	"Trusted partners can delete own deal images"	storage.objects
+supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql	"Trusted partners can update own deal images"	storage.objects
+supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql	"Trusted partners can upload own deal images"	storage.objects
+supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql	"Admins can manage all businesses via JWT"	public.businesses
+supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql	"Authenticated users can create businesses"	public.businesses
+supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql	"Authenticated users can view all businesses"	public.businesses
+supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql	"Business owners can delete their business"	public.businesses
+supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql	"Business owners can update their business"	public.businesses
+supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql	"Service role can manage all businesses"	public.businesses
+supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can delete their own receipt images"	storage.objects
+supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can insert their own processed bills"	processed_bills
+supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can update their own processed bills"	processed_bills
+supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can update their own receipt images"	storage.objects
+supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can upload receipt images"	storage.objects
+supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can view receipt images"	storage.objects
+supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can view their own processed bills"	processed_bills
+supabase\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Members can insert own trusted partner record"	public.trusted_partners
+supabase\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Members can update own trusted partner record"	public.trusted_partners
+supabase\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Members can view own trusted partner record"	public.trusted_partners
+supabase\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql	"Members can delete their own discounts"	public.trusted_partner_discounts
+supabase\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql	"Members can insert their own discounts"	public.trusted_partner_discounts
+supabase\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql	"Members can update their own discounts"	public.trusted_partner_discounts
+supabase\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql	"Members can view active discounts from all trusted partners"	public.trusted_partner_discounts
+supabase\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql	"Members can view their own discounts"	public.trusted_partner_discounts
+supabase\supabase\migrations\20250924180000_final_terminology_cleanup.sql	"Members can delete their own discounts"	public.trusted_partner_discounts
+supabase\supabase\migrations\20250924180000_final_terminology_cleanup.sql	"Members can insert their own discounts"	public.trusted_partner_discounts
+supabase\supabase\migrations\20250924180000_final_terminology_cleanup.sql	"Members can update their own discounts"	public.trusted_partner_discounts
+supabase\supabase\migrations\20250924180000_final_terminology_cleanup.sql	"Members can view active discounts from all trusted partners"	public.trusted_partner_discounts
+supabase\supabase\migrations\20250924180000_final_terminology_cleanup.sql	"Members can view their own discounts"	public.trusted_partner_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20240913000000_create_base_tables.sql	"Users can update own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20240913000000_create_base_tables.sql	"Users can update own profile"	public.profiles
+supabase_backup_last_working_20250924_163328\supabase\migrations\20240913000000_create_base_tables.sql	"Users can view own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20240913000000_create_base_tables.sql	"Users can view own membership"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20240913000000_create_base_tables.sql	"Users can view own merchant record"	public.merchants
+supabase_backup_last_working_20250924_163328\supabase\migrations\20240913000000_create_base_tables.sql	"Users can view own profile"	public.profiles
+supabase_backup_last_working_20250924_163328\supabase\migrations\20240913000000_create_base_tables.sql	"Users can view own user record"	public.users
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250916131000_create_missing_users_and_profile_policy.sql	allow_self_profile_insert	public.profiles
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250916131000_create_missing_users_and_profile_policy.sql	allow_self_profile_update	public.profiles
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250917100000_fix_users_policy_recursion.sql	allow_self_users_insert	public.users
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250917100000_fix_users_policy_recursion.sql	allow_self_users_select	public.users
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250917100000_fix_users_policy_recursion.sql	allow_self_users_update	public.users
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250917210000_create_payments_table.sql	"Admins can view all payments"	payments
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250917210000_create_payments_table.sql	"Service role can manage payments"	payments
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250917210000_create_payments_table.sql	"Users can insert their own payments"	payments
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250917210000_create_payments_table.sql	"Users can view their own payments"	payments
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918000004_add_businesses_rls_policies.sql	"Service role can manage all businesses"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918000004_add_businesses_rls_policies.sql	"Users can delete their own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918000004_add_businesses_rls_policies.sql	"Users can insert their own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918000004_add_businesses_rls_policies.sql	"Users can update their own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918000004_add_businesses_rls_policies.sql	"Users can view their own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql	"Service role can manage memberships"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql	"Users can insert their own memberships"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql	"Users can update their own memberships"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql	"Users can view their own memberships"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql	"Service role can manage memberships"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql	"Users can insert their own memberships"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql	"Users can update their own memberships"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql	"Users can view their own memberships"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250919180000_add_trigger_insert_policies.sql	"Service role can insert profiles"	public.profiles
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250919180000_add_trigger_insert_policies.sql	"Service role can manage memberships"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250919180000_add_trigger_insert_policies.sql	"Service role can manage profiles"	public.profiles
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250921100000_create_merchant_discounts_table.sql	"Users can delete their own discounts"	merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250921100000_create_merchant_discounts_table.sql	"Users can insert their own discounts"	merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250921100000_create_merchant_discounts_table.sql	"Users can update their own discounts"	merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250921100000_create_merchant_discounts_table.sql	"Users can view their own discounts"	merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250921100002_add_offers_view_policy.sql	"Users can view active discounts from all merchants"	merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250921100003_add_business_offers_policy.sql	"Users can view business names for offers"	businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql	"Users can delete their own discounts"	merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql	"Users can insert their own discounts"	merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql	"Users can update their own discounts"	merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql	"Users can view their own discounts"	merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Members can view own trusted partner record"	public.merchants
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Trusted partners can update own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql	"Trusted partners can view own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Admins can view all payments"	public.payments
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Members can view own trusted partner record"	public.merchants
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Service role can manage payments"	public.payments
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Service role can manage renewals"	public.subscription_renewals
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Trusted partners can update own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Trusted partners can view own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can delete their own discounts"	public.merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can insert their own discounts"	public.merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can insert their own payments"	public.payments
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can insert their own QR codes"	public.user_qr_codes
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can insert their own subscriptions"	public.subscriptions
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can update own profile"	public.profiles
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can update their own discounts"	public.merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can update their own QR codes"	public.user_qr_codes
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can update their own subscriptions"	public.subscriptions
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can view own membership"	public.memberships
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can view own profile"	public.profiles
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can view own user record"	public.users
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can view their own discounts"	public.merchant_discounts
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can view their own payments"	public.payments
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can view their own QR codes"	public.user_qr_codes
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can view their own renewal history"	public.subscription_renewals
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924132508_complete_schema_rebuild.sql	"Users can view their own subscriptions"	public.subscriptions
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924133431_update_role_terminology.sql	"Members can view own trusted partner record"	public.merchants
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924133431_update_role_terminology.sql	"Trusted partners can update own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924133431_update_role_terminology.sql	"Trusted partners can view own business"	public.businesses
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250924140000_add_profile_insert_policy.sql	"Users can insert own profile"	public.profiles
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Service role can manage renewals"	public.subscription_renewals
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can insert their own QR codes"	public.user_qr_codes
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can insert their own subscriptions"	public.subscriptions
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can update their own QR codes"	public.user_qr_codes
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can update their own subscriptions"	public.subscriptions
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can view their own QR codes"	public.user_qr_codes
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can view their own renewal history"	public.subscription_renewals
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql	"Users can view their own subscriptions"	public.subscriptions
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250926000000_automatic_qr_payment_management.sql	"Service role can manage payment schedules"	public.payment_schedules
+supabase_backup_last_working_20250924_163328\supabase\migrations\20250926000000_automatic_qr_payment_management.sql	"Users can view their own payment schedules"	public.payment_schedules
+supabase_backup_last_working_20250924_163328\supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can delete their own receipt images"	storage.objects
+supabase_backup_last_working_20250924_163328\supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can insert their own processed bills"	processed_bills
+supabase_backup_last_working_20250924_163328\supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can update their own processed bills"	processed_bills
+supabase_backup_last_working_20250924_163328\supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can update their own receipt images"	storage.objects
+supabase_backup_last_working_20250924_163328\supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can upload receipt images"	storage.objects
+supabase_backup_last_working_20250924_163328\supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can view receipt images"	storage.objects
+supabase_backup_last_working_20250924_163328\supabase\supabase\migrations\20250924100639_create_processed_bills_table_and_storage.sql	"Users can view their own processed bills"	processed_bills
+targeted_rls_policy_cleanup.sql	"Anonymous can check profile existence"	profiles
+targeted_rls_policy_cleanup.sql	"Users can delete own notifications"	notifications
+targeted_rls_policy_cleanup.sql	"Users can insert own profile"	profiles
+targeted_rls_policy_cleanup.sql	"Users can view own notifications"	notifications
+targeted_rls_policy_cleanup.sql	"Users can view own profile"	profiles
+trusted_partner_bank_accounts_rls_policies.sql	"Admins can update all bank accounts"
+--	trusted_partner_bank_accounts
+trusted_partner_bank_accounts_rls_policies.sql	"Admins can view all bank accounts"
+--	trusted_partner_bank_accounts
+trusted_partner_bank_accounts_rls_policies.sql	"Users can delete own bank accounts"	trusted_partner_bank_accounts
+trusted_partner_bank_accounts_rls_policies.sql	"Users can insert own bank accounts"	trusted_partner_bank_accounts
+trusted_partner_bank_accounts_rls_policies.sql	"Users can update own bank accounts"	trusted_partner_bank_accounts
+trusted_partner_bank_accounts_rls_policies.sql	"Users can view own bank accounts"	trusted_partner_bank_accounts
+ultimate_fix_notifications_rls.sql	"notifications_insert_public"	notifications
+ultimate_fix_notifications_rls.sql	"notifications_select_own"	notifications
+ultimate_fix_notifications_rls.sql	"notifications_update_own"	notifications
+unified_schema_rls_policies.sql	"Authenticated can insert notifications for any user"	notifications
+unified_schema_rls_policies.sql	"Authenticated members can create businesses"	businesses
+unified_schema_rls_policies.sql	"Business owners can manage their discounts"	trusted_partner_discounts
+unified_schema_rls_policies.sql	"Business owners can update their authorizations"	deal_authorizations
+unified_schema_rls_policies.sql	"Business owners can update their business"	businesses
+unified_schema_rls_policies.sql	"Business owners can view bills for their business"	processed_bills
+unified_schema_rls_policies.sql	"Business owners can view their authorizations"	deal_authorizations
+unified_schema_rls_policies.sql	"Members can insert their authorizations"	deal_authorizations
+unified_schema_rls_policies.sql	"Members can insert their own bills"	processed_bills
+unified_schema_rls_policies.sql	"Members can update their notifications"	notifications
+unified_schema_rls_policies.sql	"Members can view all businesses"	businesses
+unified_schema_rls_policies.sql	"Members can view all discounts"	trusted_partner_discounts
+unified_schema_rls_policies.sql	"Members can view their authorizations"	deal_authorizations
+unified_schema_rls_policies.sql	"Members can view their notifications"	notifications
+unified_schema_rls_policies.sql	"Members can view their own bills"	processed_bills
+verify_admin_deal_creation_permissions.sql	"Admins can create deals for authorized partners"	trusted_partner_discounts
+verify_admin_deal_creation_permissions.sql	"Admins can upload deal images for authorized partners"	storage.objects

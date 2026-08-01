@@ -12,6 +12,9 @@ class OtpVerificationDialog extends StatefulWidget {
   final bool otpAlreadySent;
   final String? userType; // 'member' or 'trusted_partner' or null for generic
   final Map<String, dynamic>? userMetadata; // Passed to signInWithOtp for signup
+  // True when resuming a previously abandoned signup: the auth user already
+  // exists, so the OTP must be re-sent without creating a duplicate account.
+  final bool isResumeSignup;
 
   const OtpVerificationDialog({
     super.key,
@@ -22,6 +25,7 @@ class OtpVerificationDialog extends StatefulWidget {
     this.otpAlreadySent = false,
     this.userType,
     this.userMetadata,
+    this.isResumeSignup = false,
   });
 
   @override
@@ -38,7 +42,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
 
   // Timer variables
   Timer? _countdownTimer;
-  int _remainingSeconds = 120; // 2 minutes
+  int _remainingSeconds = 600; // 10 minutes (matches Supabase OTP validity)
   bool _isTimerExpired = false;
 
   @override
@@ -55,7 +59,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
 
   void _startCountdownTimer() {
     _countdownTimer?.cancel(); // Cancel any existing timer
-    _remainingSeconds = 120; // Reset to 2 minutes
+    _remainingSeconds = 600; // Reset to 10 minutes (matches Supabase OTP validity)
     _isTimerExpired = false;
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -267,6 +271,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
         phone: widget.phoneNumber,
         method: _selectedMethod,
         isForSignIn: widget.isForSignIn,
+        isResumeSignup: widget.isResumeSignup,
         userMetadata: widget.userMetadata,
       );
 
@@ -436,6 +441,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
         phone: widget.phoneNumber,
         method: _selectedMethod,
         isForSignIn: widget.isForSignIn,
+        isResumeSignup: widget.isResumeSignup,
         userMetadata: widget.userMetadata,
       );
 

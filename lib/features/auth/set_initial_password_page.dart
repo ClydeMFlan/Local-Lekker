@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:logger/logger.dart';
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -355,7 +356,7 @@ class _SetInitialPasswordPageState extends State<SetInitialPasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: Text(
           _passwordSet && _otpSent ? 'Verify Email' : 'Set Your Password',
         ),

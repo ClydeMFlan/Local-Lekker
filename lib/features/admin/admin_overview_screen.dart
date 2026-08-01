@@ -5,6 +5,7 @@ import '../../services/admin_service.dart';
 import '../../models/admin_dashboard_model.dart';
 import '../auth/deal_selection_page.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 /// Overview tab showing aggregate metrics and charts.
 class AdminOverviewScreen extends StatefulWidget {
@@ -222,7 +223,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                     _MetricCard(
                       width: cardWidth,
                       icon: Icons.people,
-                      iconColor: Colors.teal,
+                      iconColor: AppColors.primary,
                       label: 'Members',
                       value: dashboard.totalMembers.toString(),
                       subLabels: [
@@ -268,7 +269,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                       child: _MetricCard(
                         width: cardWidth,
                         icon: Icons.local_offer,
-                        iconColor: Colors.teal,
+                        iconColor: AppColors.primary,
                         label: 'Deals',
                         value: _totalDealCount.toString(),
                         subLabels: [
@@ -395,7 +396,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   }
 
   static const _chartColors = [
-    Colors.teal,
+    AppColors.primary,
     Colors.blue,
     Colors.purple,
     Colors.orange,
@@ -496,7 +497,7 @@ class _RegionBreakdownCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Colors.teal.shade700,
+                              color: AppColors.primarySwatch.shade700,
                             ),
                           ),
                         ),

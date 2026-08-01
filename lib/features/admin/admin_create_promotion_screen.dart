@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
 import '../../services/supabase_service.dart';
+import '../../services/promotion_campaign_service.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 class AdminCreatePromotionScreen extends StatefulWidget {
   const AdminCreatePromotionScreen({super.key});
@@ -18,6 +21,9 @@ class _AdminCreatePromotionScreenState
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _emailInputController = TextEditingController();
+  final FocusNode _emailInputFocusNode = FocusNode();
+  final List<String> _pendingEmails = [];
 
   String? _selectedImagePath;
   int? _freeMonths; // null = lifetime
@@ -40,7 +46,29 @@ class _AdminCreatePromotionScreenState
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _emailInputController.dispose();
+    _emailInputFocusNode.dispose();
     super.dispose();
+  }
+
+  void _addEmailChip() {
+    final email = _emailInputController.text.trim().toLowerCase();
+    if (email.isEmpty) return;
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailRegex.hasMatch(email)) return;
+    if (_pendingEmails.contains(email)) {
+      _emailInputController.clear();
+      return;
+    }
+    setState(() {
+      _pendingEmails.add(email);
+      _emailInputController.clear();
+    });
+    _emailInputFocusNode.requestFocus();
+  }
+
+  void _removeEmailChip(String email) {
+    setState(() => _pendingEmails.remove(email));
   }
 
   Future<void> _pickImage() async {
@@ -104,31 +132,53 @@ class _AdminCreatePromotionScreenState
       final user = SupabaseService.instance.getCurrentUser();
       if (user == null) throw Exception('Not logged in');
 
+      // Make sure any email still typed but not yet chipped is included
+      _addEmailChip();
+
       final imageUrl = await _uploadImage();
 
-      await SupabaseService.instance.client.from('promotions').insert({
-        'name': _nameController.text.trim(),
-        'description': _descriptionController.text.trim().isNotEmpty
-            ? _descriptionController.text.trim()
-            : null,
-        'image_url': imageUrl,
-        'free_months': _freeMonths,
-        'is_intro_campaign': _isIntroCampaign,
-        'initial_charge_cents': _initialChargeCents,
-        'renewal_charge_cents': _renewalChargeCents,
-        'ends_at': _endsAt?.toUtc().toIso8601String(),
-        'is_active': true,
-        'created_by': user.id,
-      });
+      final inserted = await SupabaseService.instance.client
+          .from('promotions')
+          .insert({
+            'name': _nameController.text.trim(),
+            'description': _descriptionController.text.trim().isNotEmpty
+                ? _descriptionController.text.trim()
+                : null,
+            'image_url': imageUrl,
+            'free_months': _freeMonths,
+            'is_intro_campaign': _isIntroCampaign,
+            'initial_charge_cents': _initialChargeCents,
+            'renewal_charge_cents': _renewalChargeCents,
+            'ends_at': _endsAt?.toUtc().toIso8601String(),
+            'is_active': true,
+            'created_by': user.id,
+          })
+          .select('id')
+          .single();
 
-      _logger.i('Promotion created: ${_nameController.text}');
+      final newPromotionId = inserted['id'] as String;
+      _logger.i('Promotion created: ${_nameController.text} ($newPromotionId)');
+
+      // Import the participant emails the admin entered (if any)
+      int emailsAdded = 0;
+      if (_pendingEmails.isNotEmpty) {
+        final importResult =
+            await PromotionCampaignService().importParticipantEmails(
+          promotionId: newPromotionId,
+          rawInput: _pendingEmails.join('\n'),
+        );
+        emailsAdded = (importResult['inserted'] as int?) ?? 0;
+        _logger.i(
+          'Imported participant emails: $emailsAdded inserted of ${_pendingEmails.length} provided',
+        );
+      }
 
       if (mounted) {
+        final msg = emailsAdded > 0
+            ? 'Promotion created with $emailsAdded participant email(s).'
+            : 'Promotion created successfully!';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Promotion created successfully!'),
-            backgroundColor: Colors.green,
-          ),
+          SnackBar(content: Text(msg), backgroundColor: Colors.green),
         );
         Navigator.pop(context, true);
       }
@@ -150,7 +200,7 @@ class _AdminCreatePromotionScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Create Promotion'),
       ),
       body: SingleChildScrollView(
@@ -295,6 +345,51 @@ class _AdminCreatePromotionScreenState
                 onTap: _pickEndDate,
               ),
 
+              const SizedBox(height: 16),
+
+              // Participant emails input
+              const Text(
+                'Participant Emails',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Only members whose signup email matches one of these will see this promo.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _emailInputController,
+                focusNode: _emailInputFocusNode,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Add email',
+                  hintText: 'member@example.com',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.email),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: _addEmailChip,
+                  ),
+                ),
+                onSubmitted: (_) => _addEmailChip(),
+              ),
+              if (_pendingEmails.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: _pendingEmails
+                      .map(
+                        (e) => Chip(
+                          label: Text(e),
+                          onDeleted: () => _removeEmailChip(e),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+
               const SizedBox(height: 24),
 
               // Save button
@@ -311,7 +406,7 @@ class _AdminCreatePromotionScreenState
                       : const Icon(Icons.check),
                   label: Text(_isSaving ? 'Creating...' : 'Create Promotion'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                   ),
                 ),

@@ -1,0 +1,34 @@
+﻿C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\admin\admin_promotion_detail_screen.dart:163: final result = await SupabaseService.instance.client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\receipt_generator_page.dart:134: final result = await SupabaseService.instance.client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\auth\widgets\trusted_partner_key_dialog.dart:154: await SupabaseService.instance.client.rpc('mark_tp_key_used', params: {
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\business\trusted_partner_analytics_dashboard.dart:40: final response = await SupabaseService.instance.client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\features\payments\deal_payment_webview_page.dart:709: final result = await _supabase.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:142: res = await supabase.rpc('secure_get_admin_dashboard').select();
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:145: res = await supabase.rpc('get_admin_dashboard').select();
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:303: final response = await supabase.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:464: final response = await supabase.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\admin_service.dart:507: final response = await supabase.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\deal_approval_popup_service.dart:1388: final result = await _supabase.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:842: final result = await _supabase.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\discount_service.dart:927: final result = await _supabase.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\notification_service.dart:105: final result = await _supabase.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\promotion_campaign_service.dart:23: final result = await _client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\subscription_service.dart:469: final rpcResult = await _client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:281: final result = await client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:463: final rpcRes = await client.rpc('get_my_role');
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:564: final rpcRes = await client.rpc('get_my_role');
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:589: dashRes = await client.rpc('secure_get_admin_dashboard').select();
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:591: dashRes = await client.rpc('get_admin_dashboard').select();
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1236: final res = await client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1258: final res = await client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1333: final rpcRes = await client.rpc('prepare_user_context');
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1686: await client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1695: await client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:1853: final response = await client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:2035: final res = await client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:2060: final result = await client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:2090: final result = await client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\supabase_service.dart:2125: final rpcResult = await client.rpc(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:54: await SupabaseService.instance.client.rpc('mark_tp_key_used', params: {
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\services\tp_membership_service.dart:83: await SupabaseService.instance.client.rpc('mark_tp_key_used', params: {
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\lib\widgets\trusted_partner_analytics_widget.dart:43: final response = await SupabaseService.instance.client.rpc(

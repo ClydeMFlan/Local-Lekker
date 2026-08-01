@@ -73,7 +73,8 @@ class BillApprovalService {
               id,
               name,
               surname,
-              email
+              email,
+              profile_photo_url
             ),
             discount:trusted_partner_discounts (
               id,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 
 class DeactivationConfirmationPage extends StatefulWidget {
   final String userType; // 'member' or 'trusted_partner'
@@ -99,7 +100,7 @@ class _DeactivationConfirmationPageState
     final bottomPadding = bottomInset + 140;
 
     return Scaffold(
-      appBar: AppBar(title: Text(title), centerTitle: true),
+      appBar: BrandedAppBar(title: Text(title), centerTitle: true),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),
         child: Column(

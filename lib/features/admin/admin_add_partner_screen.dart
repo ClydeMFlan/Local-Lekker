@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:logger/logger.dart';
 import '../../services/supabase_service.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 /// Screen for admins to create a new Trusted Partner account.
 class AdminAddPartnerScreen extends StatefulWidget {
@@ -140,7 +142,7 @@ class _AdminAddPartnerScreenState extends State<AdminAddPartnerScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Trusted Partner created successfully'),
-            backgroundColor: Colors.teal,
+            backgroundColor: AppColors.primary,
           ),
         );
         Navigator.pop(context, true); // Return true to trigger refresh
@@ -170,7 +172,7 @@ class _AdminAddPartnerScreenState extends State<AdminAddPartnerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Add Trusted Partner'),
         centerTitle: false,
         elevation: 0,
@@ -315,7 +317,7 @@ class _AdminAddPartnerScreenState extends State<AdminAddPartnerScreen> {
                       : const Icon(Icons.person_add),
                   label: Text(_isSubmitting ? 'Creating...' : 'Create Trusted Partner'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),

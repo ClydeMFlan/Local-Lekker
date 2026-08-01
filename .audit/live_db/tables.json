@@ -1,0 +1,367 @@
+﻿[
+  {
+    "table_name": "audit_log_entries",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "custom_oauth_providers",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "flow_state",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "identities",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "instances",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "mfa_amr_claims",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "mfa_challenges",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "mfa_factors",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "oauth_authorizations",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "oauth_client_states",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "oauth_clients",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "oauth_consents",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "one_time_tokens",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "refresh_tokens",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "saml_providers",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "saml_relay_states",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "schema_migrations",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "sessions",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "sso_domains",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "sso_providers",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "users",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "webauthn_challenges",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "webauthn_credentials",
+    "table_schema": "auth",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "admin_promo_keys",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "archived_members",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "archived_paystack_data",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "archived_pending_payments",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "archived_receipts",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "bill_approvals",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "business_bills",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "business_logos",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "businesses",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "calibration_receipts",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "chat_conversations",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "chat_messages",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "deal_authorizations",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "deal_expiry_notifications",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "deal_receipts",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "member_receipts",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "members_bank_accounts",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "members_card_details",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "memberships",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "notifications",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "notifications_archive",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "payment_method_analytics",
+    "table_schema": "public",
+    "table_type": "VIEW"
+  },
+  {
+    "table_name": "payments",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "processed_bills",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "profiles",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "promotion_participant_emails",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "promotion_signups",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "promotions",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "recovery_sessions",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "subscription_renewals",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "subscriptions",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "subscriptions_due_for_renewal",
+    "table_schema": "public",
+    "table_type": "VIEW"
+  },
+  {
+    "table_name": "tp_deals_expired_today",
+    "table_schema": "public",
+    "table_type": "VIEW"
+  },
+  {
+    "table_name": "tp_deals_expiring_tomorrow",
+    "table_schema": "public",
+    "table_type": "VIEW"
+  },
+  {
+    "table_name": "tp_inquiries",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "tp_member_keys",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "trusted_partner_bank_accounts",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "trusted_partner_discounts",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "trusted_partners",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "user_qr_codes",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "users",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "virtual_receipts",
+    "table_schema": "public",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "buckets",
+    "table_schema": "storage",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "buckets_analytics",
+    "table_schema": "storage",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "buckets_vectors",
+    "table_schema": "storage",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "migrations",
+    "table_schema": "storage",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "objects",
+    "table_schema": "storage",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "s3_multipart_uploads",
+    "table_schema": "storage",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "s3_multipart_uploads_parts",
+    "table_schema": "storage",
+    "table_type": "BASE TABLE"
+  },
+  {
+    "table_name": "vector_indexes",
+    "table_schema": "storage",
+    "table_type": "BASE TABLE"
+  }
+]

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show User;
 import 'package:local_lekker/services/paystack_service.dart';
 import 'package:local_lekker/services/supabase_service.dart';
@@ -19,7 +20,10 @@ import 'package:local_lekker/features/auth/widgets/trusted_partner_key_dialog.da
 class PaymentRequiredScreen extends StatefulWidget {
   final bool isReactivation;
 
-  const PaymentRequiredScreen({super.key, this.isReactivation = false});
+  const PaymentRequiredScreen({
+    super.key,
+    this.isReactivation = false,
+  });
 
   @override
   State<PaymentRequiredScreen> createState() => _PaymentRequiredScreenState();
@@ -28,12 +32,137 @@ class PaymentRequiredScreen extends StatefulWidget {
 class _PaymentRequiredScreenState extends State<PaymentRequiredScreen> {
   bool _loadingCampaign = true;
   Map<String, dynamic>? _eligibleIntroCampaign;
+  bool _isPaymentFailed = false;
+
+  // Self-heal: a member can reach this screen after a payment that succeeded
+  // at the bank/Paystack but was not captured by the app (app closed / lost
+  // signal during checkout). Proactively look for that payment so they don't
+  // have to sign out/in or pay again.
+  bool _verifyingPayment = true;
+  Timer? _recoveryPollTimer;
+  int _recoveryPolls = 0;
+  static const int _maxRecoveryPolls = 6;
 
   @override
   void initState() {
     super.initState();
     _checkTermsAcceptance();
     _loadEligibleIntroCampaign();
+    _loadPaymentFailureState();
+    _runInitialPaymentRecovery();
+  }
+
+  @override
+  void dispose() {
+    _recoveryPollTimer?.cancel();
+    super.dispose();
+  }
+
+  /// First-pass recovery, shown with a "Verifying your payment…" overlay.
+  /// If a successful-but-undetected payment is found, route straight home.
+  /// Otherwise reveal the payment options and keep polling briefly in the
+  /// background in case Paystack finalizes the charge while the member reads
+  /// the screen.
+  Future<void> _runInitialPaymentRecovery() async {
+    final recovered = await _attemptRecoveryOnce();
+    if (!mounted) return;
+    if (recovered) {
+      await NavigationService().navigateToHomeAfterPayment(context);
+      return;
+    }
+    setState(() => _verifyingPayment = false);
+    _startBackgroundRecoveryPoll();
+  }
+
+  Future<bool> _attemptRecoveryOnce() async {
+    try {
+      final user = SupabaseService.instance.getCurrentUser();
+      if (user == null) return false;
+      // Email lookup is only safe for first-time activation, never for a
+      // reactivation flow (would re-activate off an old successful payment).
+      return await NavigationService().attemptPaymentRecovery(
+        user.id,
+        allowEmailLookup: !widget.isReactivation,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _startBackgroundRecoveryPoll() {
+    _recoveryPollTimer?.cancel();
+    _recoveryPollTimer =
+        Timer.periodic(const Duration(seconds: 5), (timer) async {
+      if (!mounted || _recoveryPolls >= _maxRecoveryPolls) {
+        timer.cancel();
+        return;
+      }
+      _recoveryPolls++;
+      final recovered = await _attemptRecoveryOnce();
+      if (!mounted) return;
+      if (recovered) {
+        timer.cancel();
+        await NavigationService().navigateToHomeAfterPayment(context);
+      }
+    });
+  }
+
+  Future<void> _loadPaymentFailureState() async {
+    try {
+      final user = SupabaseService.instance.getCurrentUser();
+      if (user == null) return;
+
+      final role = await SupabaseService.instance.getUserRole(userId: user.id);
+      final profile = await SupabaseService.instance.getUserProfile(
+        userId: user.id,
+      );
+      final isTpMember = profile?['is_tp_member'] == true;
+
+      if (role?.toLowerCase() == 'trusted_partner' || isTpMember) {
+        if (!mounted) return;
+        setState(() {
+          _isPaymentFailed = false;
+        });
+        return;
+      }
+
+      final subscription = await SubscriptionService().getSubscriptionStatus(
+        user.id,
+      );
+      final status =
+          (subscription?['subscription_status'] ?? subscription?['status'])
+              ?.toString()
+              .trim()
+              .toLowerCase();
+
+      if (!mounted) return;
+      setState(() {
+        _isPaymentFailed = status == 'payment_failed' || status == 'failed';
+      });
+    } catch (_) {
+      // Keep default false if status cannot be loaded.
+    }
+  }
+
+  void _openStandardPaymentOption() {
+    const selectedPlan = 'subscription';
+    const planDetails = {
+      'name': 'Subscription',
+      'price': 99,
+      'description': 'Monthly subscription',
+      'frequency': 1,
+    };
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentOptionsScreen(
+          selectedPlan: selectedPlan,
+          planDetails: planDetails,
+          userId: SupabaseService.instance.getCurrentUser()?.id,
+        ),
+      ),
+    );
   }
 
   Future<void> _loadEligibleIntroCampaign() async {
@@ -98,8 +227,33 @@ class _PaymentRequiredScreenState extends State<PaymentRequiredScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_verifyingPayment) {
+      return Scaffold(
+        appBar: BrandedAppBar(
+          title: const Text('Complete Your Subscription'),
+          automaticallyImplyLeading: false,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'Verifying your payment…\nPlease wait a moment.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Complete Your Subscription'),
         automaticallyImplyLeading: false, // Prevent back button
       ),
@@ -109,6 +263,59 @@ class _PaymentRequiredScreenState extends State<PaymentRequiredScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (_isPaymentFailed) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade300),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.red.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Auto-renewal payment failed',
+                              style: TextStyle(
+                                color: Colors.red.shade900,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Please update your payment method and complete payment to reactivate your membership and QR access.',
+                        style: TextStyle(color: Colors.red.shade800),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: ElevatedButton.icon(
+                          onPressed: _openStandardPaymentOption,
+                          icon: const Icon(Icons.payment),
+                          label: const Text('Update Payment Method'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade700,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
               Icon(
                 Icons.payment,
                 color: Theme.of(context).primaryColor,
@@ -124,7 +331,7 @@ class _PaymentRequiredScreenState extends State<PaymentRequiredScreen> {
               Text(
                 widget.isReactivation
                     ? 'Welcome back! To reactivate your membership, please accept the terms and complete your subscription payment.'
-                    : 'You\'ve successfully signed up for Local Lekker!\n\nTo access all features and start using the app, please complete your subscription payment.',
+                    : 'To access all features and start using the app, please complete your subscription payment.',
                 style: const TextStyle(fontSize: 16),
                 textAlign: TextAlign.center,
               ),
@@ -136,38 +343,30 @@ class _PaymentRequiredScreenState extends State<PaymentRequiredScreen> {
                 ),
               if (!_loadingCampaign && _eligibleIntroCampaign != null) ...[
                 _buildIntroCampaignCard(),
-                const SizedBox(height: 16),
-              ],
-              ElevatedButton(
-                onPressed: () {
-                  // Navigate directly to payment options with the single R99/month plan
-                  const selectedPlan = 'subscription';
-                  const planDetails = {
-                    'name': 'Subscription',
-                    'price': 99,
-                    'description': 'Monthly subscription',
-                    'frequency': 1, // months
-                  };
-
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => PaymentOptionsScreen(
-                        selectedPlan: selectedPlan,
-                        planDetails: planDetails,
-                        userId: SupabaseService.instance.getCurrentUser()?.id,
-                      ),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
+                const SizedBox(height: 12),
+                Text(
+                  'Your email qualifies for our special entry offer above. Standard monthly signup isn\'t available for promo invitees.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey.shade700,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                child: const Text('Proceed to Payment'),
-              ),
+              ],
+              // Standard R99/month signup - hidden when the member is eligible
+              // for an intro campaign promotion (they must use the promo offer above).
+              if (!_loadingCampaign && _eligibleIntroCampaign == null)
+                ElevatedButton(
+                  onPressed: _openStandardPaymentOption,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                  ),
+                  child: const Text('Proceed to Payment'),
+                ),
               // Promo Key option - only shown for reactivation, not during initial signup
               if (widget.isReactivation) ...[
                 const SizedBox(height: 16),
@@ -258,7 +457,9 @@ class _PaymentRequiredScreenState extends State<PaymentRequiredScreen> {
             child: ElevatedButton.icon(
               onPressed: () {
                 final userId = SupabaseService.instance.getCurrentUser()?.id;
-                Navigator.pushReplacement(
+                // Use push (not pushReplacement) so the member can return
+                // to the plan selection via the AppBar back arrow.
+                Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => PaymentOptionsScreen(
@@ -311,6 +512,10 @@ class PaymentOptionsScreen extends StatefulWidget {
 
 class _PaymentOptionsScreenState extends State<PaymentOptionsScreen> {
   String? _selectedPaymentMethod;
+  // CVV entered for the selected saved card. Held transiently only for the
+  // duration of a single charge and cleared immediately after, so every
+  // interactive saved-card payment is verified with CVV at the gateway.
+  String? _savedCardCvv;
   bool _isProcessing = false;
   List<Map<String, dynamic>> _savedPaymentMethods = [];
   bool _isLoadingSavedMethods = true;
@@ -426,7 +631,7 @@ class _PaymentOptionsScreenState extends State<PaymentOptionsScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Payment Options'), elevation: 0),
+      appBar: BrandedAppBar(title: const Text('Payment Options'), elevation: 0),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -989,10 +1194,12 @@ class _PaymentOptionsScreenState extends State<PaymentOptionsScreen> {
           // Use PaystackService to charge the saved card
           final success = await PaystackService().chargeSavedCard(
             authorizationCode: authorizationCode,
+            cvv: _savedCardCvv,
             amount: (widget.planDetails['price'] as num).toDouble(),
             userId: user.id,
             userEmail: user.email!,
           );
+          _savedCardCvv = null; // Never retain the CVV after the charge attempt
 
           if (success == 'success') {
             // Payment successful, activate subscription
@@ -1075,14 +1282,30 @@ class _PaymentOptionsScreenState extends State<PaymentOptionsScreen> {
         String errorMessage = e.toString().replaceAll('Exception: ', '');
         if (errorMessage.contains('invalid_api_key')) {
           errorMessage = 'Payment service temporarily unavailable. Please try again later or contact support.';
-        } else if (errorMessage.contains('connection abort') ||
+        } else if (errorMessage.contains('network_error') ||
+                   errorMessage.contains('connection abort') ||
                    errorMessage.contains('Connection failed') ||
                    errorMessage.contains('SocketException') ||
                    errorMessage.contains('ClientException') ||
                    errorMessage.contains('TimeoutException')) {
           errorMessage = 'Connection failed. Please check your internet connection and try again.';
+        } else if (errorMessage.contains('auth_error')) {
+          errorMessage = 'Your session has expired. Please sign in again and retry the payment.';
+        } else if (errorMessage.contains('server_error')) {
+          // Surface the upstream Paystack / Edge Function detail so the issue
+          // is actionable (e.g. missing plan code, invalid customer, etc.)
+          final idx = errorMessage.indexOf('server_error');
+          final detail = errorMessage.substring(idx).replaceFirst(
+            RegExp(r'^server_error\s*\(\d+\)\s*-\s*'),
+            '',
+          );
+          errorMessage = 'Payment could not be started: $detail';
+        } else if (errorMessage.contains('No Paystack plan code configured')) {
+          errorMessage = 'Payment plan is not configured. Please contact support.';
         } else if (errorMessage.contains('Failed to initialize subscription')) {
-          errorMessage = 'Could not start payment. Please check your connection and try again.';
+          // Generic fallback — avoid blaming the user's connection when we
+          // don't actually know it's a network problem.
+          errorMessage = 'Could not start payment. Please try again or contact support.';
         }
         ScaffoldMessenger.of(
           context,
@@ -1151,6 +1374,7 @@ class _PaymentOptionsScreenState extends State<PaymentOptionsScreen> {
           savedMethod['authorization_code'] ?? savedMethod['id'];
       final paymentResult = await PaystackService().chargeSavedCard(
         authorizationCode: authorizationCode,
+        cvv: _savedCardCvv,
         amount: initialCharge,
         userId: user.id,
         userEmail: user.email!,
@@ -1163,6 +1387,7 @@ class _PaymentOptionsScreenState extends State<PaymentOptionsScreen> {
           'renewal_charge_cents': renewalChargeCents,
         },
       );
+      _savedCardCvv = null; // Never retain the CVV after the charge attempt
 
       if (paymentResult == 'success') {
         final ok = await SubscriptionService().activateIntroCampaignSubscription(
@@ -1344,6 +1569,7 @@ class _PaymentOptionsScreenState extends State<PaymentOptionsScreen> {
               onPressed: () {
                 setState(() {
                   _selectedPaymentMethod = null;
+                  _savedCardCvv = null;
                 });
                 Navigator.of(dialogContext).pop();
               },
@@ -1352,6 +1578,8 @@ class _PaymentOptionsScreenState extends State<PaymentOptionsScreen> {
             ElevatedButton(
               onPressed: () {
                 if (formKey.currentState!.validate()) {
+                  // Capture the CVV so it is passed to the gateway charge.
+                  _savedCardCvv = cvvController.text.trim();
                   Navigator.of(dialogContext).pop();
                   _processPayment();
                 }
@@ -1456,7 +1684,7 @@ class _PaymentPendingScreenState extends State<PaymentPendingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Processing Payment'),
         automaticallyImplyLeading: false,
       ),

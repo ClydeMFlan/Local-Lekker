@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:logger/logger.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'business_profile_page.dart';
 import '../../services/supabase_service.dart';
 import 'widgets/otp_verification_dialog.dart';
@@ -273,7 +274,7 @@ class _TrustedPartnerSignupPageState extends State<TrustedPartnerSignupPage> {
   Widget build(BuildContext context) {
     // Don't validate on every build - only when user submits or after first attempt
     return Scaffold(
-      appBar: AppBar(title: const Text('Trusted Partner Sign Up')),
+      appBar: BrandedAppBar(title: const Text('Trusted Partner Sign Up')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(

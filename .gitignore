@@ -54,3 +54,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Large local dev tools / downloadable speech models (regenerable, not source)
+.tools/vosk-model-*/
+.tools/*.zip

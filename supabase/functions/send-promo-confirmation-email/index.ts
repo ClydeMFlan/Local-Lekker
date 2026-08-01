@@ -107,11 +107,20 @@ This is an automated notification from the Local Lekker app.
 If you have any questions, contact us at support@locallekker.co.za
 `
 
+      const escapeHtml = (s: string) => s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+      const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#222;"><pre style="font-family:Arial,sans-serif;white-space:pre-wrap;margin:0;">${escapeHtml(emailBody)}</pre></body></html>`
+
       await client.send({
         from: smtpUser,
         to: memberEmail,
-        subject: `Promotion Confirmed – ${promotion_name}`,
+        subject: `Promotion Confirmed - ${promotion_name}`,
         content: emailBody,
+        html: htmlBody,
       })
 
       await client.close()

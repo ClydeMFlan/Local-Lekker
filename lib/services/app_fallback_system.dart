@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
 
@@ -112,6 +113,9 @@ class AppFallbackSystem {
 
   /// Check basic internet connectivity
   Future<bool> _checkBasicConnectivity() async {
+    if (kIsWeb) {
+      return true;
+    }
     try {
       final result = await InternetAddress.lookup(
         'google.com',
@@ -124,6 +128,9 @@ class AppFallbackSystem {
 
   /// Check if Supabase is reachable
   Future<bool> _checkSupabaseConnectivity() async {
+    if (kIsWeb) {
+      return true;
+    }
     try {
       // Simple connectivity check - in production, you might want to ping Supabase
       final result = await InternetAddress.lookup(

@@ -1,0 +1,22 @@
+﻿[
+    "create-profile-function",
+    "delete-auth-user",
+    "paystack-proxy",
+    "paystack-webhook",
+    "scheduled-deal-expiry-worker",
+    "scheduled-renewal-worker",
+    "send-chat-message-email",
+    "send-deal-approval-email",
+    "send-deal-cancellation-email",
+    "send-deal-rejection-email",
+    "send-deal-request-email",
+    "send-key-request-email",
+    "send-member-deal-request-confirmation-email",
+    "send-member-payment-success-email",
+    "send-new-key-email",
+    "send-payment-success-email",
+    "send-promo-confirmation-email",
+    "send-promo-signup-email",
+    "send-push-notification",
+    "send-tp-inquiry-email"
+]

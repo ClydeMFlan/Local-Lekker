@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logger/logger.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/paystack_service.dart';
 
 class PaymentMethodWebViewPage extends StatefulWidget {
@@ -305,7 +306,7 @@ class _PaymentMethodWebViewPageState extends State<PaymentMethodWebViewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Add Payment Method'),
         leading: IconButton(
           icon: const Icon(Icons.close),

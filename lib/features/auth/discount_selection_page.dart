@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../models/discount.dart';
 import '../../services/discount_service.dart';
 import '../../services/supabase_service.dart';
@@ -68,7 +69,7 @@ class _DiscountSelectionPageState extends State<DiscountSelectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Apply Discount'),
         leading: IconButton(
           icon: const Icon(Icons.close),

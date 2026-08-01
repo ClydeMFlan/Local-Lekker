@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,6 +25,7 @@ class BusinessProfilePage extends StatefulWidget {
   final String? initialCategory;
   final String? initialLogoPath;
   final bool requireCompletion; // New flag for first-time setup
+  final bool openBankingDetailsOnLoad;
   // Latitude/longitude removed - not needed
 
   const BusinessProfilePage({
@@ -34,6 +37,7 @@ class BusinessProfilePage extends StatefulWidget {
     this.initialContactNumber,
     this.initialCategory,
     this.initialLogoPath,
+    this.openBankingDetailsOnLoad = false,
     this.requireCompletion =
         false, // Default to false for backward compatibility
     // Lat/lng parameters removed
@@ -65,6 +69,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
   bool _keyIsUsed = false;
   bool _isRequestingKey = false;
   bool _allowAdminDealCreation = false;
+  bool _didAutoOpenBankingDetails = false;
 
   static const _provinces = [
     'Eastern Cape',
@@ -126,6 +131,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
   // Logo state
   String? _existingLogoUrl;
   String? _selectedLogoPath;
+  double? _logoPreviewAspectRatio = 1.0;
   final ImagePicker _picker = ImagePicker();
 
   // Paystack subaccount setup fields
@@ -134,6 +140,55 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
   late final TextEditingController _accountNumberController;
   bool _hasPaystackSubaccount = false;
   bool _paymentTermsAccepted = false;
+
+  Map<String, String?> _buildBusinessProfileExpectation(String? logoUrl) {
+    return {
+      'name': _nameController.text.trim(),
+      'category': _selectedCategory,
+      'address': _addressController.text.trim(),
+      'city': _selectedCity ?? '',
+      'contact_email': _contactEmailController.text.trim(),
+      'contact_number': _contactNumberController.text.trim(),
+      'logo_url': logoUrl,
+      'facebook_handle': _facebookController.text.trim(),
+      'instagram_handle': _instagramController.text.trim(),
+      'website_url': _websiteController.text.trim(),
+      'business_email': _businessEmailController.text.trim(),
+    };
+  }
+
+  List<String> _compareBusinessFields(
+    Map<String, dynamic> actual,
+    Map<String, String?> expected,
+  ) {
+    final mismatches = <String>[];
+    expected.forEach((field, expectedValue) {
+      final actualValue = actual[field]?.toString().trim();
+      final normalizedExpected = expectedValue?.trim();
+
+      if (normalizedExpected == null || normalizedExpected.isEmpty) {
+        // Empty expected values are not enforced because the backend may
+        // intentionally preserve an existing non-empty value.
+        return;
+      }
+
+      if (field == 'address') {
+        final expectedAddress = normalizedExpected.toLowerCase();
+        final actualAddress = (actualValue ?? '').toLowerCase();
+        if (!(actualAddress == expectedAddress ||
+            actualAddress.startsWith('$expectedAddress,') ||
+            actualAddress.contains(expectedAddress))) {
+          mismatches.add('$field expected to contain "$normalizedExpected" but was "$actualValue"');
+        }
+        return;
+      }
+
+      if (actualValue != normalizedExpected) {
+        mismatches.add('$field expected "$normalizedExpected" but was "$actualValue"');
+      }
+    });
+    return mismatches;
+  }
 
   final List<String> _categories = [
     'General',
@@ -180,7 +235,16 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
     _accountNumberController = TextEditingController();
 
     // Load existing data if no initial values provided
-    _loadExistingData();
+    _loadExistingData().then((_) {
+      if (widget.openBankingDetailsOnLoad && !_didAutoOpenBankingDetails && mounted) {
+        _didAutoOpenBankingDetails = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _showBankingDetailsForm();
+          }
+        });
+      }
+    });
   }
 
   Future<void> _loadExistingData() async {
@@ -326,6 +390,8 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
               // Set loading to false after data is loaded
               _isLoading = false;
             });
+
+            await _updateLogoPreviewAspectRatio();
           }
         }
       } catch (e) {
@@ -351,6 +417,62 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
     }
   }
 
+  Future<void> _updateLogoPreviewAspectRatio() async {
+    ImageProvider? provider;
+
+    if (_selectedLogoPath != null && _selectedLogoPath!.trim().isNotEmpty) {
+      provider = FileImage(File(_selectedLogoPath!));
+    } else if (_existingLogoUrl != null && _existingLogoUrl!.trim().isNotEmpty) {
+      provider = NetworkImage(_existingLogoUrl!.trim());
+    }
+
+    if (provider == null) {
+      if (!mounted) return;
+      setState(() => _logoPreviewAspectRatio = 1.0);
+      return;
+    }
+
+    final stream = provider.resolve(const ImageConfiguration());
+    final completer = Completer<ImageInfo>();
+    late final ImageStreamListener listener;
+
+    listener = ImageStreamListener(
+      (imageInfo, _) {
+        if (!completer.isCompleted) {
+          completer.complete(imageInfo);
+        }
+      },
+      onError: (error, stackTrace) {
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+      },
+    );
+
+    stream.addListener(listener);
+
+    try {
+      final imageInfo = await completer.future.timeout(const Duration(seconds: 6));
+      final rawWidth = imageInfo.image.width;
+      final rawHeight = imageInfo.image.height;
+      final width = (rawWidth is num && rawWidth > 0)
+          ? rawWidth.toDouble()
+          : 1.0;
+      final height = (rawHeight is num && rawHeight > 0)
+          ? rawHeight.toDouble()
+          : 1.0;
+      if (!mounted) return;
+      setState(() {
+        _logoPreviewAspectRatio = (width / height).clamp(0.6, 1.8).toDouble();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _logoPreviewAspectRatio = 1.0);
+    } finally {
+      stream.removeListener(listener);
+    }
+  }
+
   Future<void> _setAllowAdminDealCreation(bool value) async {
     try {
       final user = SupabaseService.instance.getCurrentUser();
@@ -360,6 +482,16 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
           .from('businesses')
           .update({'allow_admin_deal_creation': value})
           .eq('owner_member_id', user.id);
+
+      final verification = await SupabaseService.instance.client
+          .from('businesses')
+          .select('allow_admin_deal_creation')
+          .eq('owner_member_id', user.id)
+          .maybeSingle();
+
+      if (verification == null || verification['allow_admin_deal_creation'] != value) {
+        throw Exception('Admin deal permission did not persist');
+      }
     } catch (e) {
       setState(() => _allowAdminDealCreation = !_allowAdminDealCreation);
       if (mounted) {
@@ -387,6 +519,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
         setState(() {
           _selectedLogoPath = image.path;
         });
+        await _updateLogoPreviewAspectRatio();
       }
     } catch (e) {
       Logger().e('Error picking logo: $e');
@@ -517,7 +650,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: Text(
           widget.requireCompletion
               ? 'Complete Your Profile'
@@ -528,13 +661,21 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
             : IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () {
-                  // Navigate back to TP home page
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TrustedPartnerHomePage(),
-                    ),
-                  );
+                  // Return to the EXISTING TP home page. Popping keeps the home
+                  // page as the root route so its BrandedAppBar does not auto-add
+                  // a back button beside the logo (which would crowd/overlap the
+                  // logo and the view-mode toggle). Only push a fresh home when
+                  // there is nothing to pop back to.
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TrustedPartnerHomePage(),
+                      ),
+                    );
+                  }
                 },
               ),
         automaticallyImplyLeading: false,
@@ -606,35 +747,51 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                     if (_selectedLogoPath != null || _existingLogoUrl != null)
                       Column(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: _selectedLogoPath != null
-                                ? Image.file(
-                                    File(_selectedLogoPath!),
-                                    width: 120,
-                                    height: 120,
-                                    fit: BoxFit.cover,
-                                  )
-                                : (_existingLogoUrl != null
-                                      ? Image.network(
-                                          _existingLogoUrl!,
-                                          width: 120,
-                                          height: 120,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stack) {
-                                                return Container(
-                                                  width: 120,
-                                                  height: 120,
-                                                  color: Colors.grey.shade300,
-                                                  child: const Icon(
-                                                    Icons.broken_image,
-                                                    color: Colors.grey,
-                                                  ),
-                                                );
-                                              },
+                          Builder(
+                            builder: (context) {
+                              const previewHeight = 140.0;
+                              final previewWidth =
+                                  ((_logoPreviewAspectRatio ?? 1.0) * previewHeight)
+                                      .clamp(96.0, 220.0)
+                                      .toDouble();
+
+                              return Container(
+                                width: previewWidth,
+                                height: previewHeight,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                padding: const EdgeInsets.all(8),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: _selectedLogoPath != null
+                                      ? Image.file(
+                                          File(_selectedLogoPath!),
+                                          alignment: Alignment.center,
+                                          fit: BoxFit.contain,
                                         )
-                                      : const SizedBox.shrink()),
+                                      : (_existingLogoUrl != null
+                                            ? Image.network(
+                                                _existingLogoUrl!,
+                                                alignment: Alignment.center,
+                                                fit: BoxFit.contain,
+                                                errorBuilder:
+                                                    (context, error, stack) {
+                                                      return Container(
+                                                        color: Colors.grey.shade100,
+                                                        child: const Icon(
+                                                          Icons.broken_image,
+                                                          color: Colors.grey,
+                                                        ),
+                                                      );
+                                                    },
+                                              )
+                                            : const SizedBox.shrink()),
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(height: 8),
                           Row(
@@ -652,6 +809,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                                     setState(() {
                                       _selectedLogoPath = null;
                                       _existingLogoUrl = null;
+                                      _logoPreviewAspectRatio = 1.0;
                                     });
                                   },
                                   icon: const Icon(Icons.delete, size: 18),
@@ -1166,46 +1324,35 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
 
     // If this is first-time setup, validate that all required fields are completed
     if (widget.requireCompletion) {
+      final missingFields = <String>[];
       if (_nameController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter your business name'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
+        missingFields.add('Business Name');
       }
       if (_selectedCategory == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select a business category'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
+        missingFields.add('Category');
+      }
+      if (_selectedProvince == null) {
+        missingFields.add('Province');
+      }
+      if (_selectedCity == null) {
+        missingFields.add('City');
       }
       if (_addressController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter your business address'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
+        missingFields.add('Street Address');
       }
       if (_contactEmailController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter your contact email'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
+        missingFields.add('Contact Email');
       }
       if (_contactNumberController.text.trim().isEmpty) {
+        missingFields.add('Contact Number');
+      }
+
+      if (missingFields.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter your contact number'),
+          SnackBar(
+            content: Text(
+              'Please complete required fields: ${missingFields.join(', ')}',
+            ),
             backgroundColor: Colors.orange,
           ),
         );
@@ -1267,6 +1414,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
     final payload = {
       'name': _nameController.text.trim(),
       'category': _selectedCategory,
+      'address': _addressController.text.trim(),
       'street': _addressController.text.trim(),
       'city': _selectedCity ?? '',
       'province': _selectedProvince ?? '',
@@ -1279,6 +1427,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
       'business_email': _businessEmailController.text.trim(),
       // Lat/lng removed from payload
     };
+    final expectedBusinessFields = _buildBusinessProfileExpectation(logoUrl);
 
     try {
       final res = await SupabaseService.instance.completeBusinessProfile(
@@ -1288,17 +1437,48 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
         // Business ID is returned and can be used for logos if needed: res['business_id']
         final businessId = res['business_id'];
 
+        final user = SupabaseService.instance.getCurrentUser();
+        if (user == null) {
+          throw Exception('No authenticated user found after saving business profile');
+        }
+
+        final verificationQuery = await SupabaseService.instance.client
+            .from('businesses')
+            .select(
+              'name, category, address, city, contact_email, contact_number, logo_url, facebook_handle, instagram_handle, website_url, business_email',
+            )
+            .eq('owner_member_id', user.id)
+            .maybeSingle();
+
+        if (verificationQuery == null) {
+          throw Exception('Business profile did not persist to the database');
+        }
+
+        final mismatches = _compareBusinessFields(
+          verificationQuery,
+          expectedBusinessFields,
+        );
+        if (mismatches.isNotEmpty) {
+          throw Exception(
+            'Some business fields did not persist: ${mismatches.join(', ')}',
+          );
+        }
+
         // Verify logo_url was saved if we uploaded one
         if (logoUrl != null && businessId != null) {
-          Logger().i('Verifying logo_url was saved for business: $businessId');
-          final verification = await SupabaseService.instance.client
-              .from('businesses')
-              .select('logo_url')
-              .eq('id', businessId)
-              .single();
-          Logger().i(
-            'Database verification - logo_url: ${verification['logo_url']}',
-          );
+          try {
+            Logger().i('Verifying logo_url was saved for business: $businessId');
+            final verification = await SupabaseService.instance.client
+                .from('businesses')
+                .select('logo_url')
+                .eq('id', businessId)
+                .single();
+            Logger().i(
+              'Database verification - logo_url: ${verification['logo_url']}',
+            );
+          } catch (e) {
+            Logger().w('Logo verification read failed (non-fatal): $e');
+          }
         }
 
         if (!mounted) return;
@@ -1420,25 +1600,75 @@ class _BankingDetailsDialogState extends State<BankingDetailsDialog> {
   final List<String> _accountTypes = ['savings', 'checking'];
   final List<String> _banks = [
     'Absa Bank',
-    'Capitec Bank',
-    'FNB',
-    'Nedbank',
-    'Standard Bank',
-    'Investec',
+    'Access Bank',
     'African Bank',
+    'African Business Bank',
+    'Albaraka Bank',
+    'Bank of China',
+    'Bank Zero',
+    'Bidvest Bank',
+    'Capitec Bank',
+    'Capitec Business',
+    'CitiBank',
     'Discovery Bank',
+    'Finbond EPE',
+    'Finbond Mutual Bank',
+    'FNB',
+    'FirstRand Bank',
+    'HBZ Bank',
+    'HSBC',
+    'Investec',
+    'JP Morgan',
+    'Nedbank',
+    'Olympus Mobile',
+    'OM Bank',
+    'Rand Merchant Bank',
+    'RMB Private Bank',
+    'SASFIN Bank',
+    'Société Générale',
+    'South African Bank of Athens',
+    'Standard Bank',
+    'Standard Chartered',
+    'TymeBank',
+    'Ubank',
+    'VBS Mutual Bank',
     'Other',
   ];
 
   final Map<String, String> _bankCodes = {
     'Absa Bank': '632005',
-    'Capitec Bank': '470010',
-    'FNB': '250655',
-    'Nedbank': '198765',
-    'Standard Bank': '051001',
-    'Investec': '580105',
+    'Access Bank': '410506',
     'African Bank': '430000',
+    'African Business Bank': '584000',
+    'Albaraka Bank': '800000',
+    'Bank of China': '686000',
+    'Bank Zero': '888000',
+    'Bidvest Bank': '462005',
+    'Capitec Bank': '470010',
+    'Capitec Business': '450105',
+    'CitiBank': '350005',
     'Discovery Bank': '679000',
+    'Finbond EPE': '591000',
+    'Finbond Mutual Bank': '589000',
+    'FNB': '250655',
+    'FirstRand Bank': '201419',
+    'HBZ Bank': '570226',
+    'HSBC': '587000',
+    'Investec': '580105',
+    'JP Morgan': '432000',
+    'Nedbank': '198765',
+    'Olympus Mobile': '585001',
+    'OM Bank': '352000',
+    'Rand Merchant Bank': '261251',
+    'RMB Private Bank': '222026',
+    'SASFIN Bank': '683000',
+    'Société Générale': '351005',
+    'South African Bank of Athens': '410105',
+    'Standard Bank': '051001',
+    'Standard Chartered': '730020',
+    'TymeBank': '678910',
+    'Ubank': '431010',
+    'VBS Mutual Bank': '588000',
   };
 
   @override
@@ -1585,6 +1815,10 @@ class _BankingDetailsDialogState extends State<BankingDetailsDialog> {
                   setState(() {
                     _bankNameController.text = value ?? '';
                     _selectedBankCode = _bankCodes[value ?? 'Other'];
+                    // Auto-fill branch code from the selected bank
+                    if (_selectedBankCode != null) {
+                      _branchCodeController.text = _selectedBankCode!;
+                    }
                   });
                 },
                 validator: (v) =>
@@ -2083,7 +2317,9 @@ class _BankingDetailsDialogState extends State<BankingDetailsDialog> {
         // Verify the banking details were saved to database
         final verifyResponse = await SupabaseService.instance.client
             .from('trusted_partner_bank_accounts')
-            .select('paystack_recipient_code, branch_code, bank_account_type')
+            .select(
+              'account_holder_name, bank_name, bank_code, account_type, account_number, branch_code, paystack_recipient_code, bank_account_type, subaccount_code, percentage_charge, subaccount_active, is_active',
+            )
             .eq('user_id', user.id)
             .eq('is_active', true)
             .maybeSingle();
@@ -2091,6 +2327,48 @@ class _BankingDetailsDialogState extends State<BankingDetailsDialog> {
         if (kDebugMode) {
           print(
             '🔍 DEBUG BankingDetailsDialog: Verification - trusted_partner_bank_accounts record: $verifyResponse',
+          );
+        }
+
+        if (verifyResponse == null) {
+          throw Exception('Banking details did not persist to the database');
+        }
+
+        final expectedBankingFields = <String, String?>{
+          'account_holder_name': _accountNameController.text.trim(),
+          'bank_name': _bankNameController.text.trim(),
+          'bank_code': bankCode,
+          'account_type': _selectedAccountType,
+          'account_number': maskedAccountNumber,
+          'branch_code': _branchCodeController.text.trim(),
+          'paystack_recipient_code': recipientCode,
+          'bank_account_type': _selectedAccountType,
+          'subaccount_code': subaccountCode,
+          'percentage_charge': '90.0',
+          'subaccount_active': 'true',
+          'is_active': 'true',
+        };
+
+        final bankingMismatches = <String>[];
+        expectedBankingFields.forEach((field, expectedValue) {
+          final actualValue = verifyResponse[field]?.toString().trim();
+          final normalizedExpected = expectedValue?.trim();
+
+          if (normalizedExpected == null || normalizedExpected.isEmpty) {
+            if (actualValue != null && actualValue.isNotEmpty) {
+              bankingMismatches.add('$field expected empty but was "$actualValue"');
+            }
+            return;
+          }
+
+          if (actualValue != normalizedExpected) {
+            bankingMismatches.add('$field expected "$normalizedExpected" but was "$actualValue"');
+          }
+        });
+
+        if (bankingMismatches.isNotEmpty) {
+          throw Exception(
+            'Some banking fields did not persist: ${bankingMismatches.join(', ')}',
           );
         }
 
@@ -2150,29 +2428,96 @@ class _BankingDetailsDialogState extends State<BankingDetailsDialog> {
   String _mapBankNameToDropdown(String paystackBankName) {
     // Paystack might return full bank names, but our dropdown has shorter names
     switch (paystackBankName.toLowerCase()) {
+      case 'absa bank limited, south africa':
+      case 'absa bank':
+      case 'absa':
+        return 'Absa Bank';
+      case 'access bank south africa':
+      case 'access bank':
+        return 'Access Bank';
+      case 'african bank limited':
+      case 'african bank':
+        return 'African Bank';
+      case 'african business bank':
+      case 'grindrod bank':
+        return 'African Business Bank';
+      case 'albaraka bank':
+        return 'Albaraka Bank';
+      case 'bank of china':
+        return 'Bank of China';
+      case 'bank zero':
+        return 'Bank Zero';
+      case 'bidvest bank limited':
+      case 'bidvest bank':
+        return 'Bidvest Bank';
+      case 'capitec bank limited':
+      case 'capitec bank':
+      case 'capitec':
+        return 'Capitec Bank';
+      case 'capitec business':
+      case 'capitec business bank':
+        return 'Capitec Business';
+      case 'citibank':
+        return 'CitiBank';
+      case 'discovery bank limited':
+      case 'discovery bank':
+      case 'discovery':
+        return 'Discovery Bank';
+      case 'finbond epe':
+        return 'Finbond EPE';
+      case 'finbond mutual bank':
+        return 'Finbond Mutual Bank';
       case 'first national bank':
       case 'fnb':
       case 'first national bank (fnb)':
         return 'FNB';
-      case 'absa bank':
-      case 'absa':
-        return 'Absa Bank';
-      case 'capitec bank':
-      case 'capitec':
-        return 'Capitec Bank';
+      case 'firstrand bank':
+        return 'FirstRand Bank';
+      case 'hbz bank (westville)':
+      case 'hbz bank':
+        return 'HBZ Bank';
+      case 'hsbc south africa':
+      case 'hsbc':
+        return 'HSBC';
+      case 'investec bank ltd':
+      case 'investec bank':
+      case 'investec':
+        return 'Investec';
+      case 'jp morgan south africa':
+      case 'jp morgan':
+        return 'JP Morgan';
       case 'nedbank':
         return 'Nedbank';
+      case 'olympus mobile':
+        return 'Olympus Mobile';
+      case 'om bank':
+        return 'OM Bank';
+      case 'rand merchant bank':
+        return 'Rand Merchant Bank';
+      case 'rmb private bank':
+        return 'RMB Private Bank';
+      case 'sasfin bank':
+        return 'SASFIN Bank';
+      case 'société générale south africa':
+      case 'societe generale':
+      case 'société générale':
+        return 'Société Générale';
+      case 'south african bank of athens':
+        return 'South African Bank of Athens';
+      case 'standard bank south africa':
       case 'standard bank':
       case 'standard bank of south africa':
         return 'Standard Bank';
-      case 'investec':
-      case 'investec bank':
-        return 'Investec';
-      case 'african bank':
-        return 'African Bank';
-      case 'discovery bank':
-      case 'discovery':
-        return 'Discovery Bank';
+      case 'standard chartered bank':
+      case 'standard chartered':
+        return 'Standard Chartered';
+      case 'tymebank':
+        return 'TymeBank';
+      case 'ubank ltd':
+      case 'ubank':
+        return 'Ubank';
+      case 'vbs mutual bank':
+        return 'VBS Mutual Bank';
       default:
         return 'Other'; // For unrecognized banks
     }

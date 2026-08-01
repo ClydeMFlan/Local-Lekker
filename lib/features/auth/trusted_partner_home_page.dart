@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:io' show Platform;
@@ -5,24 +6,36 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../services/supabase_service.dart';
 import '../../services/discount_service.dart';
 import '../../services/push_notification_service.dart';
+import '../../services/subscription_service.dart';
+import '../../services/savings_service.dart';
 import '../../models/discount.dart';
+import '../../widgets/custom_qr_code.dart';
+import '../../widgets/savings_summary_card.dart';
+import '../../widgets/profile_photo.dart';
+import '../members/member_receipts_page.dart';
 import 'welcome_page.dart';
 import 'business_profile_page.dart';
 import 'discount_management_page.dart';
 import 'discount_selection_page.dart';
-import 'members_home_page.dart';
+import 'deal_selection_page.dart';
+import 'promotion_detail_page.dart';
 import 'member_profile_page.dart';
+import '../payments/pending_payments_page.dart';
+import '../../services/promotion_campaign_service.dart';
 import 'trusted_partners_by_category_page.dart';
 import 'admin_chat_page.dart';
+import 'widgets/trusted_partner_key_dialog.dart';
 import 'trusted_partner_inbox_page.dart';
 import '../../services/chat_service.dart';
 import '../business/bill_approval_page.dart';
 import 'deal_authorization_dashboard.dart';
 import '../business/trusted_partner_analytics_dashboard.dart';
 import '../../widgets/trusted_partner_analytics_widget.dart';
+import '../../widgets/branded_app_bar.dart';
 import 'package:flutter/foundation.dart';
 
 /// Local Lekker brand palette used across the Trusted Partner screen.
@@ -50,6 +63,17 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   List<Discount> _discounts = [];
   bool _discountsLoading = true;
   DateTime? _lastScanTime;
+  static const double _headerToggleSlotWidth = 148;
+  static const double _headerActionSlotWidth = 46;
+  static const double _headerActionSlotHeight = 74;
+  static const double _headerIconButtonFaceSize = 38;
+  static const double _headerIconButtonCornerRadius = 12;
+  static const double _headerCompactToggleSlotWidth = 60;
+  static const double _headerCompactActionSlotWidth = 34;
+  static const double _headerCompactActionSlotHeight = 60;
+  static const double _headerCompactIconButtonFaceSize = 30;
+  static const double _headerCompactGap = 4;
+  static const double _headerGridGap = 10;
   String? _businessName;
   String? _businessLogoUrl;
   int _pendingDealRequestsCount = 0;
@@ -57,7 +81,28 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   bool _hasActiveBanking = false;
   String? _bankName;
   bool _bankingStatusLoading = true;
+  bool _isUploadingHeroLogo = false;
   Timer? _periodicRefreshTimer;
+  final ImagePicker _heroLogoPicker = ImagePicker();
+
+  // TP-Member dashboard (shown when the trusted partner toggles to Member mode)
+  final SubscriptionService _memberSubscriptionService = SubscriptionService();
+  final SavingsService _memberSavingsService = SavingsService();
+  Map<String, dynamic>? _memberQrData;
+  Map<String, dynamic>? _memberSubscriptionStatus;
+  Map<String, dynamic>? _memberSavingsStats;
+  bool _memberDashboardLoading = false;
+  bool _memberDashboardLoaded = false;
+  bool _memberQrExpanded = false;
+  String? _memberProfilePhotoUrl;
+  String? _memberFullName;
+  bool _isUploadingMemberPhoto = false;
+  String? _memberCity;
+  int _memberTrustedPartnersCount = 0;
+  int _memberAvailableDealsCount = 0;
+  bool _memberCountsLoading = true;
+  int _memberPendingPaymentsCount = 0;
+  List<Map<String, dynamic>> _memberPromotions = [];
 
   // Realtime subscription for deal_authorizations
   RealtimeChannel? _dealAuthChannel;
@@ -65,6 +110,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
 
   // Realtime subscription for chat_messages (unread badge)
   RealtimeChannel? _chatMessagesChannel;
+  final GlobalKey _settingsMenuButtonKey = GlobalKey();
 
   // Animation for pulsing envelope
   late AnimationController _pulseController;
@@ -75,7 +121,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   late Animation<double> _shutterAnimation;
 
   // Check if we're on a mobile platform that supports camera
-  bool get _isMobilePlatform => Platform.isAndroid || Platform.isIOS;
+  bool get _isMobilePlatform => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   @override
   void initState() {
@@ -381,149 +427,11 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
 
     // Business view - show trusted partner's AppBar and content
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 100,
-        backgroundColor: kBrandBlue,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Image.asset('assets/locallekker_logo.png', height: 200),
+      backgroundColor: Colors.white,
+      appBar: BrandedAppBar(
+        toolbarHeight: _isShortLandscapeViewport ? 68 : 100,
         actions: [
-          // View mode toggle
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                Text(
-                  _isMemberView ? 'Member' : 'Business',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: _isMemberView ? kBrandGreen : kBrandYellow,
-                  ),
-                ),
-                Switch(
-                  value: _isMemberView,
-                  onChanged: (value) {
-                    setState(() {
-                      _isMemberView = value;
-                    });
-                  },
-                  activeThumbColor: kBrandGreen,
-                  activeTrackColor: kBrandGreen.withValues(alpha: 0.4),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Messages',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TrustedPartnerInboxPage(),
-                ),
-              ).then((_) => _loadUnreadChatCount());
-            },
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.chat_bubble_outline),
-                if (_unreadChatCount > 0)
-                  Positioned(
-                    right: -6,
-                    top: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      child: Text(
-                        _unreadChatCount > 9 ? '9+' : '$_unreadChatCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Manage Discounts',
-            onPressed: _navigateToDiscountManagement,
-            icon: const Icon(Icons.discount),
-          ),
-          IconButton(
-            tooltip: 'Analytics Dashboard',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      const TrustedPartnerAnalyticsDashboard(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.analytics),
-          ),
-          PopupMenuButton<String>(
-            onSelected: _handleMenuSelection,
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'deal_requests',
-                child: ListTile(
-                  leading: Icon(Icons.approval),
-                  title: Text('Deal Authorizations'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'scan_bills',
-                child: ListTile(
-                  leading: Icon(Icons.camera_alt),
-                  title: Text('Scan Business Bills'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'profile',
-                child: ListTile(
-                  leading: Icon(Icons.person),
-                  title: Text('Business Profile'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'theme',
-                child: ListTile(
-                  leading: Icon(
-                    _isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                  ),
-                  title: Text(_isDarkMode ? 'Light Mode' : 'Dark Mode'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-          ),
-          IconButton(
-            tooltip: 'Sign Out',
-            onPressed: () => _signOut(context),
-            icon: const Icon(Icons.logout),
-          ),
+          _buildHeaderActionGrid(isMemberMode: false),
         ],
       ),
       body: _isMobilePlatform
@@ -533,139 +441,2322 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   }
 
   Widget _buildMemberViewWithToggle() {
-    // Wrap MembersHomePage and add toggle in the existing AppBar
+    // Wrap the custom TP-Member dashboard and add the toggle in the existing AppBar
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 100,
-        backgroundColor: kBrandBlue,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Image.asset('assets/locallekker_logo.png', height: 200),
-        centerTitle: true,
+      backgroundColor: const Color(0xFFF6F8FB),
+      appBar: BrandedAppBar(
+        toolbarHeight: _isShortLandscapeViewport ? 68 : 100,
         actions: [
-          // View mode toggle - same as business view
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                Text(
-                  'Member',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: kBrandGreen,
-                  ),
-                ),
-                Switch(
-                  value: _isMemberView,
-                  onChanged: (value) {
-                    setState(() {
-                      _isMemberView = value;
-                    });
-                  },
-                  activeThumbColor: kBrandGreen,
-                  activeTrackColor: kBrandGreen.withValues(alpha: 0.4),
-                ),
-              ],
-            ),
-          ),
-          // Show member-specific actions from MembersHomePage
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const MemberProfilePage(),
-                ),
-              );
-            },
-            tooltip: 'My Profile',
-          ),
-          IconButton(
-            icon: const Icon(Icons.storefront_outlined),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TrustedPartnersByCategoryPage(),
-                ),
-              );
-            },
-            tooltip: 'Trusted Partners',
-          ),
-          IconButton(
-            tooltip: 'Messages',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TrustedPartnerInboxPage(),
-                ),
-              ).then((_) => _loadUnreadChatCount());
-            },
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.chat_bubble_outline),
-                if (_unreadChatCount > 0)
-                  Positioned(
-                    right: -6,
-                    top: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 18,
-                        minHeight: 18,
-                      ),
-                      child: Text(
-                        _unreadChatCount > 9 ? '9+' : '$_unreadChatCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+          _buildHeaderActionGrid(isMemberMode: true),
+        ],
+      ),
+      body: _buildTpMemberDashboardBody(),
+    );
+  }
+
+  void _toggleMemberView() {
+    setState(() => _isMemberView = !_isMemberView);
+    if (_isMemberView && !_memberDashboardLoaded) {
+      _loadTpMemberDashboardData();
+    }
+  }
+
+  Future<void> _loadTpMemberDashboardData() async {
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return;
+    if (mounted) setState(() => _memberDashboardLoading = true);
+    try {
+      final results = await Future.wait<dynamic>([
+        _memberSubscriptionService.getUserQrCode(user.id).catchError((_) => null),
+        _memberSubscriptionService
+            .getSubscriptionStatus(user.id)
+            .catchError((_) => null),
+        _memberSavingsService.getUserSavingsStats(user.id).catchError((_) => null),
+        SupabaseService.instance
+            .getUserProfile(userId: user.id)
+            .catchError((_) => null),
+      ]);
+      if (!mounted) return;
+      final profile = results[3] as Map<String, dynamic>?;
+      final String name = (profile?['name']?.toString() ?? '').trim();
+      final String surname = (profile?['surname']?.toString() ?? '').trim();
+      // Only append surname if it isn't empty and isn't already part of name
+      // (some accounts store the full name in the `name` field).
+      final String fullName = name.isEmpty
+          ? surname
+          : (surname.isNotEmpty && !name.contains(surname)
+              ? '$name $surname'
+              : name);
+      setState(() {
+        _memberQrData = results[0] as Map<String, dynamic>?;
+        _memberSubscriptionStatus = results[1] as Map<String, dynamic>?;
+        _memberSavingsStats = results[2] as Map<String, dynamic>?;
+        _memberProfilePhotoUrl =
+            profile?['profile_photo_url']?.toString().trim();
+        _memberFullName = fullName.isNotEmpty ? fullName : null;
+        _memberCity = profile?['city']?.toString().trim();
+        _memberDashboardLoading = false;
+        _memberDashboardLoaded = true;
+      });
+      unawaited(_loadMemberExtras());
+    } catch (e) {
+      _logger.e('Failed to load TP-member dashboard data: $e');
+      if (mounted) {
+        setState(() {
+          _memberDashboardLoading = false;
+          _memberDashboardLoaded = true;
+        });
+      }
+    }
+  }
+
+  // Loads the additional member functions (counts, pending payments, promotions).
+  Future<void> _loadMemberExtras() async {
+    await Future.wait<void>([
+      _loadMemberPartnerDealCounts(),
+      _loadMemberPendingPaymentsCount(),
+      _loadMemberPromotions(),
+    ]);
+  }
+
+  Future<void> _loadMemberPartnerDealCounts() async {
+    if (mounted) setState(() => _memberCountsLoading = true);
+    try {
+      final client = SupabaseService.instance.client;
+      final partners = await client
+          .from('businesses')
+          .select('id, owner_member_id') as List<dynamic>;
+      final deals = await client
+          .from('trusted_partner_discounts')
+          .select('id, business_id, trusted_partner_id, is_active')
+          .eq('is_active', true) as List<dynamic>;
+
+      final validBusinessIds = partners.map((b) => b['id']).toSet();
+      final validPartnerIds = partners.map((b) => b['owner_member_id']).toSet();
+      final validDeals = deals.where((d) {
+        final hasBiz = d['business_id'] != null &&
+            validBusinessIds.contains(d['business_id']);
+        final hasPartner = d['trusted_partner_id'] != null &&
+            validPartnerIds.contains(d['trusted_partner_id']);
+        return hasBiz || hasPartner;
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _memberTrustedPartnersCount = partners.length;
+        _memberAvailableDealsCount = validDeals.length;
+        _memberCountsLoading = false;
+      });
+    } catch (e) {
+      _logger.e('Failed to load member partner/deal counts: $e');
+      if (mounted) setState(() => _memberCountsLoading = false);
+    }
+  }
+
+  Future<void> _loadMemberPendingPaymentsCount() async {
+    try {
+      final user = SupabaseService.instance.getCurrentUser();
+      if (user == null) return;
+      final pending = await SupabaseService.instance.client
+          .from('deal_authorizations')
+          .select('id')
+          .eq('member_id', user.id)
+          .eq('status', 'approved')
+          .isFilter('payment_completed_at', null) as List<dynamic>;
+      if (!mounted) return;
+      setState(() => _memberPendingPaymentsCount = pending.length);
+    } catch (e) {
+      _logger.e('Failed to load member pending payments: $e');
+    }
+  }
+
+  Future<void> _loadMemberPromotions() async {
+    try {
+      final user = SupabaseService.instance.getCurrentUser();
+      final email = user?.email;
+      if (user == null || email == null || email.isEmpty) return;
+
+      final eligible = await PromotionCampaignService()
+          .getEligiblePromotionsForEmail(email: email);
+
+      if (eligible.isNotEmpty) {
+        final signups = await SupabaseService.instance.client
+            .from('promotion_signups')
+            .select('promotion_id')
+            .eq('user_id', user.id) as List<dynamic>;
+        final signedUpIds =
+            signups.map((s) => s['promotion_id'] as String).toSet();
+        eligible.removeWhere((p) => signedUpIds.contains(p['id']));
+      }
+
+      if (!mounted) return;
+      setState(() => _memberPromotions = eligible);
+    } catch (e) {
+      _logger.e('Failed to load member promotions: $e');
+    }
+  }
+
+  Widget _buildTpMemberDashboardBody() {
+    // Member-styled TP-member dashboard aligned to the normal member home
+    // (members_home_page.dart): blue gradient hero, 3-tile quick-actions row,
+    // Today stats, and a Trusted Partners summary card. Profile/Support/
+    // Messages/Logout stay reachable via the member-mode app bar grid, and
+    // Back-to-Business via the hero toggle.
+    return Container(
+      color: const Color(0xFFEFF3F8),
+      child: RefreshIndicator(
+        onRefresh: () async {
+          _memberDashboardLoaded = false;
+          await _loadTpMemberDashboardData();
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildTpMemberHero(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_memberPromotions.isNotEmpty) ...[
+                      for (final promo in _memberPromotions)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _buildTpMemberPromoBanner(promo),
                         ),
-                        textAlign: TextAlign.center,
-                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Quick actions — 3-tile row (matches member home)
+                    _buildTpSectionHeader('Quick actions'),
+                    const SizedBox(height: 8),
+                    _buildTpMemberQuickActionsRow(),
+                    const SizedBox(height: 20),
+
+                    // Today stats — Partners nearby / Active deals
+                    _buildTpSectionHeader('Today'),
+                    const SizedBox(height: 8),
+                    _buildTpMemberTodayStats(),
+                    const SizedBox(height: 20),
+
+                    // Pending payments urgent card (conditional)
+                    if (_memberPendingPaymentsCount > 0) ...[
+                      _buildTpMemberPendingPaymentsCard(),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // Trusted Partners summary card
+                    _buildTpSectionHeader('Trusted Partners'),
+                    const SizedBox(height: 8),
+                    _buildTpMemberPartnersCard(),
+                    const SizedBox(height: 80),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 3-tile quick-actions row mirroring the member home (Find Deals, Receipts,
+  // Partners).
+  Widget _buildTpMemberQuickActionsRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildTpMemberActionTileCompact(
+            icon: Icons.local_offer_outlined,
+            label: 'Find Deals',
+            color: const Color(0xFFF59E0B),
+            bgColor: const Color(0x1FF59E0B),
+            onTap: _openMemberFindDeals,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildTpMemberActionTileCompact(
+            icon: Icons.receipt_long_outlined,
+            label: 'Receipts',
+            color: const Color(0xFF15803D),
+            bgColor: const Color(0x1A15803D),
+            onTap: _openMemberReceipts,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildTpMemberActionTileCompact(
+            icon: Icons.storefront_outlined,
+            label: 'Partners',
+            color: const Color(0xFF0E5BA0),
+            bgColor: const Color(0x140E5BA0),
+            onTap: _openMemberBrowseDeals,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTpMemberActionTileCompact({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color bgColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0E5BA0).withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, size: 20, color: color),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0B2540),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Trusted Partners summary card mirroring the member home's gradient card.
+  Widget _buildTpMemberPartnersCard() {
+    return GestureDetector(
+      onTap: _openMemberBrowseDeals,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF15803D), Color(0xFF22C55E)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF15803D).withValues(alpha: 0.18),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.storefront_outlined,
+                  size: 28, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Trusted Partners',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
                     ),
                   ),
-              ],
+                  const SizedBox(height: 3),
+                  _memberCountsLoading
+                      ? Text(
+                          'Loading...',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        )
+                      : Text(
+                          '$_memberTrustedPartnersCount ${_memberTrustedPartnersCount == 1 ? 'partner' : 'partners'} · $_memberAvailableDealsCount ${_memberAvailableDealsCount == 1 ? 'deal' : 'deals'}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: Colors.white, size: 28),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTpMemberHero() {
+    final String displayName = _memberFullName?.trim().isNotEmpty == true
+        ? _memberFullName!.trim()
+        : (_businessName?.trim().isNotEmpty == true
+            ? _businessName!.trim()
+            : 'Member');
+    final stats = _memberSavingsStats;
+    final double totalSaved = (stats?['totalSaved'] as num?)?.toDouble() ?? 0.0;
+    final double totalTips = (stats?['totalTips'] as num?)?.toDouble() ?? 0.0;
+    final double totalPaid = (stats?['totalPaid'] as num?)?.toDouble() ?? 0.0;
+    final int totalDeals = (stats?['totalDeals'] as num?)?.toInt() ?? 0;
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0E5BA0), Color(0xFF0A4A8A), Color(0xFF083D73)],
+          stops: [0.0, 0.55, 1.0],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -40,
+            right: -40,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.12),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.support_agent),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AdminChatPage()),
-              );
-            },
-            tooltip: 'Support',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              // Refresh member view - could add a callback if needed
-              setState(() {});
-            },
-            tooltip: 'Refresh',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _signOut(context),
-            tooltip: 'Logout',
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: _isUploadingMemberPhoto
+                          ? null
+                          : _pickAndSaveMemberPhoto,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          ProfilePhoto(
+                            imageUrl: _memberProfilePhotoUrl,
+                            displayName: displayName,
+                            size: 54,
+                            shape: ProfilePhotoShape.circle,
+                            borderColor: Colors.white,
+                            borderWidth: 2,
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.16),
+                            foregroundColor: Colors.white,
+                          ),
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2E7D32),
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: Colors.white, width: 1.5),
+                              ),
+                              child: _isUploadingMemberPhoto
+                                  ? const SizedBox(
+                                      width: 10,
+                                      height: 10,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Colors.white),
+                                      ),
+                                    )
+                                  : const Icon(Icons.edit_rounded,
+                                      size: 10, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Member account',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.78),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: -0.03,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Tooltip(
+                      message: 'Back to Business Mode',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _toggleMemberView,
+                          child: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.18),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.swap_horiz_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _buildTpMemberQrStrip(),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTpStatTile(
+                        label: 'Saved',
+                        value: 'R${totalSaved.toStringAsFixed(0)}',
+                        icon: Icons.savings_outlined,
+                        accentColor: const Color(0xFF7CE39A),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildTpStatTile(
+                        label: 'Tips',
+                        value: 'R${totalTips.toStringAsFixed(0)}',
+                        icon: Icons.volunteer_activism,
+                        accentColor: const Color(0xFFFF7B7B),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildTpStatTile(
+                        label: 'Paid',
+                        value: 'R${totalPaid.toStringAsFixed(0)}',
+                        icon: Icons.credit_card,
+                        accentColor: const Color(0xFF8CC6FF),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildTpStatTile(
+                        label: 'Deals',
+                        value: '$totalDeals',
+                        icon: Icons.local_offer_outlined,
+                        accentColor: const Color(0xFFFFD56A),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
-      body: MembersHomePage(hideAppBar: true),
+    );
+  }
+
+  /// Opens the promo-key dialog so a trusted partner can activate their own
+  /// member QR code (same flow members use). The activation field starts empty
+  /// on purpose: the TP copies their unique Trusted Partner key from their
+  /// Business Profile and pastes it here. Reloads the member dashboard on
+  /// success so the new permanent QR appears immediately.
+  Future<void> _openTpKeyActivationDialog() async {
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return;
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => TrustedPartnerKeyDialog(
+        userId: user.id,
+        onSuccess: () {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Membership activated! Your QR code is now active.',
+              ),
+              backgroundColor: Color(0xFF2E7D32),
+            ),
+          );
+          // Force a fresh load so the new permanent QR shows immediately.
+          _memberDashboardLoaded = false;
+          _loadTpMemberDashboardData();
+        },
+      ),
+    );
+  }
+
+  void _showTpMemberQrPopup() {
+    final String? qrString = _memberQrData?['qr_code'] as String?;
+    final bool subActive =
+        (_memberSubscriptionStatus?['subscription_status']?.toString() ??
+                'none') ==
+            'active';
+    final bool qrActive = _memberQrData?['is_active'] == true &&
+        qrString != null &&
+        qrString.trim().isNotEmpty;
+    final String memberName = _businessName?.trim().isNotEmpty == true
+        ? _businessName!.trim()
+        : 'Member';
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Your QR Code',
+                        style: Theme.of(ctx).textTheme.titleLarge),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: _memberDashboardLoading
+                      ? const SizedBox(
+                          height: 200,
+                          width: 200,
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      : qrActive
+                          ? CustomQrCode(
+                              data: qrString,
+                              logoAssetPath: 'assets/heart_flag.png',
+                              size: 220,
+                            )
+                          : SizedBox(
+                              width: 220,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const SizedBox(height: 12),
+                                  const Icon(Icons.qr_code_2_rounded,
+                                      size: 56, color: Color(0xFF9AA5B1)),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    subActive
+                                        ? 'QR code unavailable'
+                                        : 'Activate your membership to get your QR code',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Color(0xFF627D98),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  if (!subActive) ...[
+                                    const SizedBox(height: 14),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: 46,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () {
+                                          Navigator.of(ctx).pop();
+                                          _openTpKeyActivationDialog();
+                                        },
+                                        icon: const Icon(
+                                            Icons.vpn_key_rounded,
+                                            size: 18),
+                                        label: const Text('Insert Promo Key'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              const Color(0xFF0E5BA0),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 12),
+                                ],
+                              ),
+                            ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  memberName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF102A43),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Show this QR at checkout to redeem member deals',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF627D98),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTpMemberQrStrip() {
+    final String? qrString = _memberQrData?['qr_code'] as String?;
+    final bool qrActive = _memberQrData?['is_active'] == true &&
+        qrString != null &&
+        qrString.trim().isNotEmpty;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _showTpMemberQrPopup,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0E5BA0), Color(0xFF0A4A8A), Color(0xFF08396A)],
+            stops: [0.0, 0.58, 1.0],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0A4A8A).withValues(alpha: 0.3),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.qr_code_2_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Your QR Code',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    qrActive
+                        ? 'Tap to show your QR code'
+                        : 'Tap to activate your QR code',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.74),
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Gradient-wrapped savings summary, shared across layouts.
+  Widget _buildTpMemberSavingsCard() {
+    final double totalSpent =
+        (_memberSavingsStats?['totalSpent'] as num?)?.toDouble() ?? 0.0;
+    final double totalSaved =
+        (_memberSavingsStats?['totalSaved'] as num?)?.toDouble() ?? 0.0;
+    final double totalPaid =
+        (_memberSavingsStats?['totalPaid'] as num?)?.toDouble() ?? 0.0;
+    final double totalTips =
+        (_memberSavingsStats?['totalTips'] as num?)?.toDouble() ?? 0.0;
+    final int totalDeals =
+        (_memberSavingsStats?['totalDeals'] as num?)?.toInt() ?? 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F766E), Color(0xFF15803D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F766E).withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: SavingsSummaryCard(
+        totalSpent: totalSpent,
+        totalSaved: totalSaved,
+        totalPaid: totalPaid,
+        totalTips: totalTips,
+        totalDeals: totalDeals,
+        isLoading: _memberDashboardLoading,
+        onBrowseDeals: _openMemberBrowseDeals,
+        onViewReceipts: _openMemberReceipts,
+      ),
+    );
+  }
+
+  // The three quick-action tiles, shared across layouts.
+  List<Widget> _tpMemberActionTiles() {
+    return [
+      _buildMemberActionTile(
+        icon: Icons.local_offer_rounded,
+        color: const Color(0xFF2563EB),
+        title: 'Find Deals',
+        subtitle: 'Browse and redeem member deals',
+        onTap: _openMemberFindDeals,
+      ),
+      _buildMemberActionTile(
+        icon: Icons.storefront_rounded,
+        color: const Color(0xFF15803D),
+        title: 'Trusted Partners',
+        subtitle: 'Explore partners by category near you',
+        onTap: _openMemberBrowseDeals,
+      ),
+      _buildMemberActionTile(
+        icon: Icons.receipt_long_rounded,
+        color: const Color(0xFFB45309),
+        title: 'My Receipts & History',
+        subtitle: 'View past deals and issued receipts',
+        onTap: _openMemberReceipts,
+      ),
+      _buildMemberActionTile(
+        icon: Icons.person_rounded,
+        color: const Color(0xFF7C3AED),
+        title: 'My Profile',
+        subtitle: 'View and edit your member profile',
+        onTap: _openMemberProfile,
+      ),
+      _buildMemberActionTile(
+        icon: Icons.pending_actions_rounded,
+        color: const Color(0xFFDC2626),
+        title: 'Pending Payments',
+        subtitle: _memberPendingPaymentsCount > 0
+            ? '$_memberPendingPaymentsCount ${_memberPendingPaymentsCount == 1 ? 'deal' : 'deals'} awaiting payment'
+            : 'No payments awaiting',
+        onTap: _openMemberPendingPayments,
+      ),
+      _buildMemberActionTile(
+        icon: Icons.swap_horiz_rounded,
+        color: const Color(0xFF6F7C8B),
+        title: 'Back to Business Mode',
+        subtitle: 'Return to your trusted partner dashboard',
+        onTap: _toggleMemberView,
+      ),
+    ];
+  }
+
+  Widget _tpMemberQuickActionsHeader() {
+    return Text(
+      'Quick actions',
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF102A43),
+          ),
+    );
+  }
+
+  // Promotions, today stats, and pending payments — surfaced between the
+  // savings section and the quick actions in every layout.
+  List<Widget> _tpMemberExtraSections() {
+    final List<Widget> sections = [];
+
+    if (_memberPromotions.isNotEmpty) {
+      sections.add(const SizedBox(height: 16));
+      for (final promo in _memberPromotions) {
+        sections.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildTpMemberPromoBanner(promo),
+          ),
+        );
+      }
+    }
+
+    sections.add(const SizedBox(height: 16));
+    sections.add(_buildTpMemberTodayStats());
+
+    if (_memberPendingPaymentsCount > 0) {
+      sections.add(const SizedBox(height: 16));
+      sections.add(_buildTpMemberPendingPaymentsCard());
+    }
+
+    return sections;
+  }
+
+  Widget _buildTpMemberTodayStats() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildTpMemberStatCard(
+            value: _memberCountsLoading ? '—' : '$_memberTrustedPartnersCount',
+            label: 'Partners nearby',
+            barColor: const Color(0xFF2563EB),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildTpMemberStatCard(
+            value: _memberCountsLoading ? '—' : '$_memberAvailableDealsCount',
+            label: 'Active deals',
+            barColor: const Color(0xFFF59E0B),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTpMemberStatCard({
+    required String value,
+    required String label,
+    required Color barColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF102A43),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF627D98)),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            height: 5,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              gradient: LinearGradient(
+                colors: [barColor, barColor.withValues(alpha: 0.5)],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTpMemberPendingPaymentsCard() {
+    return GestureDetector(
+      onTap: _openMemberPendingPayments,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFF59E0B), Color(0xFFDC2626)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFDC2626).withValues(alpha: 0.26),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.pending_actions,
+                  size: 24, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pending Payments',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$_memberPendingPaymentsCount ${_memberPendingPaymentsCount == 1 ? 'deal awaiting payment' : 'deals awaiting payment'}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: Colors.white, size: 28),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTpMemberPromoBanner(Map<String, dynamic> promo) {
+    final String? imageUrl = promo['image_url'] as String?;
+    final freeMonths = promo['free_months'];
+    final String durationText =
+        freeMonths != null ? '$freeMonths month(s) free' : 'Lifetime access';
+
+    return Material(
+      color: Colors.white,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _openMemberPromotion(promo),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (imageUrl != null && imageUrl.isNotEmpty)
+              Image.network(
+                imageUrl,
+                height: 120,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 70,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF102A43), Color(0xFF2E7D32)],
+                    ),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.campaign, size: 34, color: Colors.white),
+                  ),
+                ),
+              )
+            else
+              Container(
+                height: 70,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF102A43), Color(0xFF2E7D32)],
+                  ),
+                ),
+                child: const Center(
+                  child: Icon(Icons.campaign, size: 34, color: Colors.white),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          promo['name']?.toString() ?? 'Promotion',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF102A43),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.card_giftcard,
+                                size: 14, color: Colors.green.shade700),
+                            const SizedBox(width: 4),
+                            Text(
+                              durationText,
+                              style: TextStyle(
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF102A43),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'View',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Android portrait: single scrolling column ──
+  // ignore: unused_element
+  Widget _buildTpMemberPortraitLayout() {
+    final List<Widget> tiles = _tpMemberActionTiles();
+    return RefreshIndicator(
+      onRefresh: _loadTpMemberDashboardData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildTpMemberSavingsSection(),
+            ..._tpMemberExtraSections(),
+            const SizedBox(height: 18),
+            _tpMemberQuickActionsHeader(),
+            const SizedBox(height: 12),
+            for (int i = 0; i < tiles.length; i++) ...[
+              tiles[i],
+              if (i < tiles.length - 1) const SizedBox(height: 12),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Android landscape: membership card beside savings + actions ──
+  // ignore: unused_element
+  Widget _buildTpMemberLandscapeLayout(BoxConstraints constraints) {
+    final List<Widget> tiles = _tpMemberActionTiles();
+    return RefreshIndicator(
+      onRefresh: _loadTpMemberDashboardData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Savings section with embedded QR toggle (left)
+            Expanded(
+              flex: 5,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildTpMemberSavingsSection(),
+                  ..._tpMemberExtraSections(),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Actions column (right)
+            Expanded(
+              flex: 4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _tpMemberQuickActionsHeader(),
+                  const SizedBox(height: 10),
+                  for (int i = 0; i < tiles.length; i++) ...[
+                    tiles[i],
+                    if (i < tiles.length - 1) const SizedBox(height: 10),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Web / desktop: centered, two-column with action grid ──
+  // ignore: unused_element
+  Widget _buildTpMemberDesktopLayout(BoxConstraints constraints) {
+    final List<Widget> tiles = _tpMemberActionTiles();
+    final double contentWidth = math.min(1100, constraints.maxWidth - 48);
+
+    return RefreshIndicator(
+      onRefresh: _loadTpMemberDashboardData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(vertical: 28),
+        child: Center(
+          child: SizedBox(
+            width: contentWidth,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Savings section with embedded QR toggle (left)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildTpMemberSavingsSection(),
+                      ..._tpMemberExtraSections(),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                // Action grid (right)
+                SizedBox(
+                  width: 380,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _tpMemberQuickActionsHeader(),
+                      const SizedBox(height: 14),
+                      for (int i = 0; i < tiles.length; i++) ...[
+                        tiles[i],
+                        if (i < tiles.length - 1) const SizedBox(height: 14),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Savings card with a small QR symbol in its top-right corner.
+  // Tapping the symbol expands the full membership QR card directly above it.
+  Widget _buildTpMemberSavingsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildTpMemberProfileHeader(),
+        const SizedBox(height: 14),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: _memberQrExpanded
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildTpMemberCardExpanded(),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+        Stack(
+          children: [
+            _buildTpMemberSavingsCard(),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: _buildMemberQrToggleIcon(),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Editable member profile picture + name shown above the savings card.
+  Widget _buildTpMemberProfileHeader() {
+    final String displayName = _memberFullName?.trim().isNotEmpty == true
+        ? _memberFullName!.trim()
+        : (_businessName?.trim().isNotEmpty == true
+            ? _businessName!.trim()
+            : 'Member');
+
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: _isUploadingMemberPhoto ? null : _pickAndSaveMemberPhoto,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ProfilePhoto(
+                imageUrl: _memberProfilePhotoUrl,
+                displayName: displayName,
+                size: 58,
+                shape: ProfilePhotoShape.circle,
+                borderColor: Colors.white,
+                borderWidth: 2,
+                backgroundColor: const Color(0xFFE7EEF6),
+                foregroundColor: const Color(0xFF102A43),
+              ),
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E7D32),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: _isUploadingMemberPhoto
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(
+                          Icons.edit_rounded,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF102A43),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Member account',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF627D98),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickAndSaveMemberPhoto() async {
+    if (_isUploadingMemberPhoto) return;
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return;
+
+    try {
+      final XFile? image = await _heroLogoPicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 88,
+      );
+      if (image == null) return;
+
+      if (mounted) setState(() => _isUploadingMemberPhoto = true);
+
+      final rawBytes = await image.readAsBytes();
+      const bucketId = 'member-profile-photos';
+      final filePath = '${user.id}/profile_photo.jpg';
+
+      await SupabaseService.instance.client.storage.from(bucketId).uploadBinary(
+            filePath,
+            rawBytes,
+            fileOptions: const FileOptions(
+              upsert: true,
+              contentType: 'image/jpeg',
+            ),
+          );
+
+      final publicUrlBase = SupabaseService.instance.client.storage
+          .from(bucketId)
+          .getPublicUrl(filePath);
+      final publicUrl =
+          '$publicUrlBase?v=${DateTime.now().millisecondsSinceEpoch}';
+
+      await SupabaseService.instance.updateUserProfile(
+        userId: user.id,
+        profileData: {'profile_photo_url': publicUrl},
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _memberProfilePhotoUrl = publicUrl;
+        _isUploadingMemberPhoto = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile photo updated successfully.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      _logger.e('Failed to update member profile photo: $e');
+      if (!mounted) return;
+      setState(() => _isUploadingMemberPhoto = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update profile photo: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Small QR symbol button (top-right of savings card) that toggles the QR card.
+  Widget _buildMemberQrToggleIcon() {
+    final bool subActive =
+        (_memberSubscriptionStatus?['subscription_status']?.toString() ??
+                'none') ==
+            'active';
+    final Color statusColor =
+        subActive ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
+
+    return Material(
+      color: Colors.white.withValues(alpha: 0.22),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () => setState(() => _memberQrExpanded = !_memberQrExpanded),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                _memberQrExpanded
+                    ? Icons.expand_less_rounded
+                    : Icons.qr_code_2_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              if (!_memberQrExpanded)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.4),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Expanded: the full membership card with QR. Tap header to collapse.
+  Widget _buildTpMemberCardExpanded() {
+    final bool subActive =
+        (_memberSubscriptionStatus?['subscription_status']?.toString() ??
+                'none') ==
+            'active';
+    final String? qrString = _memberQrData?['qr_code'] as String?;
+    final bool qrActive = _memberQrData?['is_active'] == true &&
+        qrString != null &&
+        qrString.trim().isNotEmpty;
+    final String memberName =
+        _businessName?.trim().isNotEmpty == true ? _businessName!.trim() : 'Member';
+
+    return Container(
+      key: const ValueKey('tp-member-qr-expanded'),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF102A43), Color(0xFF1D3F66), Color(0xFF2E7D32)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF102A43).withValues(alpha: 0.28),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Text(
+                  'MEMBERSHIP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: (subActive ? const Color(0xFF22C55E) : const Color(0xFFEF4444))
+                      .withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  subActive ? 'ACTIVE' : 'INACTIVE',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => setState(() => _memberQrExpanded = false),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: _memberDashboardLoading
+                ? const SizedBox(
+                    height: 180,
+                    width: 180,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : qrActive
+                    ? CustomQrCode(
+                        data: qrString,
+                        logoAssetPath: 'assets/heart_flag.png',
+                        size: 180,
+                      )
+                    : SizedBox(
+                        height: 180,
+                        width: 180,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.qr_code_2_rounded,
+                                size: 56, color: Color(0xFF9AA5B1)),
+                            const SizedBox(height: 8),
+                            Text(
+                              subActive
+                                  ? 'QR code unavailable'
+                                  : 'Activate membership to get your QR',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF627D98),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            memberName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Show this QR at checkout to redeem member deals',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFFD9E2EC),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMemberActionTile({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.06),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF102A43),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF627D98),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  size: 16, color: Color(0xFF9AA5B1)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openMemberFindDeals() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DealSelectionPage(cityFilter: _memberCity),
+      ),
+    );
+  }
+
+  void _openMemberBrowseDeals() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            TrustedPartnersByCategoryPage(cityFilter: _memberCity),
+      ),
+    );
+  }
+
+  void _openMemberReceipts() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MemberReceiptsPage()),
+    );
+  }
+
+  Future<void> _openMemberProfile() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MemberProfilePage()),
+    );
+    _loadTpMemberDashboardData();
+  }
+
+  void _openMemberPendingPayments() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const PendingPaymentsPage()),
+    ).then((_) => _loadMemberPendingPaymentsCount());
+  }
+
+  Future<void> _openMemberPromotion(Map<String, dynamic> promo) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PromotionDetailPage(promotion: promo),
+      ),
+    );
+    _loadMemberPromotions();
+  }
+
+  Widget _buildHeaderActionGrid({required bool isMemberMode}) {
+    final MediaQueryData media = MediaQuery.of(context);
+    final bool isCompactPortrait =
+        media.orientation == Orientation.portrait && media.size.width < 600;
+
+    final double toggleSlotWidth = isCompactPortrait
+        ? _headerCompactToggleSlotWidth
+        : _headerToggleSlotWidth;
+    final double actionSlotWidth = isCompactPortrait
+        ? _headerCompactActionSlotWidth
+        : _headerActionSlotWidth;
+    final double actionSlotHeight = isCompactPortrait
+        ? _headerCompactActionSlotHeight
+        : _headerActionSlotHeight;
+    final double buttonFaceSize = isCompactPortrait
+        ? _headerCompactIconButtonFaceSize
+        : _headerIconButtonFaceSize;
+    final double iconSize = isCompactPortrait ? 17 : 21;
+    final double gridGap = isCompactPortrait ? _headerCompactGap : _headerGridGap;
+
+    Widget buildActionButton({
+      Key? slotKey,
+      required String tooltip,
+      required VoidCallback onPressed,
+      required Widget icon,
+    }) {
+      return _buildHeader3DIconButton(
+        slotKey: slotKey,
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: icon,
+        slotWidth: actionSlotWidth,
+        slotHeight: actionSlotHeight,
+        buttonFaceSize: buttonFaceSize,
+        iconSize: iconSize,
+      );
+    }
+
+    final List<Widget> slotWidgets = isMemberMode
+        ? <Widget>[
+            _buildHeaderModeToggle(
+              slotWidth: toggleSlotWidth,
+              slotHeight: actionSlotHeight,
+              isCompactPortrait: isCompactPortrait,
+            ),
+            buildActionButton(
+              icon: const Icon(Icons.person),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MemberProfilePage(),
+                  ),
+                );
+              },
+              tooltip: 'My Profile',
+            ),
+            _buildHeaderMessagesButton(),
+            buildActionButton(
+              icon: const Icon(Icons.support_agent),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminChatPage(),
+                  ),
+                );
+              },
+              tooltip: 'Support',
+            ),
+            buildActionButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => setState(() {}),
+              tooltip: 'Refresh',
+            ),
+            buildActionButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () => _signOut(context),
+              tooltip: 'Logout',
+            ),
+          ]
+        : <Widget>[
+            _buildHeaderModeToggle(
+              slotWidth: toggleSlotWidth,
+              slotHeight: actionSlotHeight,
+              isCompactPortrait: isCompactPortrait,
+            ),
+            _buildHeaderMessagesButton(),
+            buildActionButton(
+              tooltip: 'Manage Discounts',
+              onPressed: _navigateToDiscountManagement,
+              icon: const Icon(Icons.discount),
+            ),
+            buildActionButton(
+              tooltip: 'Analytics Dashboard',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const TrustedPartnerAnalyticsDashboard(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.analytics),
+            ),
+            buildActionButton(
+              slotKey: _settingsMenuButtonKey,
+              tooltip: 'Settings',
+              onPressed: _openHeaderSettingsMenu,
+              icon: const Icon(Icons.settings),
+            ),
+            buildActionButton(
+              tooltip: 'Sign Out',
+              onPressed: () => _signOut(context),
+              icon: const Icon(Icons.logout),
+            ),
+          ];
+
+        final double totalWidth =
+        toggleSlotWidth + (actionSlotWidth * 5) + (gridGap * 5);
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: SizedBox(
+        width: totalWidth,
+        height: actionSlotHeight,
+        child: Row(
+          children: [
+            for (int i = 0; i < slotWidgets.length; i++) ...[
+              slotWidgets[i],
+              if (i < slotWidgets.length - 1)
+                SizedBox(width: gridGap),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderMessagesButton() {
+    return _buildHeader3DIconButton(
+      tooltip: 'Messages',
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TrustedPartnerInboxPage(),
+          ),
+        ).then((_) => _loadUnreadChatCount());
+      },
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          const Icon(Icons.chat_bubble_outline),
+          if (_unreadChatCount > 0)
+            Positioned(
+              right: -6,
+              top: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 5,
+                  vertical: 1,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 18,
+                  minHeight: 18,
+                ),
+                child: Text(
+                  _unreadChatCount > 9 ? '9+' : '$_unreadChatCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      ),
+      slotWidth: _isCompactHeaderLayout ? _headerCompactActionSlotWidth : _headerActionSlotWidth,
+      slotHeight:
+          _isCompactHeaderLayout ? _headerCompactActionSlotHeight : _headerActionSlotHeight,
+      buttonFaceSize: _isCompactHeaderLayout
+          ? _headerCompactIconButtonFaceSize
+          : _headerIconButtonFaceSize,
+      iconSize: _isCompactHeaderLayout ? 17 : 21,
+    );
+  }
+
+  bool get _isCompactHeaderLayout {
+    final MediaQueryData media = MediaQuery.of(context);
+    return media.orientation == Orientation.portrait && media.size.width < 600;
+  }
+
+  bool get _isShortLandscapeViewport {
+    final MediaQueryData media = MediaQuery.of(context);
+    return media.orientation == Orientation.landscape && media.size.height <= 640;
+  }
+
+  Future<void> _openHeaderSettingsMenu() async {
+    final BuildContext? buttonContext = _settingsMenuButtonKey.currentContext;
+    if (buttonContext == null) return;
+
+    final RenderBox button = buttonContext.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final Offset topLeft = button.localToGlobal(Offset.zero, ancestor: overlay);
+    final Offset bottomRight =
+        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay);
+
+    final String? selectedValue = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        topLeft.dx,
+        bottomRight.dy,
+        overlay.size.width - bottomRight.dx,
+        overlay.size.height - topLeft.dy,
+      ),
+      items: _buildHeaderSettingsMenuItems(),
+    );
+
+    if (selectedValue != null && mounted) {
+      _handleMenuSelection(selectedValue);
+    }
+  }
+
+  List<PopupMenuEntry<String>> _buildHeaderSettingsMenuItems() {
+    return <PopupMenuEntry<String>>[
+      const PopupMenuItem<String>(
+        value: 'deal_requests',
+        child: ListTile(
+          leading: Icon(Icons.approval),
+          title: Text('Deal Authorizations'),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+      const PopupMenuItem<String>(
+        value: 'scan_bills',
+        child: ListTile(
+          leading: Icon(Icons.camera_alt),
+          title: Text('Scan Business Bills'),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+      const PopupMenuItem<String>(
+        value: 'profile',
+        child: ListTile(
+          leading: Icon(Icons.person),
+          title: Text('Business Profile'),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'theme',
+        child: ListTile(
+          leading: Icon(
+            _isDarkMode ? Icons.light_mode : Icons.dark_mode,
+          ),
+          title: Text(_isDarkMode ? 'Light Mode' : 'Dark Mode'),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildHeaderModeToggle({
+    required double slotWidth,
+    required double slotHeight,
+    required bool isCompactPortrait,
+  }) {
+    final isMember = _isMemberView;
+    final trackGradient = isMember
+        ? const LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)])
+        : const LinearGradient(colors: [Color(0xFF6F7C8B), Color(0xFFB0BEC5)]);
+
+    final double trackWidth = isCompactPortrait ? 50 : 64;
+    final double trackHeight = isCompactPortrait ? 28 : 34;
+    final double knobSize = isCompactPortrait ? 21 : 27;
+
+    return SizedBox(
+      width: slotWidth,
+      height: slotHeight,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (!isCompactPortrait) ...[
+            SizedBox(
+              width: 56,
+              child: Text(
+                isMember ? 'Member' : 'Business',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: isMember ? kBrandGreen : kBrandBlue,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          GestureDetector(
+            onTap: _toggleMemberView,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              width: trackWidth,
+              height: trackHeight,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                gradient: trackGradient,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 8,
+                    offset: const Offset(2, 3),
+                  ),
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    blurRadius: 2,
+                    offset: const Offset(-1, -1),
+                  ),
+                ],
+              ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                alignment: isMember
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: Container(
+                  width: knobSize,
+                  height: knobSize,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Colors.white, Color(0xFFE6EBF0)],
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 4,
+                        offset: const Offset(1, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader3DIconButton({
+    Key? slotKey,
+    required String tooltip,
+    required VoidCallback onPressed,
+    required Widget icon,
+    required double slotWidth,
+    required double slotHeight,
+    required double buttonFaceSize,
+    required double iconSize,
+  }) {
+    return SizedBox(
+      key: slotKey,
+      width: slotWidth,
+      height: slotHeight,
+      child: Center(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+          width: buttonFaceSize,
+          height: buttonFaceSize,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, Color(0xFFE8EFF6)],
+            ),
+            borderRadius: BorderRadius.circular(_headerIconButtonCornerRadius),
+            border: Border.all(
+              color: const Color(0xFFD2E0EE),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 6,
+                offset: const Offset(2, 3),
+              ),
+              BoxShadow(
+                color: Colors.white.withValues(alpha: 0.9),
+                blurRadius: 2,
+                offset: const Offset(-1, -1),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(_headerIconButtonCornerRadius),
+            child: Tooltip(
+              message: tooltip,
+              child: InkWell(
+                borderRadius:
+                    BorderRadius.circular(_headerIconButtonCornerRadius),
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                onTap: onPressed,
+                child: Center(
+                  child: IconTheme(
+                    data: IconThemeData(color: kBrandBlue, size: iconSize),
+                    child: icon,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader3DIconButtonSurface({
+    required Widget icon,
+  }) {
+    return SizedBox(
+      width: _headerActionSlotWidth,
+      height: _headerActionSlotHeight,
+      child: Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, Color(0xFFE8EFF6)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFD2E0EE)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 6,
+                offset: const Offset(2, 3),
+              ),
+              BoxShadow(
+                color: Colors.white.withValues(alpha: 0.9),
+                blurRadius: 2,
+                offset: const Offset(-1, -1),
+              ),
+            ],
+          ),
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Center(
+              child: IconTheme(
+                data: const IconThemeData(color: kBrandBlue, size: 21),
+                child: icon,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader3DPlaceholderSlot() {
+    return const SizedBox(
+      width: _headerActionSlotWidth,
+      height: _headerActionSlotHeight,
     );
   }
 
@@ -689,10 +2780,14 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
     }
   }
 
-  void _navigateToBusinessProfile() {
+  void _navigateToBusinessProfile({bool openBankingDetailsOnLoad = false}) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const BusinessProfilePage()),
+      MaterialPageRoute(
+        builder: (context) => BusinessProfilePage(
+          openBankingDetailsOnLoad: openBankingDetailsOnLoad,
+        ),
+      ),
     ).then((_) {
       // Refresh banking status when returning from business profile
       // This ensures the home screen reflects any banking updates
@@ -700,9 +2795,901 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
         if (kDebugMode) {
           print('Returned from BusinessProfilePage, refreshing banking status');
         }
+        _loadBusinessName();
         _loadBankingStatus();
       }
     });
+  }
+
+  void _openBankingDetails() {
+    _navigateToBusinessProfile(openBankingDetailsOnLoad: true);
+  }
+
+  Future<void> _showBusinessLogoEditor() async {
+    Uint8List? selectedLogoBytes;
+    String? selectedLogoPath;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: _isUploadingHeroLogo == false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final bool isSaving = _isUploadingHeroLogo == true;
+            final MediaQueryData media = MediaQuery.of(dialogContext);
+            final bool isCompactLandscape =
+                media.orientation == Orientation.landscape && media.size.height <= 640;
+            final double dialogHorizontalInset = isCompactLandscape ? 12 : 24;
+            final double dialogVerticalInset = isCompactLandscape ? 10 : 32;
+            final double dialogPadding = isCompactLandscape ? 12 : 20;
+            final double headerIconPadding = isCompactLandscape ? 8 : 10;
+            final double headerGap = isCompactLandscape ? 10 : 14;
+            final double titleDescriptionGap = isCompactLandscape ? 2 : 4;
+            final double sectionGap = isCompactLandscape ? 10 : 16;
+            final double previewSize = isCompactLandscape ? 116 : 156;
+            final double previewPadding = isCompactLandscape ? 6 : 8;
+            final double actionButtonVerticalPadding = isCompactLandscape ? 9 : 12;
+            final double actionButtonsGap = isCompactLandscape ? 8 : 12;
+            final double buttonCornerRadius = isCompactLandscape ? 14 : 16;
+
+            Future<void> pickLogo() async {
+              try {
+                final XFile? image = await _heroLogoPicker.pickImage(
+                  source: ImageSource.gallery,
+                  maxWidth: 512,
+                  maxHeight: 512,
+                  imageQuality: 85,
+                );
+
+                if (image == null) {
+                  return;
+                }
+
+                final bytes = await image.readAsBytes();
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                setDialogState(() {
+                  selectedLogoBytes = bytes;
+                  selectedLogoPath = image.path;
+                });
+              } catch (e) {
+                _logger.e('Failed to pick TP logo: $e');
+                if (!mounted) return;
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to pick logo: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+
+            Future<void> saveLogo() async {
+              if (selectedLogoBytes == null || isSaving) {
+                return;
+              }
+
+              setState(() => _isUploadingHeroLogo = true);
+              setDialogState(() {});
+
+              final NavigatorState dialogNavigator = Navigator.of(dialogContext);
+
+              final String? publicUrl = await _uploadBusinessLogoBytes(
+                selectedLogoBytes!,
+                selectedLogoPath,
+              );
+
+              if (!mounted) {
+                return;
+              }
+
+              setState(() => _isUploadingHeroLogo = false);
+              if (dialogNavigator.canPop()) {
+                dialogNavigator.pop();
+              }
+
+              if (publicUrl != null) {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Business logo updated'),
+                    backgroundColor: kBrandGreen,
+                  ),
+                );
+              }
+            }
+
+            return Dialog(
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: dialogHorizontalInset,
+                vertical: dialogVerticalInset,
+              ),
+              backgroundColor: Colors.transparent,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 520,
+                  maxHeight: media.size.height - (dialogVerticalInset * 2),
+                ),
+                child: Container(
+                  padding: EdgeInsets.all(dialogPadding),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFFCF5), Color(0xFFF2F9FF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: kBrandBlue.withValues(alpha: 0.18),
+                        blurRadius: 30,
+                        offset: const Offset(0, 16),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(headerIconPadding),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFB74D).withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.add_photo_alternate_rounded,
+                              color: Color(0xFFD97706),
+                            ),
+                          ),
+                          SizedBox(width: headerGap),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Update Trusted Partner Logo',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF102A43),
+                                    fontSize: isCompactLandscape ? 20 : null,
+                                  ),
+                                ),
+                                SizedBox(height: titleDescriptionGap),
+                                Text(
+                                  'Upload a fresh logo and save it straight from your dashboard card.',
+                                  style: TextStyle(
+                                    color: const Color(0xFF486581),
+                                    height: isCompactLandscape ? 1.2 : 1.4,
+                                    fontSize: isCompactLandscape ? 14 : null,
+                                  ),
+                                  maxLines: isCompactLandscape ? 2 : null,
+                                  overflow: isCompactLandscape ? TextOverflow.ellipsis : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: isSaving
+                                ? null
+                                : () => Navigator.of(dialogContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: sectionGap),
+                      Center(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          width: previewSize,
+                          height: previewSize,
+                          padding: EdgeInsets.all(previewPadding),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(26),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFFF0D6), Color(0xFFDFF5FF)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            border: Border.all(
+                              color: const Color(0xFFFFB81C).withValues(alpha: 0.55),
+                              width: 1.4,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              color: Colors.white,
+                              child: selectedLogoBytes != null
+                                  ? Image.memory(
+                                      selectedLogoBytes!,
+                                      fit: BoxFit.contain,
+                                    )
+                                  : (_businessLogoUrl != null &&
+                                          _businessLogoUrl!.trim().isNotEmpty)
+                                      ? Image.network(
+                                          _businessLogoUrl!,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return _buildBusinessLogoFallback();
+                                          },
+                                        )
+                                      : _buildBusinessLogoFallback(),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: isCompactLandscape ? 10 : 14),
+                      Wrap(
+                        spacing: actionButtonsGap,
+                        runSpacing: actionButtonsGap,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: isSaving ? null : pickLogo,
+                            icon: const Icon(Icons.photo_library_outlined),
+                            label: const Text('Choose Logo'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFD97706),
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isCompactLandscape ? 14 : 18,
+                                vertical: actionButtonVerticalPadding,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(buttonCornerRadius),
+                              ),
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: isSaving || selectedLogoBytes == null
+                                ? null
+                                : () {
+                                    setDialogState(() {
+                                      selectedLogoBytes = null;
+                                      selectedLogoPath = null;
+                                    });
+                                  },
+                            icon: const Icon(Icons.restart_alt_rounded),
+                            label: const Text('Reset'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: kBrandBlue,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isCompactLandscape ? 14 : 18,
+                                vertical: actionButtonVerticalPadding,
+                              ),
+                              side: BorderSide(
+                                color: kBrandBlue.withValues(alpha: 0.25),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(buttonCornerRadius),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: sectionGap),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: isSaving
+                                  ? null
+                                  : () => Navigator.of(dialogContext).pop(),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          SizedBox(width: actionButtonsGap),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: selectedLogoBytes == null || isSaving
+                                  ? null
+                                  : saveLogo,
+                              icon: isSaving
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.save_rounded),
+                              label: Text(isSaving ? 'Saving...' : 'Save Logo'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F766E),
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: actionButtonVerticalPadding,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(buttonCornerRadius),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<String?> _uploadBusinessLogoBytes(
+    Uint8List bytes,
+    String? sourcePath,
+  ) async {
+    try {
+      final user = SupabaseService.instance.getCurrentUser();
+      if (user == null) {
+        throw Exception('No authenticated user');
+      }
+
+      final String extension = _extractImageExtension(sourcePath);
+      final String filePath =
+          '${user.id}/tp-home-${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+      await SupabaseService.instance.client.storage
+          .from('partner-logos')
+          .uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: FileOptions(
+              contentType: _contentTypeForExtension(extension),
+            ),
+          );
+
+      final String publicUrl = SupabaseService.instance.client.storage
+          .from('partner-logos')
+          .getPublicUrl(filePath);
+
+      await SupabaseService.instance.client
+          .from('businesses')
+          .update({'logo_url': publicUrl})
+          .eq('owner_member_id', user.id);
+
+      if (mounted) {
+        setState(() {
+          _businessLogoUrl = publicUrl;
+        });
+      }
+      await _loadBusinessName();
+      return publicUrl;
+    } catch (e) {
+      _logger.e('Failed to upload TP logo from hero card: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save logo: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
+  String _extractImageExtension(String? sourcePath) {
+    final String normalized = sourcePath?.trim() ?? '';
+    if (!normalized.contains('.')) {
+      return 'jpg';
+    }
+
+    final String extension = normalized.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'png':
+      case 'webp':
+      case 'gif':
+      case 'jpg':
+      case 'jpeg':
+        return extension == 'jpeg' ? 'jpg' : extension;
+      default:
+        return 'jpg';
+    }
+  }
+
+  String _contentTypeForExtension(String extension) {
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'jpg':
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  void _showDesktopScannerDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Text('QR scanner lives on mobile'),
+          content: const Text(
+            'Member QR scanning is available in the mobile app where the camera can open instantly. Use this desktop dashboard for profile, banking, deals, and approvals.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBusinessLogoFallback({double iconSize = 48}) {
+    return Container(
+      color: const Color(0xFFF6F0E7),
+      child: Center(
+        child: Icon(
+          Icons.storefront_rounded,
+          size: iconSize,
+          color: const Color(0xFFD97706),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopTrustedPartnerHeroCard() {
+    final theme = Theme.of(context);
+    final bool hasBusinessName = _businessName != null && _businessName!.trim().isNotEmpty;
+    final String businessName = hasBusinessName ? _businessName!.trim() : 'Trusted Partner';
+    final Color bankingColor = _hasActiveBanking
+        ? const Color(0xFF15803D)
+        : const Color(0xFFDC2626);
+    final String bankingLabel = _hasActiveBanking
+        ? (_bankName?.trim().isNotEmpty == true ? _bankName!.trim() : 'Active')
+        : 'Setup Needed';
+    final String pendingLabel = _pendingDealRequestsCount == 0
+        ? 'All clear'
+        : '$_pendingDealRequestsCount pending';
+    final String scanHint = _isMobilePlatform
+        ? 'Open scanner'
+        : 'Mobile camera only';
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isNarrow = constraints.maxWidth < 980;
+        final double logoSize = isNarrow ? 86 : 102;
+
+        final Widget identityPanel = Container(
+          padding: EdgeInsets.all(isNarrow ? 16 : 20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.86)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              InkWell(
+                onTap: _showBusinessLogoEditor,
+                borderRadius: BorderRadius.circular(22),
+                child: Container(
+                  width: logoSize,
+                  height: logoSize,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFC857), Color(0xFFFF8A3D)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      color: Colors.white,
+                      child: _businessLogoUrl != null &&
+                              _businessLogoUrl!.trim().isNotEmpty
+                          ? Image.network(
+                              _businessLogoUrl!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildBusinessLogoFallback(iconSize: 34),
+                            )
+                          : _buildBusinessLogoFallback(iconSize: 34),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      businessName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: const Color(0xFF102A43),
+                        fontWeight: FontWeight.w900,
+                        fontSize: isNarrow ? 24 : 28,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Your TP command center for deals, payouts, analytics, and scanning.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF486581),
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: _navigateToBusinessProfile,
+                          icon: const Icon(Icons.tune_rounded),
+                          label: const Text('Edit Profile'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF102A43),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _openBankingDetails,
+                          icon: Icon(
+                            _hasActiveBanking
+                                ? Icons.verified_user_rounded
+                                : Icons.account_balance_wallet_outlined,
+                            color: bankingColor,
+                          ),
+                          label: Text(
+                            _hasActiveBanking
+                                ? 'Banking Active'
+                                : 'Setup Banking',
+                            style: TextStyle(color: bankingColor),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: bankingColor.withValues(alpha: 0.45)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+
+        final Widget insightsStrip = Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _desktopStatChip(
+              icon: Icons.approval_rounded,
+              label: 'Deal Queue',
+              value: pendingLabel,
+              color: _pendingDealRequestsCount > 0
+                  ? const Color(0xFFB91C1C)
+                  : const Color(0xFF15803D),
+            ),
+            _desktopStatChip(
+              icon: Icons.account_balance_rounded,
+              label: 'Payout Channel',
+              value: bankingLabel,
+              color: bankingColor,
+            ),
+            _desktopStatChip(
+              icon: Icons.chat_bubble_outline_rounded,
+              label: 'Unread Messages',
+              value: _unreadChatCount == 0 ? 'None' : '$_unreadChatCount',
+              color: const Color(0xFF0E7490),
+            ),
+          ],
+        );
+
+        final double scannerStageHeight = isNarrow ? 104 : 126;
+        final double scannerStagePadding = isNarrow ? 10 : 12;
+        final double scannerTopGap = isNarrow ? 8 : 10;
+        final double scannerIconBox = isNarrow ? 34 : 38;
+        final double scannerIconSize = isNarrow ? 20 : 22;
+        final bool ultraCompactScanner = scannerStageHeight <= 130;
+
+        final Widget scannerStage = Container(
+          constraints: BoxConstraints(
+            minHeight: scannerStageHeight,
+            maxHeight: scannerStageHeight,
+          ),
+          padding: EdgeInsets.all(scannerStagePadding),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF073B4C), Color(0xFF0A6E89), Color(0xFF06D6A0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF06D6A0).withValues(alpha: 0.28),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: InkWell(
+            onTap: _isMobilePlatform
+                ? () async {
+                    if (_isScannerOpen) return;
+                    await _openScanner();
+                  }
+                : _showDesktopScannerDialog,
+            borderRadius: BorderRadius.circular(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                  if (ultraCompactScanner)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: scannerIconBox,
+                            height: scannerIconBox,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.qr_code_scanner_rounded,
+                              color: Colors.white,
+                              size: scannerIconSize,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'QR scanner',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFC857),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              scanHint,
+                              style: const TextStyle(
+                                color: Color(0xFF102A43),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'SCAN ZONE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: scannerTopGap),
+                    Container(
+                      width: scannerIconBox,
+                      height: scannerIconBox,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Icon(
+                        Icons.qr_code_scanner_rounded,
+                        color: Colors.white,
+                        size: scannerIconSize,
+                      ),
+                    ),
+                    SizedBox(height: isNarrow ? 10 : 14),
+                    Text(
+                      'Member QR Scanner',
+                      style: (isNarrow
+                              ? theme.textTheme.titleMedium
+                              : theme.textTheme.titleLarge)
+                          ?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: isNarrow ? 6 : 8),
+                    Text(
+                      _isMobilePlatform
+                          ? 'Tap to open scanner instantly and process member codes.'
+                          : 'Camera scanning runs in mobile app. Tap for desktop guidance.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        height: 1.35,
+                        fontSize: isNarrow ? 12 : null,
+                      ),
+                      maxLines: isNarrow ? 2 : 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFC857),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            scanHint,
+                            style: const TextStyle(
+                              color: Color(0xFF102A43),
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                      ],
+                    ),
+                  ],
+              ],
+            ),
+          ),
+        );
+
+        final Widget actionWall = Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _desktopActionButton(
+              icon: Icons.approval_rounded,
+              label: 'Deal Authorizations',
+              description: 'Approve or reject incoming member requests.',
+              onTap: _navigateToDealRequests,
+              highlight: _pendingDealRequestsCount > 0,
+              badgeCount: _pendingDealRequestsCount,
+            ),
+            _desktopActionButton(
+              icon: Icons.discount_rounded,
+              label: 'Manage Discounts',
+              description: 'Create and maintain active deal inventory.',
+              onTap: _navigateToDiscountManagement,
+            ),
+            _desktopActionButton(
+              icon: Icons.analytics_rounded,
+              label: 'Analytics Dashboard',
+              description: 'Track redemptions, trends, and performance.',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TrustedPartnerAnalyticsDashboard(),
+                  ),
+                );
+              },
+            ),
+            _desktopActionButton(
+              icon: Icons.account_balance_wallet_rounded,
+              label: 'Banking Details',
+              description: 'Review payout account and settlement state.',
+              onTap: _openBankingDetails,
+              highlight: !_hasActiveBanking,
+            ),
+          ],
+        );
+
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(32),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFFCF7), Color(0xFFF7FBFF), Color(0xFFFDFBF8)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: const Color(0xFFE7D9C7).withValues(alpha: 0.85),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF102A43).withValues(alpha: 0.08),
+                blurRadius: 20,
+                spreadRadius: 1,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -60,
+                  right: -40,
+                  child: Container(
+                    width: 220,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF06D6A0).withValues(alpha: 0.08),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -80,
+                  left: -50,
+                  child: Container(
+                    width: 260,
+                    height: 260,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF118AB2).withValues(alpha: 0.08),
+                    ),
+                  ),
+                ),
+                SingleChildScrollView(
+                  padding: EdgeInsets.all(isNarrow ? 14 : 22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      identityPanel,
+                      const SizedBox(height: 12),
+                      insightsStrip,
+                      const SizedBox(height: 14),
+                      if (isNarrow) ...[
+                        scannerStage,
+                        const SizedBox(height: 12),
+                        actionWall,
+                      ] else
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: actionWall),
+                            const SizedBox(width: 14),
+                            SizedBox(width: 300, child: scannerStage),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _navigateToDealRequests() {
@@ -1225,6 +4212,657 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   }
 
   Widget _buildMobileScannerBody() {
+    // Member-styled TP business dashboard: blue gradient hero (logo + name +
+    // QR scanner strip + 4 stat tiles), quick-action tiles, analytics + banking
+    // cards. The live camera opens as a full-screen overlay while scanning.
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Container(
+            color: const Color(0xFFEFF3F8),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildTpBusinessHero(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTpSectionHeader('Quick actions'),
+                        const SizedBox(height: 8),
+                        _buildTpQuickActions(),
+                        const SizedBox(height: 20),
+                        _buildTpSectionHeader('Analytics'),
+                        const SizedBox(height: 8),
+                        _buildTpAnalyticsCard(),
+                        const SizedBox(height: 20),
+                        _buildTpSectionHeader('Banking'),
+                        const SizedBox(height: 8),
+                        _buildTpBankingCard(),
+                        const SizedBox(height: 80),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (_isScannerOpen)
+          Positioned.fill(child: _buildMobileScannerOverlay()),
+      ],
+    );
+  }
+
+  Widget _buildTpSectionHeader(String title) {
+    return Text(
+      title.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.6,
+        color: Color(0xFF64748B),
+      ),
+    );
+  }
+
+  Widget _buildTpBusinessHero() {
+    final String displayName =
+        (_businessName != null && _businessName!.trim().isNotEmpty)
+            ? _businessName!.trim()
+            : 'Trusted Partner';
+    final int activeDeals = _discounts.where((d) => d.isActive).length;
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0E5BA0), Color(0xFF0A4A8A), Color(0xFF083D73)],
+          stops: [0.0, 0.55, 1.0],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -40,
+            right: -40,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.12),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: (_businessLogoUrl != null &&
+                              _businessLogoUrl!.isNotEmpty)
+                          ? Image.network(
+                              _businessLogoUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.storefront_rounded,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.storefront_rounded,
+                              color: Colors.white,
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Trusted Partner',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.78),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: -0.03,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _buildTpScannerStrip(),
+                const SizedBox(height: 12),
+                _buildTpStatsRow(activeDeals),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTpScannerStrip() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _isMobilePlatform
+          ? () {
+              if (!_isScannerOpen) _openScanner();
+            }
+          : _showDesktopScannerDialog,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0A6E89), Color(0xFF0A4A8A), Color(0xFF06D6A0)],
+            stops: [0.0, 0.6, 1.0],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF06D6A0).withValues(alpha: 0.24),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.qr_code_scanner_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'QR Scanner',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _isMobilePlatform
+                        ? 'Tap to scan a member QR code'
+                        : 'Camera scanning runs in the mobile app',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      fontSize: 11.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTpStatsRow(int activeDeals) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildTpStatTile(
+            label: 'Pending',
+            value: '$_pendingDealRequestsCount',
+            icon: Icons.approval_rounded,
+            accentColor: const Color(0xFFFFD56A),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildTpStatTile(
+            label: 'Deals',
+            value: '$activeDeals',
+            icon: Icons.discount_rounded,
+            accentColor: const Color(0xFF7CE39A),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildTpStatTile(
+            label: 'Messages',
+            value: '$_unreadChatCount',
+            icon: Icons.forum_rounded,
+            accentColor: const Color(0xFF8CC6FF),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildTpStatTile(
+            label: 'Banking',
+            value: _hasActiveBanking ? 'On' : 'Off',
+            icon: Icons.account_balance_rounded,
+            accentColor: _hasActiveBanking
+                ? const Color(0xFF7CE39A)
+                : const Color(0xFFFF7B7B),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTpStatTile({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color accentColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 15, color: accentColor),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.03,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTpQuickActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildTpActionTile(
+            icon: Icons.add_circle_outline,
+            label: 'Add Deal',
+            color: const Color(0xFFEA8C00),
+            bgColor: const Color(0xFFEA8C00).withValues(alpha: 0.12),
+            onTap: _navigateToDiscountManagement,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildTpActionTile(
+            icon: Icons.approval_outlined,
+            label: 'Authorizations',
+            color: const Color(0xFF2E7D32),
+            bgColor: const Color(0xFF2E7D32).withValues(alpha: 0.10),
+            onTap: _navigateToDealRequests,
+            badgeCount: _pendingDealRequestsCount,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildTpActionTile(
+            icon: Icons.discount_outlined,
+            label: 'Discounts',
+            color: const Color(0xFF0E5BA0),
+            bgColor: const Color(0xFF0E5BA0).withValues(alpha: 0.08),
+            onTap: _navigateToDiscountManagement,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTpActionTile({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color bgColor,
+    required VoidCallback onTap,
+    int badgeCount = 0,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE6EAF0)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0E5BA0).withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(icon, size: 20, color: color),
+                ),
+                if (badgeCount > 0)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints:
+                          const BoxConstraints(minWidth: 18, minHeight: 18),
+                      child: Center(
+                        child: Text(
+                          badgeCount > 99 ? '99+' : '$badgeCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0B2540),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTpAnalyticsCard() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TrustedPartnerAnalyticsDashboard(),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF118AB2), Color(0xFF06D6A0)],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF06D6A0).withValues(alpha: 0.22),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.analytics_rounded,
+                  size: 28, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Analytics Dashboard',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'Track redemptions, trends & performance',
+                    style: TextStyle(fontSize: 12, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: Colors.white, size: 28),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTpBankingCard() {
+    final bool active = _hasActiveBanking;
+    final Color accent =
+        active ? const Color(0xFF15803D) : const Color(0xFFDC2626);
+    final String title = active ? 'Banking Active' : 'Banking Setup Required';
+    final String sub = active
+        ? (_bankName != null && _bankName!.trim().isNotEmpty
+            ? _bankName!.trim()
+            : 'Payout account ready')
+        : 'Tap to configure payout details';
+    return GestureDetector(
+      onTap: _openBankingDetails,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: accent.withValues(alpha: 0.35)),
+          boxShadow: [
+            BoxShadow(
+              color: accent.withValues(alpha: 0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                active
+                    ? Icons.check_circle_rounded
+                    : Icons.warning_amber_rounded,
+                color: accent,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: accent,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sub,
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF334155)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: accent, size: 26),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileScannerOverlay() {
+    return Container(
+      color: Colors.black,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Scan member QR',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _closeScanner,
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    tooltip: 'Close scanner',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: _buildActiveScannerView(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ignore: unused_element
+  Widget _buildLegacyMobileScannerBody() {
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -1451,131 +5089,85 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
     return AnimatedBuilder(
       animation: _shutterAnimation,
       builder: (context, child) {
+        final double scannerCardWidth = math.max(
+          220,
+          MediaQuery.of(context).size.width - 48,
+        );
+        final double scannerCardCollapsedHeight = scannerCardWidth * 0.4;
+        final double scannerCardExpandedHeight = scannerCardWidth;
+
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF073B4C), Color(0xFF118AB2), Color(0xFF06D6A0)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: _isScannerOpen
-                  ? [kBrandBlue, const Color(0xFF000B5C)]
-                  : [Colors.grey.shade800, Colors.grey.shade900],
             ),
             boxShadow: [
               BoxShadow(
-                color: (_isScannerOpen ? kBrandBlue : Colors.grey).withValues(alpha: 0.3),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
+                color: const Color(0xFF118AB2).withValues(alpha: 0.28),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
-          child: Column(
-            children: [
-              // Header bar with title and close button
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.qr_code_scanner,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          child: InkWell(
+            onTap: () async {
+              if (_isScannerOpen) return;
+              await _openScanner();
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              width: scannerCardWidth,
+              height: _isScannerOpen
+                  ? scannerCardExpandedHeight
+                  : scannerCardCollapsedHeight,
+              padding: EdgeInsets.zero,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: _isScannerOpen
+                    ? _buildActiveScannerView()
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
+                          const Icon(
+                            Icons.qr_code_scanner_rounded,
+                            color: Colors.white,
+                            size: 46,
+                          ),
+                          const SizedBox(height: 8),
                           const Text(
                             'QR Scanner',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
                             ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
+                          const SizedBox(height: 4),
                           Text(
-                            _isScannerOpen
-                                ? 'Point at member QR code'
-                                : 'Tap to scan member QR',
+                            'Tap to expand and scan',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
+                              color: Colors.white.withValues(alpha: 0.9),
                               fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
-                    ),
-                    if (_isScannerOpen)
-                      IconButton(
-                        onPressed: _closeScanner,
-                        icon: const Icon(Icons.close, color: Colors.white70),
-                        tooltip: 'Close scanner',
-                      ),
-                  ],
-                ),
               ),
-
-              // Scanner viewport or shutter
-              GestureDetector(
-                onTap: _isScannerOpen ? null : _openScanner,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeInOut,
-                  height: _isScannerOpen ? 240 : 100,
-                  margin: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    color: _isScannerOpen ? Colors.black : Colors.transparent,
-                    border: Border.all(
-                      color: _isScannerOpen
-                          ? kBrandYellow
-                          : Colors.white.withValues(alpha: 0.2),
-                      width: _isScannerOpen ? 2 : 1,
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: _isScannerOpen
-                        ? _buildActiveScannerView()
-                        : _buildClosedShutterView(),
-                  ),
-                ),
-              ),
-
-              // Bottom hint
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _isScannerOpen ? Icons.flash_on : Icons.touch_app,
-                      color: Colors.white.withValues(alpha: 0.5),
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _isScannerOpen
-                          ? 'Scanner active — hold steady'
-                          : 'Tap to open camera',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -1758,6 +5350,23 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
           bottom: 16, right: 16,
           child: _buildCornerBracket(bottomRight: true),
         ),
+        // Close button — lets the TP exit the scanner without a successful scan.
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Material(
+            color: Colors.black54,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _closeScanner,
+              child: const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(Icons.close, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -1783,252 +5392,43 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   }
 
   Widget _buildDesktopScannerBody() {
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
-
+    final bool isCompactHeight = _isShortLandscapeViewport;
     return LayoutBuilder(
       builder: (context, constraints) {
+        final bool isNarrowViewport = constraints.maxWidth < 600;
+        final double horizontalPadding = isNarrowViewport ? 8 : (isCompactHeight ? 12 : 28);
+        final double verticalPadding = isCompactHeight ? 4 : 20;
+        final double availableHeight = math.max(
+          240,
+          constraints.maxHeight - (verticalPadding * 2),
+        );
+        final double heroWidth = isNarrowViewport
+            ? constraints.maxWidth - (horizontalPadding * 2)
+            : math.max(
+                isCompactHeight ? 680 : 720,
+                math.min(
+                  isCompactHeight ? 1020 : 1100,
+                  constraints.maxWidth - (horizontalPadding * 2),
+                ),
+              );
+
         return Container(
           width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [primary.withValues(alpha: 0.08), Colors.white],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 32),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: 1100,
-                  minHeight: constraints.maxHeight,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 36,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: Colors.grey.shade100),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 18,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: primary.withValues(alpha: 0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.desktop_windows_rounded,
-                                color: primary,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 18),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'QR scanner unavailable on desktop',
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.grey.shade900,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Use the quick actions below to keep approvals, deals, and receipts moving while scanning stays on mobile.',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: Colors.grey.shade700,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                  if (_businessName != null &&
-                                      _businessName!.isNotEmpty) ...[
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      _businessName!,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            color: primary,
-                                          ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: _navigateToBusinessProfile,
-                              icon: const Icon(Icons.person),
-                              label: const Text('Business Profile'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primary,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 0,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 22),
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 12,
-                        children: [
-                          _desktopStatChip(
-                            icon: Icons.mark_email_unread,
-                            label: 'Pending deal requests',
-                            value: _pendingDealRequestsCount > 99
-                                ? '99+'
-                                : '$_pendingDealRequestsCount',
-                            color: kBrandYellow,
-                          ),
-                          _desktopStatChip(
-                            icon: Icons.local_offer_outlined,
-                            label: 'Active deals',
-                            value: _discounts.length.toString(),
-                            color: kBrandBlue,
-                          ),
-                          _desktopStatChip(
-                            icon: Icons.receipt_long,
-                            label: 'Receipts and approvals',
-                            value: 'Desktop friendly',
-                            color: kBrandGreen,
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Integrated analytics snapshot on desktop
-                      const TrustedPartnerAnalyticsWidget(),
-
-                      const SizedBox(height: 24),
-                      Text(
-                        'Quick actions',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.grey.shade900,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 16,
-                        children: [
-                          _desktopActionButton(
-                            icon: Icons.mark_email_unread,
-                            label: 'Deal requests',
-                            description:
-                                'Review and approve member submissions',
-                            onTap: _navigateToDealRequests,
-                            highlight: _pendingDealRequestsCount > 0,
-                            badgeCount: _pendingDealRequestsCount,
-                          ),
-                          _desktopActionButton(
-                            icon: Icons.add_circle_outline,
-                            label: 'Add deal',
-                            description: 'Publish a new discount or reward',
-                            onTap: _navigateToDiscountManagement,
-                          ),
-                          _desktopActionButton(
-                            icon: Icons.verified,
-                            label: 'Approved deals',
-                            description: 'See what is live for members',
-                            onTap: _navigateToBillApprovals,
-                          ),
-                          _desktopActionButton(
-                            icon: Icons.receipt_long,
-                            label: 'Receipts',
-                            description: 'Track submitted receipts and history',
-                            onTap: _navigateToBillApprovals,
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 28),
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.shade100),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 12,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: primary.withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.smartphone,
-                                color: primary,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Text(
-                                'Need to scan a member QR? Switch to the mobile app for instant camera access.',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.grey.shade700,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () =>
-                                  setState(() => _isMemberView = true),
-                              style: TextButton.styleFrom(
-                                foregroundColor: primary,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                              ),
-                              child: const Text('Open member view'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+          color: Colors.white,
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: verticalPadding,
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                height: availableHeight,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: heroWidth,
+                    child: _buildDesktopTrustedPartnerHeroCard(),
                   ),
                 ),
               ),
@@ -2742,6 +6142,7 @@ class _CornerBracketPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
 
 /// Extension to capitalize first letter
 extension _StringCapitalize on String {

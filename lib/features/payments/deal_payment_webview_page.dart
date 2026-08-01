@@ -8,17 +8,24 @@ import 'package:local_lekker/services/notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
 import 'package:flutter/foundation.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
+import 'package:local_lekker/core/utils/display_name_helpers.dart';
 
 class DealPaymentWebViewPage extends StatefulWidget {
   final String authorizationUrl;
   final String dealId;
   final String? transactionReference;
+  /// When true, the new card saved from this payment will be set as the
+  /// member's primary card for future in-app payments and subscription
+  /// renewals (overriding the "auto-primary only when none exists" rule).
+  final bool makeNewCardPrimary;
 
   const DealPaymentWebViewPage({
     super.key,
     required this.authorizationUrl,
     required this.dealId,
     this.transactionReference,
+    this.makeNewCardPrimary = false,
   });
 
   @override
@@ -42,6 +49,7 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
   bool _checkoutLoaded = false; // True once Paystack checkout page has loaded
   bool _awaitingExternalAuth = false;
   bool _showManualVerify = false;
+  bool _paymentDeclined = false; // Paystack showed an "unable to process" / risk-block page
   bool _pollingActive = false; // Prevent multiple concurrent polling timers
   Timer? _manualVerifyTimer;
   Timer? _apiVerifyTimer; // Direct Paystack API polling (most reliable)
@@ -141,6 +149,39 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
       _logger.w('Failed to extract reference from page: $e');
     }
     return null;
+  }
+
+  /// Phrases Paystack's hosted checkout shows when the bank or Paystack's
+  /// risk engine rejects a charge (e.g. the generic "Unable to process
+  /// transaction" screen). Kept specific to avoid false positives.
+  static const List<String> _declineIndicators = [
+    'unable to process transaction',
+    'unable to process your transaction',
+    'transaction could not be completed',
+    'transaction was not completed',
+    'transaction failed',
+    'payment could not be completed',
+    'this transaction has been declined',
+    'card was declined',
+    'declined by your bank',
+  ];
+
+  /// Surface a clear in-app banner when Paystack declines the deal charge,
+  /// re-evaluated on every poll so it clears itself once the member navigates
+  /// back to the card form ("Try another card").
+  void _evaluateDeclineText(String bodyText) {
+    if (!mounted) return;
+    if (_paymentVerified || _showingSuccess || _processingPayment) {
+      if (_paymentDeclined) setState(() => _paymentDeclined = false);
+      return;
+    }
+    final looksDeclined = _declineIndicators.any(bodyText.contains);
+    if (looksDeclined != _paymentDeclined) {
+      if (looksDeclined) {
+        _logger.w('Detected Paystack decline/risk page — showing member guidance');
+      }
+      setState(() => _paymentDeclined = looksDeclined);
+    }
   }
 
   @override
@@ -273,85 +314,81 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
     _logger.i('=== VERIFYING PAYMENT WITH PAYSTACK API ===');
     _logger.i('Deal ID: ${widget.dealId}');
 
-    // Extract reference from URL or page, with stored reference fallback
-    String? ref;
-    if (url != null) {
-      ref = _extractReferenceFromUrl(url);
-    }
-    if (ref == null) {
-      ref = await _extractReferenceFromPage();
-    }
-    // Fall back to the stored transaction reference from initialization
-    ref ??= widget.transactionReference;
-
-    if (ref == null) {
-      _logger.w('❌ No transaction reference found - cannot verify payment');
-      if (mounted) {
-        setState(() => _processingPayment = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment not yet completed. Please complete the payment or try again.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 4),
-          ),
-        );
-      }
-      return;
-    }
-
-    _logger.i('🔍 Verifying transaction reference: $ref');
-
-    // Verify with Paystack API - retry with backoff
-    Map<String, dynamic>? verifiedDetails;
-    int retryCount = 0;
-    const maxRetries = 3;
-
-    while (retryCount < maxRetries) {
-      try {
-        verifiedDetails = await PaystackService().verifyTransaction(ref);
-        if (verifiedDetails != null) {
-          _logger.i('✅ Transaction verified as SUCCESS on attempt ${retryCount + 1}');
-          break;
-        } else {
-          _logger.w('⚠️ Transaction NOT successful on attempt ${retryCount + 1}');
-        }
-      } catch (e) {
-        _logger.w('Verification attempt ${retryCount + 1} failed: $e');
-      }
-
-      retryCount++;
-      if (retryCount < maxRetries) {
-        final delaySeconds = retryCount * 2;
-        _logger.i('Retrying verification in ${delaySeconds}s...');
-        await Future.delayed(Duration(seconds: delaySeconds));
+    // Build an ordered, de-duplicated list of candidate references to verify.
+    // The stored transaction reference (from initialization) is the most
+    // reliable value, so it is ALWAYS tried first. A reference parsed from the
+    // current URL/page can be a bogus path segment (e.g. ".../close" yields
+    // "close"), which would otherwise cause verification of the WRONG reference
+    // and a false "payment not completed" even though the charge succeeded.
+    final candidateRefs = <String>[];
+    void addCandidate(String? r) {
+      if (r != null && r.isNotEmpty && !candidateRefs.contains(r)) {
+        candidateRefs.add(r);
       }
     }
 
-    if (verifiedDetails == null) {
-      // Payment was NOT successful (abandoned, failed, etc.)
-      _logger.e('❌ Payment verification FAILED - transaction not successful');
-      if (kDebugMode) {
-        print('❌ ========================================');
-        print('❌ PAYMENT NOT VERIFIED - NOT SUCCESSFUL');
-        print('❌ Reference: $ref');
-        print('❌ Deal ID: ${widget.dealId}');
-        print('❌ ========================================');
-      }
+    addCandidate(widget.transactionReference);
+    if (url != null) addCandidate(_extractReferenceFromUrl(url));
+    addCandidate(await _extractReferenceFromPage());
 
+    if (candidateRefs.isEmpty) {
+      _logger.w('❌ No transaction reference found - cannot verify payment yet');
+      // No reference at all usually means the card form was not completed yet.
+      // Show the quiet manual-verify button instead of an alarming error and
+      // let the background API polling keep watching for completion.
       if (mounted) {
         setState(() {
           _processingPayment = false;
           _showManualVerify = true;
         });
-        _logger.i('Verification failed — showing manual verify button (no auto-restart)');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment was not completed. Please complete the payment or try again.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 4),
-          ),
-        );
-        // Stay on the payment page so the user can retry or complete payment
+      }
+      return;
+    }
+
+    _logger.i('🔍 Verifying transaction reference candidates: $candidateRefs');
+
+    // Verify with Paystack API. Use progressive backoff with more attempts so a
+    // 3DS transaction has time to settle on Paystack's side before we ever
+    // declare failure (mirrors the subscription flow). On each attempt we try
+    // every candidate reference so the reliable stored reference is always used
+    // even when the URL produced a bogus one.
+    Map<String, dynamic>? verifiedDetails;
+    const retryDelays = [2, 3, 4, 5, 6, 8]; // seconds between attempts
+    final maxRetries = retryDelays.length;
+
+    for (int attempt = 0; attempt < maxRetries && verifiedDetails == null; attempt++) {
+      for (final candidate in candidateRefs) {
+        try {
+          final result = await PaystackService().verifyTransaction(candidate);
+          if (result != null) {
+            _logger.i('✅ Transaction verified as SUCCESS (ref=$candidate) on attempt ${attempt + 1}');
+            verifiedDetails = result;
+            break;
+          }
+        } catch (e) {
+          _logger.w('Verification attempt ${attempt + 1} (ref=$candidate) failed: $e');
+        }
+      }
+      if (verifiedDetails == null && attempt < maxRetries - 1) {
+        await Future.delayed(Duration(seconds: retryDelays[attempt]));
+      }
+    }
+
+    if (verifiedDetails == null) {
+      // Not confirmed yet. The charge may still be settling on Paystack, so we
+      // deliberately do NOT show an alarming "payment failed" message — that
+      // scared members whose money had already been deducted. Instead we quietly
+      // reveal the manual-verify button and keep the background API polling
+      // running, which auto-detects success as soon as Paystack confirms it.
+      _logger.w('⚠️ Payment not confirmed after $maxRetries attempts - showing manual verify (polling continues)');
+      if (kDebugMode) {
+        print('⚠️ PAYMENT NOT YET CONFIRMED - refs: $candidateRefs, deal: ${widget.dealId}');
+      }
+      if (mounted) {
+        setState(() {
+          _processingPayment = false;
+          _showManualVerify = true;
+        });
       }
       return;
     }
@@ -398,6 +435,7 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
                 final existing = await PaystackService()
                     .getSavedPaymentMethods(uid);
                 final shouldSetPrimary =
+                    widget.makeNewCardPrimary ||
                     existing.isEmpty ||
                     !existing.any((m) => m['is_primary'] == true);
                 await PaystackService().addPaymentMethod(uid, code, {
@@ -589,7 +627,6 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
     }
 
     try {
-      _receiptGenerated = true; // Mark as generated at start
 
       _logger.i('🧾 ========================================');
       _logger.i('🧾 AUTO-GENERATE RECEIPT START');
@@ -671,6 +708,30 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
         return;
       }
 
+      // Resolve the names shown on the receipt robustly. A member may not
+      // have completed their profile yet (empty name/surname) — fall back to
+      // their email. The business name can be missing from the discount join
+      // (e.g. once-off / bill deals), so fall back to a direct lookup.
+      String? resolvedBusinessName = businessData?['name'] as String?;
+      if ((resolvedBusinessName ?? '').trim().isEmpty) {
+        try {
+          final bizRow = await _supabase
+              .from('businesses')
+              .select('name')
+              .eq('id', businessId)
+              .maybeSingle();
+          resolvedBusinessName = bizRow?['name'] as String?;
+        } catch (e) {
+          _logger.w('🧾 Could not resolve business name fallback: $e');
+        }
+      }
+      final businessDisplayName = buildBusinessDisplayName(resolvedBusinessName);
+      final memberDisplayName = buildMemberDisplayName(
+        name: memberData?['name'] as String?,
+        surname: memberData?['surname'] as String?,
+        email: memberData?['email'] as String?,
+      );
+
       // Generate sequential receipt number
       _logger.i('🧾 Step 3: Generating sequential receipt number...');
       String receiptNumber;
@@ -701,10 +762,9 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
       final receiptData = {
         'receipt_number': receiptNumber,
         'deal_authorization_id': widget.dealId,
-        'business_name': businessData?['name'] ?? 'Unknown Business',
+        'business_name': businessDisplayName,
         'business_id': businessId,
-        'member_name':
-            '${memberData?['name'] ?? 'Unknown'} ${memberData?['surname'] ?? 'Member'}',
+        'member_name': memberDisplayName,
         'member_email': memberData?['email'] ?? 'N/A',
         'discount_name': discountData?['name'] ?? 'Unknown Deal',
         'amount': dealData['amount'] ?? 0.0,
@@ -802,10 +862,9 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
           'deal_authorization_id': widget.dealId,
           'receipt_number': receiptNumber,
           'amount': dealData['amount'],
-          'business_name': businessData?['name'],
+          'business_name': businessDisplayName,
           'discount_name': discountData?['name'],
-          'member_name':
-              '${memberData?['name'] ?? 'Unknown'} ${memberData?['surname'] ?? 'Member'}',
+          'member_name': memberDisplayName,
           'member_email': memberData?['email'],
           'payment_method': paymentMethod,
         });
@@ -834,6 +893,9 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
         rethrow;
       }
 
+      // Both receipt inserts succeeded — mark as generated now
+      _receiptGenerated = true;
+
       // Send enhanced notifications to both trusted partner and member
       if (trustedPartnerId != null) {
         _logger.i('📧 Step 7: Sending payment notifications...');
@@ -841,13 +903,14 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
           print('📧 Sending notifications to TP and member...');
         }
 
+        final memberName =
+            '${memberData?['name'] ?? 'Unknown'} ${memberData?['surname'] ?? 'Member'}';
+        final businessName = businessData?['name'] ?? 'Business';
+        final dealName = discountData?['name'] ?? 'deal';
+        final amount = (dealData['amount'] as num?)?.toDouble() ?? 0.0;
+
         try {
           final notificationService = NotificationService();
-          final memberName =
-              '${memberData?['name'] ?? 'Unknown'} ${memberData?['surname'] ?? 'Member'}';
-          final businessName = businessData?['name'] ?? 'Business';
-          final dealName = discountData?['name'] ?? 'deal';
-          final amount = (dealData['amount'] as num?)?.toDouble() ?? 0.0;
 
           // Notify trusted partner of payment received
           await notificationService.notifyTrustedPartnerOfPayment(
@@ -888,6 +951,46 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
           if (kDebugMode) {
             print('⚠️ Notification failed: $e');
           }
+        }
+
+        // Send payment success emails to both TP and member
+        try {
+          await _supabase.functions.invoke(
+            'send-payment-success-email',
+            body: {
+              'trusted_partner_id': trustedPartnerId,
+              'member_name': memberName,
+              'deal_name': dealName,
+              'amount': amount,
+              'receipt_number': receiptNumber,
+              'business_name': businessName,
+              'deal_authorization_id': widget.dealId,
+            },
+          );
+          _logger.i('✅ TP payment success email sent');
+        } catch (e) {
+          _logger.w('⚠️ Failed to send TP payment success email: $e');
+        }
+
+        try {
+          final currentUserId = _supabase.auth.currentUser?.id;
+          if (currentUserId != null) {
+            await _supabase.functions.invoke(
+              'send-member-payment-success-email',
+              body: {
+                'member_id': currentUserId,
+                'business_name': businessName,
+                'deal_name': dealName,
+                'amount': amount,
+                'receipt_number': receiptNumber,
+                'payment_method': 'card',
+                'deal_authorization_id': widget.dealId,
+              },
+            );
+            _logger.i('✅ Member payment success email sent');
+          }
+        } catch (e) {
+          _logger.w('⚠️ Failed to send member payment success email: $e');
         }
       }
 
@@ -1148,6 +1251,10 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
           await _verifyAndHandlePayment(url: currentUrl);
           return;
         }
+
+        // Detect a decline/risk-block state (Paystack checkout is an SPA, so
+        // this renders without a page reload — polling is the reliable catch).
+        _evaluateDeclineText(bodyText);
       } catch (e) {
         _logger.w('Polling error: $e');
       }
@@ -1182,8 +1289,13 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
 
     _logger.i('Manual return from payment for deal: ${widget.dealId}');
 
-    // If payment not yet verified by success handler, attempt on-demand verification using current URL
-    if (!_paymentVerified) {
+    // ALWAYS verify with the Paystack API before recording a completion.
+    // A deal must only be marked 'completed' after Paystack confirms a
+    // SUCCESSFUL transaction for this session — never based solely on the
+    // _paymentVerified flag. Trusting the flag previously let a cancel /
+    // return action record a completed deal (and generate a receipt) with no
+    // actual charge, showing a false "payment successful".
+    {
       try {
         final currentUrl = await _controller.currentUrl();
         _logger.d('Manual return current URL: $currentUrl');
@@ -1485,7 +1597,12 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
-            setState(() => _loading = true);
+            setState(() {
+              _loading = true;
+              // A fresh navigation (e.g. "Try another card") clears any
+              // stale decline banner.
+              _paymentDeclined = false;
+            });
             _logger.d('Page started loading: $url');
           },
           onPageFinished: (url) async {
@@ -1509,7 +1626,19 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
                       'document.body.innerText.trim()',
                     );
                 final content = pageContent.toString().replaceAll(RegExp(r'^["\s]+|["\s]+$'), '').toLowerCase();
-                if (content.length < 50 && _checkoutLoaded) {
+                // Active 3DS / verification / loading pages (e.g. the bank's
+                // "PAYMENT VERIFICATION" screen) also have very little text but
+                // are NOT stuck. Showing the Return Home button over them looks
+                // broken and tempts the member to bail out mid-authentication,
+                // so treat them as active pages rather than blank/stuck ones.
+                const activeKeywords = [
+                  'verif', 'process', 'authenticat', 'redirect', 'loading',
+                  'please wait', 'one moment', 'secure', '3d', 'otp', 'pin',
+                  'pending', 'confirming', 'do not close',
+                ];
+                final looksActive =
+                    activeKeywords.any((k) => content.contains(k));
+                if (content.length < 50 && _checkoutLoaded && !looksActive) {
                   setState(() => _showBlankPageButton = true);
                   _logger.w('Detected potentially blank/stuck page after checkout');
                   if (_showManualVerify && widget.transactionReference != null && !_processingPayment && !_paymentVerified) {
@@ -1541,22 +1670,70 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
             }
 
             // Override window.open() to redirect 3DS popup navigation into
-            // this WebView window (same fix as paystack_webview_page.dart).
+            // this WebView window. Paystack's hosted checkout opens the bank
+            // authorization page via window.open(); webview_flutter blocks
+            // popups by default, so without this override Paystack detects
+            // the failed popup and navigates to its /close URL which dismisses
+            // the WebView before the bank auth page is shown — the new-card
+            // 3DS flow then never completes on Paystack even though the bank
+            // deducted the money. This mirrors paystack_webview_page.dart.
             if (url.contains('paystack.com') || url.contains('paystack.co')) {
               try {
                 await _controller.runJavaScript(r'''
                   (function() {
                     if (window.__llOpenOverride) return;
                     window.__llOpenOverride = true;
-                    window.open = function(url, target, features) {
-                      if (url && url !== '' && url !== 'about:blank') {
-                        window.location.href = url;
-                        return { focus: function(){}, close: function(){}, location: { href: url } };
+
+                    function _llNavigate(u) {
+                      if (!u || u === '' || u === 'about:blank') return;
+                      if (typeof PaystackPopup !== 'undefined') {
+                        PaystackPopup.postMessage(u);
+                      } else {
+                        window.location.href = u;
                       }
+                    }
+
+                    window.open = function(url, target, features) {
+                      // Always return a truthy fake window so Paystack's
+                      // popup-capability probe (window.open('', '_blank'))
+                      // succeeds. Without this the first Pay click is seen
+                      // as popup-blocked and Paystack resets the card form
+                      // instead of opening the 3DS authenticate page.
+                      //
+                      // IMPORTANT: fakeWin.location uses Object.defineProperty
+                      // so that assignments like `fakeWin.location.href = url`
+                      // (Paystack's two-step popup approach: open empty popup
+                      // then set location) also trigger navigation here.
+                      var _navigated = false;
+                      var _locHref = url || '';
+                      var locObj = {};
+                      Object.defineProperty(locObj, 'href', {
+                        get: function() { return _locHref; },
+                        set: function(newUrl) {
+                          _locHref = newUrl;
+                          if (!_navigated) {
+                            _navigated = true;
+                            _llNavigate(newUrl);
+                          }
+                        },
+                        configurable: true
+                      });
+                      var fakeWin = {
+                        focus: function(){},
+                        close: function(){},
+                        closed: false,
+                        location: locObj
+                      };
+                      // Handle direct URL (single-step window.open approach)
+                      if (url && url !== '' && url !== 'about:blank') {
+                        _navigated = true;
+                        _llNavigate(url);
+                      }
+                      return fakeWin;
                     };
                   })();
                 ''');
-                _logger.d('Injected window.open override for 3DS popup handling');
+                _logger.d('Injected window.open override for 3DS popup handling (channel-based)');
               } catch (e) {
                 _logger.w('Could not inject window.open override: $e');
               }
@@ -1597,8 +1774,18 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
               if (lower.contains('/close') || lower.contains('/cancel')) {
                 _logger.w('Detected Paystack close/cancel URL: $url');
                 final hasReference = url.contains('trxref=') || url.contains('reference=');
-                if (hasReference) {
-                  _logger.i('Close URL has reference params — verifying before dismissing');
+                // Never declare a cancellation without first confirming with the
+                // Paystack API. A new-card 3DS flow can pass through a /close
+                // endpoint (closing the bank auth window) with no reference in
+                // the URL even though the charge already succeeded — this
+                // previously showed "Payment cancelled" after money had already
+                // been deducted. _verifyAndHandlePayment falls back to the stored
+                // transactionReference and only reports failure if the Paystack
+                // API confirms the transaction was not successful.
+                if (hasReference || widget.transactionReference != null) {
+                  _logger.i(
+                    'Close URL — verifying with Paystack API before dismissing (refInUrl=$hasReference)',
+                  );
                   _verifyAndHandlePayment(url: url);
                 } else if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1616,6 +1803,20 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
             return NavigationDecision.navigate;
           },
         ),
+      )
+      ..addJavaScriptChannel(
+        'PaystackPopup',
+        onMessageReceived: (JavaScriptMessage message) {
+          // Receives the bank 3DS auth URL from the window.open override.
+          // Using a native loadRequest bypasses the JS navigation queue so
+          // Paystack's own subsequent window.location assignment cannot win
+          // the race and overwrite the navigation to the bank auth page.
+          final url = message.message;
+          if (_paymentVerified || _showingSuccess) return;
+          if (!url.startsWith('http')) return;
+          _logger.i('PaystackPopup channel: loading 3DS auth URL: $url');
+          _controller.loadRequest(Uri.parse(url));
+        },
       )
       ..loadRequest(Uri.parse(widget.authorizationUrl));
   }
@@ -1636,36 +1837,57 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
         }
       },
       child: Scaffold(
-        appBar: AppBar(
+        appBar: BrandedAppBar(
           title: const Text('Secure Payment'),
           leading: IconButton(
             icon: const Icon(Icons.close),
             onPressed: (_processingPayment || _showingSuccess)
                 ? null
                 : () async {
-                    // Offer to record success before leaving
+                    // Confirm cancellation. We deliberately do NOT offer a
+                    // "Payment successful" self-report option here: a payment
+                    // must only ever be recorded after the Paystack API
+                    // confirms a successful transaction for THIS session
+                    // (handled automatically by the detectors and the
+                    // "Already paid? Tap here to verify" button). Letting a
+                    // cancelling member self-declare success previously
+                    // recorded completed deals with no actual charge.
                     final choice = await showModalBottomSheet<String>(
                       context: context,
                       builder: (ctx) => SafeArea(
                         child: Wrap(
                           children: [
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                              child: Text(
+                                'Leave payment?',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                             ListTile(
                               leading: const Icon(
-                                Icons.check_circle,
+                                Icons.payment,
                                 color: Colors.green,
                               ),
-                              title: const Text(
-                                'Payment successful – Return home',
-                              ),
+                              title: const Text('Keep paying'),
                               subtitle: const Text(
-                                'Record payment and generate receipt',
+                                'Return to the payment page',
                               ),
-                              onTap: () => Navigator.pop(ctx, 'success'),
+                              onTap: () => Navigator.pop(ctx, 'stay'),
                             ),
                             const Divider(height: 1),
                             ListTile(
-                              leading: const Icon(Icons.close),
-                              title: const Text('Cancel/Close'),
+                              leading: const Icon(
+                                Icons.close,
+                                color: Colors.red,
+                              ),
+                              title: const Text('Cancel payment'),
+                              subtitle: const Text(
+                                "You won't be charged",
+                              ),
                               onTap: () => Navigator.pop(ctx, 'cancel'),
                             ),
                           ],
@@ -1673,16 +1895,13 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
                       ),
                     );
 
-                    if (choice == 'success') {
-                      await _handleManualReturn();
-                    } else if (choice == 'cancel') {
-                      if (mounted) {
-                        _logger.i('Payment cancelled by user');
-                        await NavigationService().navigateToHomeAfterPayment(
-                          context,
-                        );
-                      }
+                    if (choice == 'cancel' && mounted) {
+                      _logger.i('Payment cancelled by user');
+                      await NavigationService().navigateToHomeAfterPayment(
+                        context,
+                      );
                     }
+                    // 'stay' or dismissed → remain on the payment page.
                   },
           ),
         ),
@@ -1693,38 +1912,98 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
               Positioned.fill(child: WebViewWidget(controller: _controller)),
             if (_loading && !_processingPayment && !_showingSuccess)
               const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            // Centered "Return Home" button for blank/stuck pages only
-            if (_showBlankPageButton && !_processingPayment && !_showingSuccess)
-              Center(
+            if (_paymentDeclined && !_processingPayment && !_showingSuccess)
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 16,
                 child: Material(
-                  elevation: 8,
-                  borderRadius: BorderRadius.circular(10),
-                  color: Colors.transparent,
-                  child: ElevatedButton(
-                    onPressed: _generatingReceipt
-                        ? null
-                        : () async {
-                            await _handleManualReturn();
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 48,
-                        vertical: 16,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 8,
+                  elevation: 6,
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.red.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.red.shade700),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "Payment couldn't be processed",
+                                style: TextStyle(
+                                  color: Colors.red.shade900,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Your bank or card provider declined this payment, often '
+                          'for security reasons after several attempts. You can try a '
+                          'different card above, or go back and try again in a few '
+                          'minutes. If it keeps happening, contact your bank to '
+                          'approve the payment.',
+                          style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('Go back'),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      _generatingReceipt
-                          ? 'Recording payment...'
-                          : 'Return Home',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            // "Return Home" button for blank/stuck pages only. Anchored to the
+            // bottom so it never overlaps page content (e.g. a bank's
+            // "PAYMENT VERIFICATION" screen) the way a centered button did.
+            if (_showBlankPageButton && !_processingPayment && !_showingSuccess)
+              Positioned(
+                left: 24,
+                right: 24,
+                bottom: 40,
+                child: Center(
+                  child: Material(
+                    elevation: 8,
+                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.transparent,
+                    child: ElevatedButton(
+                      onPressed: _generatingReceipt
+                          ? null
+                          : () async {
+                              await _handleManualReturn();
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 48,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 8,
+                      ),
+                      child: Text(
+                        _generatingReceipt
+                            ? 'Recording payment...'
+                            : 'Return Home',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),

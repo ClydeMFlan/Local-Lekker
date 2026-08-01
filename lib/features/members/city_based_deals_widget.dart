@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/location_service.dart';
 import '../../services/discount_service.dart';
 import '../../models/discount.dart';
@@ -184,7 +185,7 @@ class _CityBasedDealsWidgetState extends State<CityBasedDealsWidget> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: _buildAppBarTitle(),
         actions: [
           // Refresh button

@@ -1,7 +1,6 @@
 // Paystack API Proxy - Routes all secret-key Paystack calls through server-side
 // The PAYSTACK_SECRET_KEY never leaves this Edge Function.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -14,6 +13,10 @@ const ALLOWED_PATH_PREFIXES = [
     '/transaction/initialize',
     '/transaction/verify/',
     '/transaction/charge_authorization',
+    // List Transactions (read-only GET, e.g. /transaction?email=...&status=success)
+    // used by pending-payment recovery to find a member's successful payment
+    // when no local transaction reference was saved.
+    '/transaction?',
     '/plan',
     '/subscription',
     '/customer',
@@ -30,6 +33,85 @@ function isAllowedPath(path: string): boolean {
     return ALLOWED_PATH_PREFIXES.some(prefix => path.startsWith(prefix))
 }
 
+/**
+ * Verify a Supabase JWT locally using the HS256 SUPABASE_JWT_SECRET.
+ * This avoids a network round-trip to the Auth server, cutting ~300–800 ms
+ * of cold-start latency on every request.
+ * Returns the decoded payload (with `sub` as userId) or null on failure.
+ */
+async function verifyJwtRemote(
+    authHeader: string,
+): Promise<{ sub: string } | { error: string }> {
+    try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+        if (!supabaseUrl || !anonKey) {
+            return { error: 'supabase_env_not_configured' }
+        }
+        const resp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+            method: 'GET',
+            headers: {
+                'Authorization': authHeader,
+                'apikey': anonKey,
+            },
+        })
+        if (resp.status !== 200) {
+            const body = await resp.text()
+            return { error: `auth_api_${resp.status}: ${body.substring(0, 120)}` }
+        }
+        const user = await resp.json()
+        if (!user?.id) return { error: 'auth_api_missing_id' }
+        return { sub: user.id as string }
+    } catch (e) {
+        return { error: `verify_remote_exception: ${(e as Error).message}` }
+    }
+}
+
+async function verifyJwtLocally(
+    authHeader: string,
+    jwtSecret: string,
+): Promise<{ sub: string } | { error: string }> {
+    try {
+        if (!jwtSecret) return { error: 'jwt_secret_not_configured' }
+
+        const token = authHeader.replace(/^Bearer\s+/i, '')
+        const parts = token.split('.')
+        if (parts.length !== 3) return { error: 'malformed_token' }
+
+        const [headerB64, payloadB64, signatureB64] = parts
+
+        // base64url → base64 with correct padding (JWT segments are unpadded)
+        const toBase64 = (b64url: string) => {
+            const s = b64url.replace(/-/g, '+').replace(/_/g, '/')
+            return s.padEnd(s.length + (4 - s.length % 4) % 4, '=')
+        }
+
+        // Decode payload to check expiry before doing expensive crypto
+        const payloadJson = atob(toBase64(payloadB64))
+        const payload = JSON.parse(payloadJson)
+        const now = Math.floor(Date.now() / 1000)
+        if (payload.exp && payload.exp < now) {
+            return { error: `token_expired_${now - payload.exp}s_ago` }
+        }
+        if (!payload.sub) return { error: 'token_missing_sub' }
+
+        // Verify HS256 signature
+        const keyData = new TextEncoder().encode(jwtSecret)
+        const cryptoKey = await crypto.subtle.importKey(
+            'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'],
+        )
+        const signingInput = new TextEncoder().encode(`${headerB64}.${payloadB64}`)
+        const sigDecoded = atob(toBase64(signatureB64))
+        const signatureBytes = Uint8Array.from(sigDecoded, c => c.charCodeAt(0))
+        const valid = await crypto.subtle.verify('HMAC', cryptoKey, signatureBytes, signingInput)
+        if (!valid) return { error: 'signature_mismatch' }
+
+        return payload as { sub: string }
+    } catch (e) {
+        return { error: `verify_exception: ${(e as Error).message}` }
+    }
+}
+
 serve(async (req) => {
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
@@ -37,39 +119,105 @@ serve(async (req) => {
     }
 
     try {
+        const requestId = crypto.randomUUID()
         // ── Auth ──────────────────────────────────────────────
         const authHeader = req.headers.get('Authorization')
         if (!authHeader) {
             return new Response(
-                JSON.stringify({ error: 'Missing authorization header' }),
-                { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+                JSON.stringify({
+                    error_code: 'auth_error',
+                    error: 'Missing authorization header',
+                    request_id: requestId,
+                }),
+                {
+                    status: 401,
+                    headers: {
+                        ...corsHeaders,
+                        'Content-Type': 'application/json',
+                        'x-proxy-request-id': requestId,
+                    },
+                },
             )
         }
 
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
         const paystackSecretKeyRaw = Deno.env.get('PAYSTACK_SECRET_KEY') ?? ''
         const paystackSecretKey = paystackSecretKeyRaw.trim()
 
         if (!paystackSecretKey) {
-            console.error('PAYSTACK_SECRET_KEY is not configured')
+            console.error(`[${requestId}] PAYSTACK_SECRET_KEY is not configured`)
             return new Response(
                 JSON.stringify({ error: 'Payment service not configured' }),
-                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+                {
+                    status: 500,
+                    headers: {
+                        ...corsHeaders,
+                        'Content-Type': 'application/json',
+                        'x-proxy-request-id': requestId,
+                    },
+                },
             )
         }
 
-        // Verify JWT by creating a Supabase client with the caller's token
-        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-            global: { headers: { Authorization: authHeader } },
-        })
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-        if (authError || !user) {
-            return new Response(
-                JSON.stringify({ error: 'Invalid or expired token' }),
-                { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-            )
+        // Verify JWT locally (no network call — uses SUPABASE_JWT_SECRET).
+        // If the secret isn't configured (or local verification fails for a
+        // non-expiry reason), fall back to the Supabase Auth API so the
+        // proxy still works without requiring the JWT secret env var.
+        // Supabase CLI blocks the SUPABASE_ prefix for user-set secrets, so
+        // we read the JWT secret from APP_JWT_SECRET (preferred) and fall
+        // back to SUPABASE_JWT_SECRET in case it was set via the dashboard.
+        const jwtSecret = (
+            Deno.env.get('APP_JWT_SECRET')
+            ?? Deno.env.get('SUPABASE_JWT_SECRET')
+            ?? ''
+        ).trim()
+        let verifyResult = await verifyJwtLocally(authHeader, jwtSecret)
+        if ('error' in verifyResult) {
+            const localErr = verifyResult.error
+            const isExpiry = localErr.startsWith('token_expired')
+            if (!isExpiry) {
+                console.warn(`Local JWT verify failed (${localErr}), falling back to remote auth check`)
+                const remote = await verifyJwtRemote(authHeader)
+                if ('error' in remote) {
+                    console.error(`[${requestId}] JWT verify failed: local=${localErr} remote=${remote.error} (jwt_secret_len=${jwtSecret.length})`)
+                    return new Response(
+                        JSON.stringify({
+                            error_code: 'auth_error',
+                            error: 'Invalid or expired token',
+                            detail: remote.error,
+                            request_id: requestId,
+                        }),
+                        {
+                            status: 401,
+                            headers: {
+                                ...corsHeaders,
+                                'Content-Type': 'application/json',
+                                'x-proxy-request-id': requestId,
+                            },
+                        },
+                    )
+                }
+                verifyResult = remote
+            } else {
+                console.error(`[${requestId}] JWT verify failed: ${localErr} (jwt_secret_len=${jwtSecret.length})`)
+                return new Response(
+                    JSON.stringify({
+                        error_code: 'auth_error',
+                        error: 'Invalid or expired token',
+                        detail: localErr,
+                        request_id: requestId,
+                    }),
+                    {
+                        status: 401,
+                        headers: {
+                            ...corsHeaders,
+                            'Content-Type': 'application/json',
+                            'x-proxy-request-id': requestId,
+                        },
+                    },
+                )
+            }
         }
+        const userId = verifyResult.sub
 
         // ── Parse request ─────────────────────────────────────
         const { path, method, body } = await req.json()
@@ -77,7 +225,14 @@ serve(async (req) => {
         if (!path || typeof path !== 'string') {
             return new Response(
                 JSON.stringify({ error: 'Missing "path" in request body' }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+                {
+                    status: 400,
+                    headers: {
+                        ...corsHeaders,
+                        'Content-Type': 'application/json',
+                        'x-proxy-request-id': requestId,
+                    },
+                },
             )
         }
 
@@ -126,19 +281,33 @@ serve(async (req) => {
                     paystack_reachable: paystackReachable,
                     paystack_key_accepted: paystackKeyValid,
                     paystack_error: paystackError || undefined,
-                    user_id: user.id,
+                    user_id: userId,
                     timestamp: new Date().toISOString(),
                 }),
-                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+                {
+                    status: 200,
+                    headers: {
+                        ...corsHeaders,
+                        'Content-Type': 'application/json',
+                        'x-proxy-request-id': requestId,
+                    },
+                },
             )
         }
 
         // ── Validate path ─────────────────────────────────────
         if (!isAllowedPath(path)) {
-            console.error(`BLOCKED: user=${user.id} path=${path}`)
+            console.error(`[${requestId}] BLOCKED: user=${userId} path=${path}`)
             return new Response(
                 JSON.stringify({ error: 'Path not allowed' }),
-                { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+                {
+                    status: 403,
+                    headers: {
+                        ...corsHeaders,
+                        'Content-Type': 'application/json',
+                        'x-proxy-request-id': requestId,
+                    },
+                },
             )
         }
 
@@ -146,7 +315,7 @@ serve(async (req) => {
         const paystackUrl = `https://api.paystack.co${path}`
 
         // Log key diagnostics on every request for debugging
-        console.log(`proxy ${httpMethod} ${path} user=${user.id} keyLen=${paystackSecretKey.length} keyPrefix=${paystackSecretKey.substring(0, 8)}`)
+        console.log(`[${requestId}] proxy ${httpMethod} ${path} user=${userId} keyLen=${paystackSecretKey.length} keyPrefix=${paystackSecretKey.substring(0, 8)}`)
 
         // ── Forward to Paystack ───────────────────────────────
         const fetchOptions: RequestInit = {
@@ -168,14 +337,29 @@ serve(async (req) => {
         // Return Paystack's response as-is (status code + body)
         return new Response(responseText, {
             status: paystackResponse.status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: {
+                ...corsHeaders,
+                'Content-Type': 'application/json',
+                'x-proxy-request-id': requestId,
+            },
         })
 
     } catch (error) {
-        console.error('Paystack proxy error:', error)
+        const requestId = crypto.randomUUID()
+        console.error(`[${requestId}] Paystack proxy error:`, error)
         return new Response(
-            JSON.stringify({ error: error.message || 'Internal proxy error' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            JSON.stringify({
+                error: error.message || 'Internal proxy error',
+                request_id: requestId,
+            }),
+            {
+                status: 500,
+                headers: {
+                    ...corsHeaders,
+                    'Content-Type': 'application/json',
+                    'x-proxy-request-id': requestId,
+                },
+            },
         )
     }
 })

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/supabase_service.dart';
 
 class ReceiptBookPage extends StatefulWidget {
@@ -58,7 +59,7 @@ class _ReceiptBookPageState extends State<ReceiptBookPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Receipt Book'),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,

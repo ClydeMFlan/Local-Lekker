@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import '../../services/supabase_service.dart';
 import '../auth/welcome_page.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
@@ -147,7 +148,7 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: iconColor ?? Colors.teal),
+      leading: Icon(icon, color: iconColor ?? AppColors.primary),
       title: Text(title),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),

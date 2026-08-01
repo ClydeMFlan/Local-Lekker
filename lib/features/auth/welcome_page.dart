@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'dart:async';
 import 'members_signup_page.dart';
 import 'tp_interest_form_page.dart';
+import 'forgot_password_page.dart';
 import '../../services/supabase_service.dart';
 import 'widgets/otp_verification_dialog.dart';
 import '../../widgets/loading_screen.dart';
@@ -37,212 +39,8 @@ class _WelcomePageState extends State<WelcomePage> {
   }
 
   void _showForgotPasswordFlow(BuildContext context) {
-    final emailController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: TextField(
-          controller: emailController,
-          decoration: const InputDecoration(labelText: 'Email'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final email = emailController.text.trim();
-              if (email.isEmpty) return;
-
-              try {
-                final method = await SupabaseService.instance
-                    .sendPasswordResetOtp(email: email);
-                Navigator.pop(dialogContext);
-                if (!context.mounted) return;
-
-                if (method == PasswordResetDelivery.otp) {
-                  _showPasswordResetOtpDialog(context, email);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Check your email for the password reset link.',
-                      ),
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              }
-            },
-            child: const Text('Send Reset Code'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPasswordResetOtpDialog(BuildContext context, String email) {
-    final otpController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    bool showPasswordFields = false;
-    String? errorMessage;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text(
-            showPasswordFields ? 'Set New Password' : 'Enter Reset Code',
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!showPasswordFields) ...[
-                  Text(
-                    'We sent a 6-digit code to $email',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: otpController,
-                    decoration: InputDecoration(
-                      labelText: 'Enter 6-digit code',
-                      hintText: '000000',
-                      border: const OutlineInputBorder(),
-                      errorText: errorMessage,
-                    ),
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ] else ...[
-                  TextField(
-                    controller: newPasswordController,
-                    decoration: const InputDecoration(
-                      labelText: 'New Password',
-                      border: OutlineInputBorder(),
-                    ),
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: confirmPasswordController,
-                    decoration: InputDecoration(
-                      labelText: 'Confirm New Password',
-                      border: const OutlineInputBorder(),
-                      errorText: errorMessage,
-                    ),
-                    obscureText: true,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            if (!showPasswordFields)
-              ElevatedButton(
-                onPressed: () async {
-                  final otp = otpController.text.trim();
-                  if (otp.length != 6) {
-                    setState(
-                      () => errorMessage = 'Please enter a valid 6-digit code',
-                    );
-                    return;
-                  }
-
-                  try {
-                    // Verify the password reset OTP
-                    await SupabaseService.instance.verifyPasswordResetOtp(
-                      email: email,
-                      otp: otp,
-                      newPassword:
-                          'temp_password', // Will be updated in next step
-                    );
-
-                    setState(() {
-                      showPasswordFields = true;
-                      errorMessage = null;
-                    });
-                  } catch (e) {
-                    setState(
-                      () => errorMessage = e.toString().replaceAll(
-                        'Exception: ',
-                        '',
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Verify Code'),
-              )
-            else
-              ElevatedButton(
-                onPressed: () async {
-                  final newPassword = newPasswordController.text;
-                  final confirmPassword = confirmPasswordController.text;
-
-                  if (newPassword.length < 6) {
-                    setState(
-                      () => errorMessage =
-                          'Password must be at least 6 characters',
-                    );
-                    return;
-                  }
-
-                  if (newPassword != confirmPassword) {
-                    setState(() => errorMessage = 'Passwords do not match');
-                    return;
-                  }
-
-                  try {
-                    // Update the password
-                    await SupabaseService.instance.updatePassword(
-                      newPassword: newPassword,
-                    );
-
-                    Navigator.pop(dialogContext);
-
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Password reset successfully!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    setState(
-                      () => errorMessage = e.toString().replaceAll(
-                        'Exception: ',
-                        '',
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Reset Password'),
-              ),
-          ],
-        ),
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
     );
   }
 
@@ -386,7 +184,7 @@ class _WelcomePageState extends State<WelcomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Welcome to Local Lekker')),
+      appBar: BrandedAppBar(title: const Text('Welcome to Local Lekker')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -520,8 +318,9 @@ class _WelcomePageState extends State<WelcomePage> {
       print('🔐 WelcomePage: Starting sign-in transition for user $userId');
     }
 
-    // Close dialog immediately
-    if (Navigator.canPop(dialogContext)) {
+    // Close dialog immediately (only if dialogContext is different from parentContext,
+    // to avoid accidentally popping the WelcomePage itself)
+    if (dialogContext != parentContext && Navigator.canPop(dialogContext)) {
       Navigator.pop(dialogContext);
     }
 
@@ -1353,7 +1152,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Home'),
         actions: [
           const SizedBox(width: 8),

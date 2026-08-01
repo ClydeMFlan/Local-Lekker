@@ -1,0 +1,555 @@
+﻿[
+  {
+    "constraint_name": "identities_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.identities",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "mfa_amr_claims_session_id_fkey",
+    "definition": "FOREIGN KEY (session_id) REFERENCES auth.sessions(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.mfa_amr_claims",
+    "target_table": "auth.sessions"
+  },
+  {
+    "constraint_name": "mfa_challenges_auth_factor_id_fkey",
+    "definition": "FOREIGN KEY (factor_id) REFERENCES auth.mfa_factors(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.mfa_challenges",
+    "target_table": "auth.mfa_factors"
+  },
+  {
+    "constraint_name": "mfa_factors_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.mfa_factors",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "oauth_authorizations_client_id_fkey",
+    "definition": "FOREIGN KEY (client_id) REFERENCES auth.oauth_clients(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.oauth_authorizations",
+    "target_table": "auth.oauth_clients"
+  },
+  {
+    "constraint_name": "oauth_authorizations_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.oauth_authorizations",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "oauth_consents_client_id_fkey",
+    "definition": "FOREIGN KEY (client_id) REFERENCES auth.oauth_clients(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.oauth_consents",
+    "target_table": "auth.oauth_clients"
+  },
+  {
+    "constraint_name": "oauth_consents_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.oauth_consents",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "one_time_tokens_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.one_time_tokens",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "refresh_tokens_session_id_fkey",
+    "definition": "FOREIGN KEY (session_id) REFERENCES auth.sessions(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.refresh_tokens",
+    "target_table": "auth.sessions"
+  },
+  {
+    "constraint_name": "saml_providers_sso_provider_id_fkey",
+    "definition": "FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.saml_providers",
+    "target_table": "auth.sso_providers"
+  },
+  {
+    "constraint_name": "saml_relay_states_flow_state_id_fkey",
+    "definition": "FOREIGN KEY (flow_state_id) REFERENCES auth.flow_state(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.saml_relay_states",
+    "target_table": "auth.flow_state"
+  },
+  {
+    "constraint_name": "saml_relay_states_sso_provider_id_fkey",
+    "definition": "FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.saml_relay_states",
+    "target_table": "auth.sso_providers"
+  },
+  {
+    "constraint_name": "sessions_oauth_client_id_fkey",
+    "definition": "FOREIGN KEY (oauth_client_id) REFERENCES auth.oauth_clients(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.sessions",
+    "target_table": "auth.oauth_clients"
+  },
+  {
+    "constraint_name": "sessions_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.sessions",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "sso_domains_sso_provider_id_fkey",
+    "definition": "FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.sso_domains",
+    "target_table": "auth.sso_providers"
+  },
+  {
+    "constraint_name": "webauthn_challenges_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.webauthn_challenges",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "webauthn_credentials_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "auth",
+    "source_table": "auth.webauthn_credentials",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "admin_promo_keys_created_by_fkey",
+    "definition": "FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "admin_promo_keys",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "admin_promo_keys_used_by_fkey",
+    "definition": "FOREIGN KEY (used_by) REFERENCES profiles(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "admin_promo_keys",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "archived_members_deleted_by_fkey",
+    "definition": "FOREIGN KEY (deleted_by) REFERENCES auth.users(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "archived_members",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "bill_approvals_bill_id_fkey",
+    "definition": "FOREIGN KEY (bill_id) REFERENCES processed_bills(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "bill_approvals",
+    "target_table": "processed_bills"
+  },
+  {
+    "constraint_name": "bill_approvals_partner_id_fkey",
+    "definition": "FOREIGN KEY (partner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "bill_approvals",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "business_bills_business_id_fkey",
+    "definition": "FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "business_bills",
+    "target_table": "businesses"
+  },
+  {
+    "constraint_name": "business_logos_business_id_fkey",
+    "definition": "FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "business_logos",
+    "target_table": "businesses"
+  },
+  {
+    "constraint_name": "businesses_owner_member_id_fkey",
+    "definition": "FOREIGN KEY (owner_member_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "businesses",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "calibration_receipts_business_id_fkey",
+    "definition": "FOREIGN KEY (business_id) REFERENCES profiles(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "calibration_receipts",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "chat_messages_conversation_id_fkey",
+    "definition": "FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "chat_messages",
+    "target_table": "chat_conversations"
+  },
+  {
+    "constraint_name": "deal_authorizations_business_id_fkey",
+    "definition": "FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "deal_authorizations",
+    "target_table": "businesses"
+  },
+  {
+    "constraint_name": "deal_authorizations_discount_id_fkey",
+    "definition": "FOREIGN KEY (discount_id) REFERENCES trusted_partner_discounts(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "deal_authorizations",
+    "target_table": "trusted_partner_discounts"
+  },
+  {
+    "constraint_name": "deal_authorizations_member_id_fkey",
+    "definition": "FOREIGN KEY (member_id) REFERENCES profiles(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "deal_authorizations",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "deal_expiry_notifications_deal_id_fkey",
+    "definition": "FOREIGN KEY (deal_id) REFERENCES trusted_partner_discounts(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "deal_expiry_notifications",
+    "target_table": "trusted_partner_discounts"
+  },
+  {
+    "constraint_name": "deal_receipts_business_id_fkey",
+    "definition": "FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "deal_receipts",
+    "target_table": "businesses"
+  },
+  {
+    "constraint_name": "deal_receipts_deal_authorization_id_fkey",
+    "definition": "FOREIGN KEY (deal_authorization_id) REFERENCES deal_authorizations(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "deal_receipts",
+    "target_table": "deal_authorizations"
+  },
+  {
+    "constraint_name": "deal_receipts_member_id_fkey",
+    "definition": "FOREIGN KEY (member_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "deal_receipts",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "deal_receipts_trusted_partner_id_fkey",
+    "definition": "FOREIGN KEY (trusted_partner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "deal_receipts",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "member_receipts_member_id_fkey",
+    "definition": "FOREIGN KEY (member_id) REFERENCES profiles(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "member_receipts",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "member_receipts_virtual_receipt_id_fkey",
+    "definition": "FOREIGN KEY (virtual_receipt_id) REFERENCES virtual_receipts(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "member_receipts",
+    "target_table": "virtual_receipts"
+  },
+  {
+    "constraint_name": "members_bank_accounts_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "members_bank_accounts",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "members_card_details_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "members_card_details",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "memberships_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "memberships",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "notifications_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "notifications",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "payments_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "payments",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "processed_bills_approved_by_fkey",
+    "definition": "FOREIGN KEY (approved_by) REFERENCES auth.users(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "processed_bills",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "processed_bills_business_id_fkey",
+    "definition": "FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "processed_bills",
+    "target_table": "businesses"
+  },
+  {
+    "constraint_name": "processed_bills_discount_id_fkey",
+    "definition": "FOREIGN KEY (discount_id) REFERENCES trusted_partner_discounts(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "processed_bills",
+    "target_table": "trusted_partner_discounts"
+  },
+  {
+    "constraint_name": "processed_bills_member_id_fkey",
+    "definition": "FOREIGN KEY (member_id) REFERENCES profiles(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "processed_bills",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "processed_bills_partner_id_fkey",
+    "definition": "FOREIGN KEY (partner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "processed_bills",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "processed_bills_payment_id_fkey",
+    "definition": "FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "processed_bills",
+    "target_table": "payments"
+  },
+  {
+    "constraint_name": "processed_bills_trusted_partner_id_fkey",
+    "definition": "FOREIGN KEY (trusted_partner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "processed_bills",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "profiles_id_fkey",
+    "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "profiles",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "promotion_participant_emails_claimed_by_fkey",
+    "definition": "FOREIGN KEY (claimed_by) REFERENCES profiles(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "promotion_participant_emails",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "promotion_participant_emails_promotion_id_fkey",
+    "definition": "FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "promotion_participant_emails",
+    "target_table": "promotions"
+  },
+  {
+    "constraint_name": "promotion_signups_confirmed_by_fkey",
+    "definition": "FOREIGN KEY (confirmed_by) REFERENCES profiles(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "promotion_signups",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "promotion_signups_promotion_id_fkey",
+    "definition": "FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "promotion_signups",
+    "target_table": "promotions"
+  },
+  {
+    "constraint_name": "promotion_signups_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "promotion_signups",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "promotions_created_by_fkey",
+    "definition": "FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "promotions",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "recovery_sessions_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "recovery_sessions",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "subscription_renewals_subscription_id_fkey",
+    "definition": "FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "subscription_renewals",
+    "target_table": "subscriptions"
+  },
+  {
+    "constraint_name": "subscription_renewals_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "subscription_renewals",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "subscriptions_promo_participant_id_fkey",
+    "definition": "FOREIGN KEY (promo_participant_id) REFERENCES promotion_participant_emails(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "subscriptions",
+    "target_table": "promotion_participant_emails"
+  },
+  {
+    "constraint_name": "subscriptions_promotion_id_fkey",
+    "definition": "FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "subscriptions",
+    "target_table": "promotions"
+  },
+  {
+    "constraint_name": "subscriptions_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "subscriptions",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "tp_member_keys_created_by_fkey",
+    "definition": "FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "tp_member_keys",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "tp_member_keys_trusted_partner_id_fkey",
+    "definition": "FOREIGN KEY (trusted_partner_id) REFERENCES profiles(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "tp_member_keys",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "tp_member_keys_used_by_fkey",
+    "definition": "FOREIGN KEY (used_by) REFERENCES profiles(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "tp_member_keys",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "trusted_partner_bank_accounts_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "trusted_partner_bank_accounts",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "trusted_partner_discounts_business_id_fkey",
+    "definition": "FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "trusted_partner_discounts",
+    "target_table": "businesses"
+  },
+  {
+    "constraint_name": "trusted_partner_discounts_trusted_partner_id_fkey",
+    "definition": "FOREIGN KEY (trusted_partner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "trusted_partner_discounts",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "trusted_partners_key_used_by_fkey",
+    "definition": "FOREIGN KEY (key_used_by) REFERENCES profiles(id) ON DELETE SET NULL",
+    "schema_name": "public",
+    "source_table": "trusted_partners",
+    "target_table": "profiles"
+  },
+  {
+    "constraint_name": "trusted_partners_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "trusted_partners",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "user_qr_codes_user_id_fkey",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "user_qr_codes",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "users_id_fkey",
+    "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "users",
+    "target_table": "auth.users"
+  },
+  {
+    "constraint_name": "virtual_receipts_deal_authorization_id_fkey",
+    "definition": "FOREIGN KEY (deal_authorization_id) REFERENCES deal_authorizations(id) ON DELETE CASCADE",
+    "schema_name": "public",
+    "source_table": "virtual_receipts",
+    "target_table": "deal_authorizations"
+  },
+  {
+    "constraint_name": "objects_bucketId_fkey",
+    "definition": "FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id)",
+    "schema_name": "storage",
+    "source_table": "storage.objects",
+    "target_table": "storage.buckets"
+  },
+  {
+    "constraint_name": "s3_multipart_uploads_bucket_id_fkey",
+    "definition": "FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id)",
+    "schema_name": "storage",
+    "source_table": "storage.s3_multipart_uploads",
+    "target_table": "storage.buckets"
+  },
+  {
+    "constraint_name": "s3_multipart_uploads_parts_bucket_id_fkey",
+    "definition": "FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id)",
+    "schema_name": "storage",
+    "source_table": "storage.s3_multipart_uploads_parts",
+    "target_table": "storage.buckets"
+  },
+  {
+    "constraint_name": "s3_multipart_uploads_parts_upload_id_fkey",
+    "definition": "FOREIGN KEY (upload_id) REFERENCES storage.s3_multipart_uploads(id) ON DELETE CASCADE",
+    "schema_name": "storage",
+    "source_table": "storage.s3_multipart_uploads_parts",
+    "target_table": "storage.s3_multipart_uploads"
+  },
+  {
+    "constraint_name": "vector_indexes_bucket_id_fkey",
+    "definition": "FOREIGN KEY (bucket_id) REFERENCES storage.buckets_vectors(id)",
+    "schema_name": "storage",
+    "source_table": "storage.vector_indexes",
+    "target_table": "storage.buckets_vectors"
+  }
+]

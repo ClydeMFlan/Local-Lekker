@@ -4,6 +4,7 @@ import '../services/supabase_service.dart';
 import '../features/business/trusted_partner_analytics_dashboard.dart';
 import '../features/business/trusted_partner_customers_page.dart';
 import '../features/business/trusted_partner_repeat_customers_page.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 /// Embedded analytics widget for Trusted Partner home page
 /// Shows key metrics at a glance with option to view full dashboard
@@ -521,7 +522,7 @@ class _TrustedPartnerAnalyticsWidgetState
                 'Repeat',
                 '$repeatCustomers',
                 Icons.repeat,
-                Colors.teal,
+                AppColors.primary,
                 onTap: () {
                   Navigator.push(
                     context,

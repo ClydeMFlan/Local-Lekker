@@ -1,0 +1,22 @@
+﻿[
+  {
+    "table_schema": "public",
+    "view_definition": " SELECT payment_method,\n    (date_trunc('day'::text, created_at))::date AS transaction_date,\n    count(*) AS daily_transactions,\n    sum(amount) AS daily_revenue,\n    count(DISTINCT member_id) AS unique_members,\n    count(DISTINCT business_id) AS unique_businesses,\n    avg(amount) AS avg_transaction_amount\n   FROM deal_receipts\n  GROUP BY payment_method, (date_trunc('day'::text, created_at))\n  ORDER BY ((date_trunc('day'::text, created_at))::date) DESC, payment_method;",
+    "view_name": "payment_method_analytics"
+  },
+  {
+    "table_schema": "public",
+    "view_definition": " SELECT s.id AS subscription_id,\n    s.user_id,\n    s.plan_type,\n    s.renewal_charge_cents,\n    s.current_period_end,\n    s.auto_renew,\n    p.email,\n    p.paystack_customer_code,\n    mcd.authorization_code,\n    mcd.card_type,\n    mcd.last4,\n    p.email AS card_email\n   FROM ((subscriptions s\n     JOIN profiles p ON ((p.id = s.user_id)))\n     LEFT JOIN members_card_details mcd ON (((mcd.user_id = s.user_id) AND (mcd.is_primary = true) AND (mcd.is_active = true))))\n  WHERE ((s.status = 'active'::text) AND (s.auto_renew = true) AND (s.current_period_end \u003c= (now() + '01:00:00'::interval)) AND (NOT (EXISTS ( SELECT 1\n           FROM subscription_renewals sr\n          WHERE ((sr.user_id = s.user_id) AND (sr.status = 'success'::text) AND (sr.renewal_date \u003e= (s.current_period_end - '01:00:00'::interval)) AND (sr.renewal_date \u003c= (s.current_period_end + '25:00:00'::interval)))))));",
+    "view_name": "subscriptions_due_for_renewal"
+  },
+  {
+    "table_schema": "public",
+    "view_definition": " SELECT d.id AS deal_id,\n    d.name AS deal_name,\n    d.trusted_partner_id AS owner_user_id,\n    d.business_id,\n    d.deal_category,\n    d.city,\n    get_deal_end_date(d.schedule_data) AS end_date,\n    b.name AS business_name,\n    b.business_email,\n    p.email AS owner_email,\n    COALESCE(NULLIF(TRIM(BOTH FROM concat(p.name, ' ', p.surname)), ''::text), 'Partner'::text) AS owner_name\n   FROM ((trusted_partner_discounts d\n     LEFT JOIN businesses b ON ((b.id = d.business_id)))\n     LEFT JOIN profiles p ON ((p.id = d.trusted_partner_id)))\n  WHERE ((d.is_active = true) AND (get_deal_end_date(d.schedule_data) IS NOT NULL) AND (get_deal_end_date(d.schedule_data) \u003c ((now() AT TIME ZONE 'UTC'::text))::date));",
+    "view_name": "tp_deals_expired_today"
+  },
+  {
+    "table_schema": "public",
+    "view_definition": " SELECT d.id AS deal_id,\n    d.name AS deal_name,\n    d.trusted_partner_id AS owner_user_id,\n    d.business_id,\n    d.deal_category,\n    d.city,\n    get_deal_end_date(d.schedule_data) AS end_date,\n    b.name AS business_name,\n    b.business_email,\n    p.email AS owner_email,\n    COALESCE(NULLIF(TRIM(BOTH FROM concat(p.name, ' ', p.surname)), ''::text), 'Partner'::text) AS owner_name\n   FROM ((trusted_partner_discounts d\n     LEFT JOIN businesses b ON ((b.id = d.business_id)))\n     LEFT JOIN profiles p ON ((p.id = d.trusted_partner_id)))\n  WHERE ((d.is_active = true) AND (get_deal_end_date(d.schedule_data) = ((((now() AT TIME ZONE 'UTC'::text))::date + '1 day'::interval))::date));",
+    "view_name": "tp_deals_expiring_tomorrow"
+  }
+]

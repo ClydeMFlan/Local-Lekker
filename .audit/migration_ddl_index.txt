@@ -1,0 +1,539 @@
+﻿C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:7: create table if not exists public.profiles (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:27: create table if not exists public.memberships (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:37: create table if not exists public.trusted_partners (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:45: create table if not exists public.businesses (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:62: create table if not exists public.users (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:69: alter table public.profiles enable row level security;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:70: alter table public.memberships enable row level security;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:71: alter table public.trusted_partners enable row level security;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:72: alter table public.businesses enable row level security;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:73: alter table public.users enable row level security;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:76: create policy "Users can view own profile" on public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:79: create policy "Users can update own profile" on public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:82: create policy "Users can view own membership" on public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:85: create policy "Users can view own trusted_partner record" on public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:88: create policy "Users can view own business" on public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:91: create policy "Users can update own business" on public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20240913000000_create_base_tables.sql:94: create policy "Users can view own user record" on public.users
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20241015000003_recreate_check_email_function.sql:9: CREATE OR REPLACE FUNCTION public.check_email_exists(user_email TEXT)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250914182212_create_get_admin_dashboard.sql:1: create function public.get_admin_dashboard()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250916131000_create_missing_users_and_profile_policy.sql:62: alter table public.profiles enable row level security;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250916131000_create_missing_users_and_profile_policy.sql:64: -- CREATE POLICY syntax does not accept comma-separated actions.
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250916131000_create_missing_users_and_profile_policy.sql:65: create policy allow_self_profile_insert
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250916131000_create_missing_users_and_profile_policy.sql:70: create policy allow_self_profile_update
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917090000_add_fk_invitations_entity.sql:19: execute 'alter table public.invitations add column entity_id uuid';
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917090000_add_fk_invitations_entity.sql:55: execute 'alter table public.invitations add constraint invitations_entity_id_fkey foreign key (entity_id) references public.entities(id) on delete set null';
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917091500_create_staff_onboarding_rpc.sql:8: create or replace function public.create_staff_admin(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917100000_fix_users_policy_recursion.sql:54: execute 'alter table public.users enable row level security';
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917100000_fix_users_policy_recursion.sql:62: create policy allow_self_users_select
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917100000_fix_users_policy_recursion.sql:70: create policy allow_self_users_insert
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917100000_fix_users_policy_recursion.sql:78: create policy allow_self_users_update
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917200000_fix_business_profile_user_fk.sql:9: create or replace function public.complete_business_profile(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917210000_create_payments_table.sql:3: DROP TABLE IF EXISTS payments CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917210000_create_payments_table.sql:6: CREATE TABLE payments (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917210000_create_payments_table.sql:25: ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917210000_create_payments_table.sql:34: CREATE POLICY "Users can view their own payments" ON payments
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917210000_create_payments_table.sql:37: CREATE POLICY "Users can insert their own payments" ON payments
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917210000_create_payments_table.sql:40: CREATE POLICY "Admins can view all payments" ON payments
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917210000_create_payments_table.sql:49: CREATE POLICY "Service role can manage payments" ON payments
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917210000_create_payments_table.sql:52: -- Create or replace function to update updated_at timestamp
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917210000_create_payments_table.sql:53: CREATE OR REPLACE FUNCTION update_payments_updated_at()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250917210000_create_payments_table.sql:63: CREATE TRIGGER trigger_update_payments_updated_at
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000000_add_surname_to_profiles.sql:7: alter table public.profiles add column if not exists surname text;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000001_update_complete_merchant_signup_for_surname.sql:9: create or replace function public.complete_trusted_partner_signup(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000002_add_contact_number_to_business_profile.sql:13: alter table public.businesses add column contact_number text;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000002_add_contact_number_to_business_profile.sql:22: create or replace function public.complete_business_profile(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000003_add_contact_number_column.sql:7: alter table public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000003_add_contact_number_column.sql:8: add column if not exists contact_number text;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000004_add_businesses_rls_policies.sql:7: alter table public.businesses enable row level security;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000004_add_businesses_rls_policies.sql:10: create policy "Users can view their own business" on public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000004_add_businesses_rls_policies.sql:14: create policy "Users can insert their own business" on public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000004_add_businesses_rls_policies.sql:18: create policy "Users can update their own business" on public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000004_add_businesses_rls_policies.sql:22: create policy "Users can delete their own business" on public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000004_add_businesses_rls_policies.sql:26: create policy "Service role can manage all businesses" on public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000005_fix_role_assignments.sql:8: ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000005_fix_role_assignments.sql:9: ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS valid_role;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000005_fix_role_assignments.sql:10: ALTER TABLE public.memberships DROP CONSTRAINT IF EXISTS valid_membership_role;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000005_fix_role_assignments.sql:24: ALTER TABLE public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000005_fix_role_assignments.sql:28: ALTER TABLE public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918000005_fix_role_assignments.sql:32: ALTER TABLE public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql:53: ALTER TABLE public.memberships ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql:56: CREATE POLICY "Users can view their own memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql:61: CREATE POLICY "Users can insert their own memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql:66: CREATE POLICY "Users can update their own memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918120000_check_and_fix_memberships_policies.sql:72: CREATE POLICY "Service role can manage memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql:19: CREATE POLICY "Users can view their own memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql:29: CREATE POLICY "Users can insert their own memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql:39: CREATE POLICY "Users can update their own memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250918130000_fix_recursive_memberships_policies.sql:50: CREATE POLICY "Service role can manage memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919000000_add_user_profile_fields_to_profiles.sql:7: alter table public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919000000_add_user_profile_fields_to_profiles.sql:8: add column if not exists street text,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919000000_add_user_profile_fields_to_profiles.sql:9: add column if not exists suburb text,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919000000_add_user_profile_fields_to_profiles.sql:10: add column if not exists city text,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919000000_add_user_profile_fields_to_profiles.sql:11: add column if not exists contact text,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919000000_add_user_profile_fields_to_profiles.sql:12: add column if not exists gender text,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919000000_add_user_profile_fields_to_profiles.sql:13: add column if not exists ethnicity text,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919000000_add_user_profile_fields_to_profiles.sql:14: add column if not exists province text,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919000000_add_user_profile_fields_to_profiles.sql:15: add column if not exists date_of_birth timestamp with time zone;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919160330_fix_merchant_role_assignment.sql:7: CREATE OR REPLACE FUNCTION public.complete_business_profile(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919170000_create_automatic_role_assignment_trigger.sql:7: CREATE OR REPLACE FUNCTION public.handle_new_user_role_assignment()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919170000_create_automatic_role_assignment_trigger.sql:157: CREATE TRIGGER trigger_automatic_role_assignment
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919171000_fix_trigger_error_handling.sql:7: CREATE OR REPLACE FUNCTION public.handle_new_user_role_assignment()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919172000_add_trigger_logging.sql:7: CREATE OR REPLACE FUNCTION public.handle_new_user_role_assignment()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919180000_add_trigger_insert_policies.sql:9: CREATE POLICY "Service role can insert profiles" ON public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919180000_add_trigger_insert_policies.sql:14: CREATE POLICY "Service role can manage profiles" ON public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250919180000_add_trigger_insert_policies.sql:21: CREATE POLICY "Service role can manage memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250920000000_update_trigger_for_complete_profiles.sql:7: CREATE OR REPLACE FUNCTION public.handle_new_user_role_assignment()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250920163858_update_subscription_countdown.sql:10: CREATE OR REPLACE FUNCTION public.get_subscription_status(p_user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921000000_debug_user_metadata_trigger.sql:7: CREATE OR REPLACE FUNCTION public.handle_new_user_role_assignment()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100000_create_merchant_discounts_table.sql:2: CREATE TABLE IF NOT EXISTS merchant_discounts (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100000_create_merchant_discounts_table.sql:25: ALTER TABLE merchant_discounts ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100000_create_merchant_discounts_table.sql:28: CREATE POLICY "Users can view their own discounts" ON merchant_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100000_create_merchant_discounts_table.sql:31: CREATE POLICY "Users can insert their own discounts" ON merchant_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100000_create_merchant_discounts_table.sql:34: CREATE POLICY "Users can update their own discounts" ON merchant_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100000_create_merchant_discounts_table.sql:37: CREATE POLICY "Users can delete their own discounts" ON merchant_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100000_create_merchant_discounts_table.sql:40: -- Create function to update updated_at timestamp
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100000_create_merchant_discounts_table.sql:41: CREATE OR REPLACE FUNCTION update_merchant_discounts_updated_at()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100000_create_merchant_discounts_table.sql:49: -- Create trigger to automatically update updated_at
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100000_create_merchant_discounts_table.sql:50: CREATE TRIGGER update_merchant_discounts_updated_at_trigger
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100001_populate_name_surname_from_qr_code.sql:7: CREATE TABLE IF NOT EXISTS public.user_qr_codes (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100001_populate_name_surname_from_qr_code.sql:18: ALTER TABLE public.user_qr_codes
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100001_populate_name_surname_from_qr_code.sql:19: ADD COLUMN IF NOT EXISTS name TEXT,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100001_populate_name_surname_from_qr_code.sql:20: ADD COLUMN IF NOT EXISTS surname TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100001_populate_name_surname_from_qr_code.sql:23: CREATE OR REPLACE FUNCTION public.generate_user_qr_code(user_uuid UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100002_add_offers_view_policy.sql:4: CREATE POLICY "Users can view active discounts from all merchants" ON merchant_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921100003_add_business_offers_policy.sql:4: CREATE POLICY "Users can view business names for offers" ON businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql:2: CREATE TABLE IF NOT EXISTS merchant_discounts (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql:25: ALTER TABLE merchant_discounts ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql:34: CREATE POLICY "Users can view their own discounts" ON merchant_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql:37: CREATE POLICY "Users can insert their own discounts" ON merchant_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql:40: CREATE POLICY "Users can update their own discounts" ON merchant_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql:43: CREATE POLICY "Users can delete their own discounts" ON merchant_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql:46: -- Create function to update updated_at timestamp
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql:47: CREATE OR REPLACE FUNCTION update_merchant_discounts_updated_at()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql:58: -- Create trigger to automatically update updated_at
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250921195740_ensure_merchant_discounts_table.sql:59: CREATE TRIGGER update_merchant_discounts_updated_at_trigger
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250922000000_fix_trigger_date_casting.sql:7: CREATE OR REPLACE FUNCTION public.handle_new_user_role_assignment()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250923000000_simplify_trigger.sql:7: CREATE OR REPLACE FUNCTION public.handle_new_user_role_assignment()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924000001_minimal_trigger.sql:7: CREATE OR REPLACE FUNCTION public.handle_new_user_role_assignment()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql:26: alter table public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql:47: create policy "Members can view own trusted partner record" on public.merchants
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql:52: create policy "Trusted partners can view own business" on public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql:55: create policy "Trusted partners can update own business" on public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924133431_update_role_terminology.sql:25: ALTER TABLE public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924133431_update_role_terminology.sql:40: -- CREATE POLICY "Members can view own trusted partner record" ON public.merchants -- Table doesn't exist yet
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924133431_update_role_terminology.sql:43: CREATE POLICY "Trusted partners can view own business" ON public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924133431_update_role_terminology.sql:46: CREATE POLICY "Trusted partners can update own business" ON public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924140000_add_profile_insert_policy.sql:7: CREATE POLICY "Users can insert own profile" ON public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql:7: alter table if exists public.merchants rename to trusted_partners;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql:14: ALTER TABLE public.businesses RENAME COLUMN owner_user_id TO owner_member_id;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql:38: alter table if exists public.businesses drop constraint if exists businesses_owner_user_id_fkey;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql:39: alter table if exists public.businesses drop constraint if exists businesses_owner_member_id_fkey;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql:42: alter table public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql:49: create policy "Members can view own trusted partner record" on public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql:54: create policy "Members can update own trusted partner record" on public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql:59: create policy "Members can insert own trusted partner record" on public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924165015_update_terminology_merchant_to_trusted_partner_user_to_member.sql:68: create or replace function public.complete_business_profile(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:10: --         ALTER TABLE public.merchant_discounts RENAME TO trusted_partner_discounts;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:15: -- ALTER TABLE IF EXISTS public.trusted_partner_discounts RENAME COLUMN merchant_id TO trusted_partner_id;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:18: -- ALTER TABLE IF EXISTS public.trusted_partner_discounts DROP CONSTRAINT IF EXISTS merchant_discounts_merchant_id_fkey;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:19: -- ALTER TABLE public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:31: -- CREATE POLICY "Members can view their own discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:34: -- CREATE POLICY "Members can insert their own discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:37: -- CREATE POLICY "Members can update their own discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:40: -- CREATE POLICY "Members can delete their own discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:43: -- CREATE POLICY "Members can view active discounts from all trusted partners" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:55: CREATE OR REPLACE FUNCTION update_trusted_partner_discounts_updated_at()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924170000_rename_merchant_discounts_to_trusted_partner_discounts.sql:67: -- CREATE TRIGGER update_trusted_partner_discounts_updated_at_trigger
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:10: --     ALTER TABLE public.merchants RENAME TO trusted_partners;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:18: --     ALTER TABLE public.merchant_discounts RENAME TO trusted_partner_discounts;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:26: ALTER TABLE public.trusted_partner_discounts RENAME COLUMN merchant_id TO trusted_partner_id;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:40: ALTER TABLE public.trusted_partner_discounts DROP CONSTRAINT IF EXISTS merchant_discounts_merchant_id_fkey;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:41: ALTER TABLE public.trusted_partner_discounts DROP CONSTRAINT IF EXISTS trusted_partner_discounts_merchant_id_fkey;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:42: ALTER TABLE public.trusted_partner_discounts DROP CONSTRAINT IF EXISTS trusted_partner_discounts_trusted_partner_id_fkey;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:44: ALTER TABLE public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:60: CREATE POLICY "Members can view their own discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:63: CREATE POLICY "Members can insert their own discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:66: CREATE POLICY "Members can update their own discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:69: CREATE POLICY "Members can delete their own discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250924180000_final_terminology_cleanup.sql:72: CREATE POLICY "Members can view active discounts from all trusted partners" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000001_create_try_cast_double_function.sql:7: CREATE OR REPLACE FUNCTION public.try_cast_double(input_text text)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:7: CREATE TABLE IF NOT EXISTS public.user_qr_codes (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:18: CREATE TABLE IF NOT EXISTS public.subscriptions (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:35: CREATE TABLE IF NOT EXISTS public.subscription_renewals (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:56: ALTER TABLE public.user_qr_codes ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:57: ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:58: ALTER TABLE public.subscription_renewals ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:64: CREATE POLICY "Users can view their own QR codes" ON public.user_qr_codes
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:69: CREATE POLICY "Users can insert their own QR codes" ON public.user_qr_codes
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:74: CREATE POLICY "Users can update their own QR codes" ON public.user_qr_codes
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:83: CREATE POLICY "Users can view their own subscriptions" ON public.subscriptions
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:88: CREATE POLICY "Users can insert their own subscriptions" ON public.subscriptions
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:93: CREATE POLICY "Users can update their own subscriptions" ON public.subscriptions
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:102: CREATE POLICY "Users can view their own renewal history" ON public.subscription_renewals
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:107: CREATE POLICY "Service role can manage renewals" ON public.subscription_renewals
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:113: CREATE OR REPLACE FUNCTION public.generate_user_qr_code(user_uuid UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925000003_create_qr_codes_and_subscriptions.sql:135: CREATE OR REPLACE FUNCTION public.process_monthly_renewal()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925163139_fix_processed_bills_member_id_column.sql:7: -- ALTER TABLE public.processed_bills RENAME COLUMN user_id TO member_id;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925163139_fix_processed_bills_member_id_column.sql:18: CREATE POLICY "Members can view their own processed bills" ON public.processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925163139_fix_processed_bills_member_id_column.sql:21: CREATE POLICY "Members can insert their own processed bills" ON public.processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925163139_fix_processed_bills_member_id_column.sql:24: CREATE POLICY "Members can update their own processed bills" ON public.processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925163139_fix_processed_bills_member_id_column.sql:28: CREATE OR REPLACE FUNCTION get_user_bill_statistics(user_uuid UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:2: CREATE TABLE IF NOT EXISTS business_logos (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:19: ALTER TABLE business_logos ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:22: CREATE POLICY "Business owners can view their own logos" ON business_logos
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:29: CREATE POLICY "Business owners can insert their own logos" ON business_logos
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:36: CREATE POLICY "Business owners can update their own logos" ON business_logos
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:43: CREATE POLICY "Business owners can delete their own logos" ON business_logos
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:56: CREATE POLICY "Business owners can view their logos" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:64: CREATE POLICY "Business owners can upload their logos" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:72: CREATE POLICY "Business owners can update their logos" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:80: CREATE POLICY "Business owners can delete their logos" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:89: CREATE OR REPLACE FUNCTION update_business_logos_updated_at()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925164403_create_business_logos_table_and_storage.sql:97: CREATE TRIGGER update_business_logos_updated_at
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:2: CREATE TABLE IF NOT EXISTS business_bills (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:20: ALTER TABLE business_bills ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:23: CREATE POLICY "Business owners can view their own bills" ON business_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:30: CREATE POLICY "Business owners can insert their own bills" ON business_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:37: CREATE POLICY "Business owners can update their own bills" ON business_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:44: CREATE POLICY "Business owners can delete their own bills" ON business_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:57: CREATE POLICY "Business owners can view their bills" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:65: CREATE POLICY "Business owners can upload their bills" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:73: CREATE POLICY "Business owners can update their bills" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:81: CREATE POLICY "Business owners can delete their bills" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:90: CREATE OR REPLACE FUNCTION update_business_bills_updated_at()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925170000_create_business_bills_table_and_storage.sql:98: CREATE TRIGGER update_business_bills_updated_at
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:5: ALTER TABLE processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:6: ADD COLUMN IF NOT EXISTS approval_status TEXT DEFAULT 'pending'
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:9: ALTER TABLE processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:10: ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP WITH TIME ZONE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:12: ALTER TABLE processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:13: ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES auth.users(id);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:15: ALTER TABLE processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:16: ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:19: ALTER TABLE processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:20: ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'pending'
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:23: ALTER TABLE processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:24: ADD COLUMN IF NOT EXISTS payment_id UUID REFERENCES payments(id);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:27: CREATE TABLE IF NOT EXISTS trusted_partner_bank_accounts (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:51: ALTER TABLE trusted_partner_bank_accounts ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:60: CREATE POLICY "Users can view own bank accounts"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:64: CREATE POLICY "Users can insert own bank accounts"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:68: CREATE POLICY "Users can update own bank accounts"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:72: CREATE POLICY "Users can delete own bank accounts"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:77: CREATE TABLE IF NOT EXISTS bill_approvals (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:96: ALTER TABLE bill_approvals ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:104: CREATE POLICY "Partners can view their own approvals"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:108: CREATE POLICY "Partners can insert approvals for their bills"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:112: CREATE POLICY "Partners can update their own approvals"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:116: -- Create function to automatically create approval records
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:117: CREATE OR REPLACE FUNCTION create_bill_approval()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:130: -- Create trigger to auto-create approval records
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:132: CREATE TRIGGER trigger_create_bill_approval
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:137: -- Create function to update bill approval status
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:138: CREATE OR REPLACE FUNCTION update_bill_approval_status()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:155: -- Create trigger for approval status updates
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:157: CREATE TRIGGER trigger_update_bill_approval_status
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:163: CREATE OR REPLACE FUNCTION public.update_trusted_partner_bank_accounts_updated_at()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:172: CREATE TRIGGER update_trusted_partner_bank_accounts_updated_at
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:177: CREATE OR REPLACE FUNCTION public.update_bill_approvals_updated_at()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250925193346_add_trusted_partner_payment_flow.sql:186: CREATE TRIGGER update_bill_approvals_updated_at
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:7: CREATE TABLE IF NOT EXISTS public.payment_schedules (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:28: ALTER TABLE public.payment_schedules ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:34: CREATE POLICY "Users can view their own payment schedules" ON public.payment_schedules
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:37: CREATE POLICY "Service role can manage payment schedules" ON public.payment_schedules
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:42: CREATE OR REPLACE FUNCTION public.schedule_automatic_payment(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:75: CREATE OR REPLACE FUNCTION public.process_automatic_payments()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:262: CREATE OR REPLACE FUNCTION public.activate_qr_after_payment(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:355: CREATE OR REPLACE FUNCTION public.handle_payment_completion()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:376: -- Create trigger on payments table
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:378: CREATE TRIGGER trigger_payment_completion
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:385: CREATE OR REPLACE FUNCTION public.get_subscription_status(p_user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:439: CREATE OR REPLACE FUNCTION public.enable_auto_renewal(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250926000000_automatic_qr_payment_management.sql:495: CREATE OR REPLACE FUNCTION public.disable_auto_renewal(p_user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250927000000_fix_qr_activation_function.sql:7: CREATE OR REPLACE FUNCTION public.activate_qr_after_payment(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250927050346_fix_payfast_remarketing_column.sql:5: ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS remarketing_id TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250927050346_fix_payfast_remarketing_column.sql:8: ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS pf_payment_id TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250927050346_fix_payfast_remarketing_column.sql:9: ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_status TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250927050346_fix_payfast_remarketing_column.sql:10: ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS item_name TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250927050346_fix_payfast_remarketing_column.sql:11: ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS item_description TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250927050346_fix_payfast_remarketing_column.sql:12: ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS merchant_id TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250927050346_fix_payfast_remarketing_column.sql:13: ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS token TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250927050346_fix_payfast_remarketing_column.sql:14: ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS signature TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250928000000_fix_plan_type_validation.sql:7: CREATE OR REPLACE FUNCTION public.activate_qr_after_payment(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250928100541_create_calibration_receipts_table.sql:5: CREATE TABLE IF NOT EXISTS calibration_receipts (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250928100541_create_calibration_receipts_table.sql:22: ALTER TABLE calibration_receipts ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250928100541_create_calibration_receipts_table.sql:25: CREATE POLICY "Business owners can manage their calibration receipts"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250928100541_create_calibration_receipts_table.sql:31: CREATE POLICY "Members can view active calibration receipts"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250928100541_create_calibration_receipts_table.sql:37: CREATE POLICY "Service role can manage all calibration receipts"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250929000000_fix_subscription_status_function.sql:10: CREATE OR REPLACE FUNCTION public.get_subscription_status(p_user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250930000000_fix_qr_functions_populate_name_surname.sql:7: CREATE OR REPLACE FUNCTION public.activate_qr_after_payment(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250930000000_fix_qr_functions_populate_name_surname.sql:108: CREATE OR REPLACE FUNCTION public.process_automatic_payment(p_user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20250930100000_fix_merchants_table_population.sql:4: CREATE OR REPLACE FUNCTION public.complete_business_profile(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251001120000_fix_remaining_merchant_role_functions.sql:7: CREATE OR REPLACE FUNCTION public.complete_trusted_partner_signup(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251001120000_fix_remaining_merchant_role_functions.sql:76: CREATE OR REPLACE FUNCTION public.complete_business_profile(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251001120000_fix_remaining_merchant_role_functions.sql:157: CREATE OR REPLACE FUNCTION public.complete_business_profile(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251001130000_fix_businesses_table_column.sql:18: ALTER TABLE public.businesses RENAME COLUMN owner_user_id TO owner_member_id;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251001130000_fix_businesses_table_column.sql:29: ALTER TABLE public.businesses ADD COLUMN owner_member_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010071744_make_discount_id_nullable.sql:2: ALTER TABLE processed_bills ALTER COLUMN discount_id DROP NOT NULL;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010100000_add_deal_fields_to_trusted_partner_discounts.sql:2: ALTER TABLE trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010100000_add_deal_fields_to_trusted_partner_discounts.sql:3: ADD COLUMN IF NOT EXISTS item_name TEXT,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010100000_add_deal_fields_to_trusted_partner_discounts.sql:4: ADD COLUMN IF NOT EXISTS item_price DECIMAL(10,2);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010100000_add_deal_fields_to_trusted_partner_discounts.sql:16: ALTER TABLE trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:2: CREATE TABLE IF NOT EXISTS deal_authorizations (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:20: CREATE TABLE IF NOT EXISTS virtual_receipts (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:30: CREATE TABLE IF NOT EXISTS member_receipts (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:44: CREATE TABLE IF NOT EXISTS notifications (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:60: ALTER TABLE deal_authorizations ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:61: ALTER TABLE virtual_receipts ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:62: ALTER TABLE member_receipts ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:63: ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:66: CREATE POLICY "Members can view their own authorizations" ON deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:69: CREATE POLICY "Trusted partners can view authorizations for their business" ON deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:78: CREATE POLICY "Trusted partners can update authorizations for their business" ON deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:87: CREATE POLICY "Members can insert their own authorizations" ON deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:91: CREATE POLICY "Members can view their own virtual receipts" ON virtual_receipts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:100: CREATE POLICY "Trusted partners can view virtual receipts for their authorizations" ON virtual_receipts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:114: CREATE POLICY "Members can view their own receipts" ON member_receipts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:117: CREATE POLICY "Members can insert their own receipts" ON member_receipts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:120: CREATE POLICY "Members can update their own receipts" ON member_receipts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:124: CREATE POLICY "Users can view their own notifications" ON notifications
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:127: CREATE POLICY "Users can update their own notifications" ON notifications
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:131: CREATE OR REPLACE FUNCTION update_updated_at_column()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251010130000_create_deal_authorizations.sql:140: -- CREATE TRIGGER update_deal_authorizations_updated_at
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013191852_fix_discount_visibility.sql:5: ALTER TABLE trusted_partner_discounts ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013191852_fix_discount_visibility.sql:9: CREATE POLICY "Users can view all discounts" ON trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013191852_fix_discount_visibility.sql:14: CREATE POLICY "Business owners can manage their discounts" ON trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013193911_fix_notifications_rls_policies.sql:15: CREATE POLICY "Users can view their notifications" ON notifications
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013193911_fix_notifications_rls_policies.sql:18: CREATE POLICY "Authenticated users can insert notifications" ON notifications
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013193911_fix_notifications_rls_policies.sql:21: CREATE POLICY "Users can update their notifications" ON notifications
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:18: DROP TABLE IF EXISTS public.memberships CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:19: CREATE TABLE public.memberships (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:28: ALTER TABLE public.memberships ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:31: CREATE POLICY "Users can view their own membership" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:34: CREATE POLICY "Admins can view all memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:42: CREATE POLICY "Admins can update memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:53: DROP TABLE IF EXISTS public.profiles CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:54: CREATE TABLE public.profiles (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:76: ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:79: CREATE POLICY "Users can view their own profile" ON public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:82: CREATE POLICY "Users can update their own profile" ON public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:85: CREATE POLICY "Authenticated users can insert their profile" ON public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:88: CREATE POLICY "Admins can view all profiles" ON public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:99: DROP TABLE IF EXISTS public.trusted_partners CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:100: CREATE TABLE public.trusted_partners (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:108: ALTER TABLE public.trusted_partners ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:111: CREATE POLICY "Users can view their own trusted_partner record" ON public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:114: CREATE POLICY "Users can update their own trusted_partner record" ON public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:117: CREATE POLICY "Authenticated users can insert trusted_partner records" ON public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:120: CREATE POLICY "Admins can view all trusted_partners" ON public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:131: DROP TABLE IF EXISTS public.businesses CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:132: CREATE TABLE public.businesses (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:149: ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:152: CREATE POLICY "Users can view all businesses" ON public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:155: CREATE POLICY "Business owners can update their business" ON public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:158: CREATE POLICY "Authenticated users can create businesses" ON public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:161: CREATE POLICY "Admins can manage all businesses" ON public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:172: DROP TABLE IF EXISTS public.trusted_partner_bank_accounts CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:173: CREATE TABLE public.trusted_partner_bank_accounts (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:190: ALTER TABLE public.trusted_partner_bank_accounts ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:192: CREATE POLICY "Users can view own bank accounts" ON public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:195: CREATE POLICY "Users can insert own bank accounts" ON public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:198: CREATE POLICY "Users can update own bank accounts" ON public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:201: CREATE POLICY "Users can delete own bank accounts" ON public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:207: DROP TABLE IF EXISTS public.trusted_partner_discounts CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:208: CREATE TABLE public.trusted_partner_discounts (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:224: ALTER TABLE public.trusted_partner_discounts ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:227: CREATE POLICY "Users can view all active discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:230: CREATE POLICY "Business owners can manage their discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:238: CREATE POLICY "Admins can view all discounts" ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:249: DROP TABLE IF EXISTS public.deal_authorizations CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:250: CREATE TABLE public.deal_authorizations (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:268: ALTER TABLE public.deal_authorizations ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:271: CREATE POLICY "Members can view their own authorizations" ON public.deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:274: CREATE POLICY "Members can create their own authorizations" ON public.deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:277: CREATE POLICY "Business owners can view authorizations for their business" ON public.deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:285: CREATE POLICY "Business owners can update authorizations for their business" ON public.deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:293: CREATE POLICY "Admins can view all authorizations" ON public.deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:304: DROP TABLE IF EXISTS public.notifications CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:305: CREATE TABLE public.notifications (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:318: ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:321: CREATE POLICY "Users can view their own notifications" ON public.notifications
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:324: CREATE POLICY "Users can update their own notifications" ON public.notifications
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:327: CREATE POLICY "Authenticated users can insert notifications" ON public.notifications
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:330: CREATE POLICY "Admins can view all notifications" ON public.notifications
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:341: DROP TABLE IF EXISTS public.processed_bills CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:342: CREATE TABLE public.processed_bills (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:361: ALTER TABLE public.processed_bills ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:364: CREATE POLICY "Members can view their own bills" ON public.processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:367: CREATE POLICY "Members can insert their own bills" ON public.processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:370: CREATE POLICY "Members can update their own bills" ON public.processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:373: CREATE POLICY "Business owners can view bills for their business" ON public.processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:381: CREATE POLICY "Admins can view all bills" ON public.processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:392: DROP TABLE IF EXISTS public.payments CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:393: CREATE TABLE public.payments (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:408: ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:411: CREATE POLICY "Members can view their own payments" ON public.payments
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:414: CREATE POLICY "Authenticated users can insert payments" ON public.payments
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:417: CREATE POLICY "Admins can view all payments" ON public.payments
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:425: CREATE POLICY "Admins can update payments" ON public.payments
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:436: DROP TABLE IF EXISTS public.user_qr_codes CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:437: CREATE TABLE public.user_qr_codes (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:451: ALTER TABLE public.user_qr_codes ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:454: CREATE POLICY "Users can view their own QR codes" ON public.user_qr_codes
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:457: CREATE POLICY "Users can insert their own QR codes" ON public.user_qr_codes
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:460: CREATE POLICY "Admins can view all QR codes" ON public.user_qr_codes
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:471: DROP TABLE IF EXISTS public.subscriptions CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:472: CREATE TABLE public.subscriptions (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:486: ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:489: CREATE POLICY "Users can view their own subscriptions" ON public.subscriptions
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:492: CREATE POLICY "Users can update their own subscriptions" ON public.subscriptions
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:495: CREATE POLICY "Authenticated users can insert subscriptions" ON public.subscriptions
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:498: CREATE POLICY "Admins can view all subscriptions" ON public.subscriptions
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:538: CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:547: CREATE TRIGGER update_memberships_updated_at BEFORE UPDATE ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:550: CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:553: CREATE TRIGGER update_trusted_partners_updated_at BEFORE UPDATE ON public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:556: CREATE TRIGGER update_businesses_updated_at BEFORE UPDATE ON public.businesses
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:559: CREATE TRIGGER update_trusted_partner_discounts_updated_at BEFORE UPDATE ON public.trusted_partner_discounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:562: CREATE TRIGGER update_deal_authorizations_updated_at BEFORE UPDATE ON public.deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:565: CREATE TRIGGER update_notifications_updated_at BEFORE UPDATE ON public.notifications
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:568: CREATE TRIGGER update_processed_bills_updated_at BEFORE UPDATE ON public.processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:571: CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON public.payments
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:574: CREATE TRIGGER update_user_qr_codes_updated_at BEFORE UPDATE ON public.user_qr_codes
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:577: CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON public.subscriptions
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251013223100_deploy_comprehensive_schema.sql:580: CREATE TRIGGER update_trusted_partner_bank_accounts_updated_at BEFORE UPDATE ON public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251015072430_create_user_profile_function.sql:4: CREATE OR REPLACE FUNCTION public.create_user_profile(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251015082352_drop_merchant_discounts_table.sql:4: DROP TABLE IF EXISTS public.merchant_discounts CASCADE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251015124629_add_subscription_column_to_profiles.sql:2: ALTER TABLE public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251015124629_add_subscription_column_to_profiles.sql:3: ADD COLUMN IF NOT EXISTS subscription TEXT DEFAULT 'inactive'
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251015155426_add_check_email_function.sql:6: CREATE OR REPLACE FUNCTION public.check_email_exists(user_email TEXT)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251015160000_add_anon_email_policy.sql:4: CREATE POLICY "Anon can check email" ON public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251015161000_update_anon_policy_to_anon.sql:6: CREATE POLICY "Anon can check email" ON public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251024130520_add_quantity_to_deal_authorizations.sql:2: ALTER TABLE deal_authorizations ADD COLUMN IF NOT EXISTS quantity INTEGER;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251027104032_fix_profiles_rls_for_notifications.sql:15: CREATE POLICY "Authenticated users can view profiles for FK validation" ON profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029120000_add_branch_code_column.sql:4: ALTER TABLE trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029120000_add_branch_code_column.sql:5: ADD COLUMN IF NOT EXISTS branch_code VARCHAR(6);
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:5: ALTER TABLE public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:6: ADD COLUMN IF NOT EXISTS paystack_recipient_code TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:8: ALTER TABLE public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:9: ADD COLUMN IF NOT EXISTS bank_account_type TEXT CHECK (bank_account_type IN ('checking', 'savings'));
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:11: ALTER TABLE public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:12: ADD COLUMN IF NOT EXISTS branch_code TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:14: ALTER TABLE public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:15: ADD COLUMN IF NOT EXISTS bank_name TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:60: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:63: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:66: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:69: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:72: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:75: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:78: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:81: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251029133235_test_banking_migration.sql:94: ALTER TABLE public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:5: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:6: ADD COLUMN IF NOT EXISTS business_name TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:8: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:9: ADD COLUMN IF NOT EXISTS business_type TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:11: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:12: ADD COLUMN IF NOT EXISTS contact_email TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:14: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:15: ADD COLUMN IF NOT EXISTS contact_phone TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:17: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:18: ADD COLUMN IF NOT EXISTS address TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:20: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:21: ADD COLUMN IF NOT EXISTS city TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:23: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:24: ADD COLUMN IF NOT EXISTS province TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:26: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:27: ADD COLUMN IF NOT EXISTS postal_code TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:29: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:30: ADD COLUMN IF NOT EXISTS tax_number TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:32: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:33: ADD COLUMN IF NOT EXISTS bank_account_holder TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:35: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:36: ADD COLUMN IF NOT EXISTS bank_name TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:38: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:39: ADD COLUMN IF NOT EXISTS bank_account_number TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:41: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:42: ADD COLUMN IF NOT EXISTS bank_branch_code TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:44: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:45: ADD COLUMN IF NOT EXISTS bank_account_type TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:47: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:48: ADD COLUMN IF NOT EXISTS settlement_percentage DECIMAL(5,2) DEFAULT 95.0;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:50: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:51: ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:54: ALTER TABLE public.trusted_partners
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000000_add_banking_columns_to_trusted_partners.sql:55: ADD COLUMN IF NOT EXISTS paystack_subaccount_id TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000001_remove_banking_columns_from_trusted_partner_bank_accounts.sql:5: ALTER TABLE public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000001_remove_banking_columns_from_trusted_partner_bank_accounts.sql:8: ALTER TABLE public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000001_remove_banking_columns_from_trusted_partner_bank_accounts.sql:11: ALTER TABLE public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000001_remove_banking_columns_from_trusted_partner_bank_accounts.sql:14: ALTER TABLE public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:5: CREATE TABLE IF NOT EXISTS public.members_bank_accounts (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:20: CREATE TABLE IF NOT EXISTS public.members_card_details (
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:37: ALTER TABLE public.members_bank_accounts ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:38: ALTER TABLE public.members_card_details ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:42: CREATE POLICY "Members can manage their bank accounts" ON public.members_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:47: CREATE POLICY "Members can manage their card details" ON public.members_card_details
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:54: ALTER TABLE public.trusted_partner_bank_accounts ADD COLUMN paystack_recipient_code TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:57: ALTER TABLE public.trusted_partner_bank_accounts ADD COLUMN bank_account_type TEXT CHECK (bank_account_type IN ('checking', 'savings'));
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:60: ALTER TABLE public.trusted_partner_bank_accounts ADD COLUMN branch_code TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:63: ALTER TABLE public.trusted_partner_bank_accounts ADD COLUMN bank_name TEXT;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:134: ALTER TABLE public.trusted_partners DROP COLUMN IF EXISTS bank_account_holder;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:135: ALTER TABLE public.trusted_partners DROP COLUMN IF EXISTS bank_name;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:136: ALTER TABLE public.trusted_partners DROP COLUMN IF EXISTS bank_account_number;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:137: ALTER TABLE public.trusted_partners DROP COLUMN IF EXISTS bank_branch_code;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:138: ALTER TABLE public.trusted_partners DROP COLUMN IF EXISTS bank_account_type;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:139: ALTER TABLE public.trusted_partners DROP COLUMN IF EXISTS branch_code;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:140: ALTER TABLE public.trusted_partners DROP COLUMN IF EXISTS settlement_percentage;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:141: ALTER TABLE public.trusted_partners DROP COLUMN IF EXISTS is_active;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251030000002_reorganize_banking_schema.sql:163: ALTER TABLE public.trusted_partner_bank_accounts
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251124191157_add_admin_delete_functions.sql:13: CREATE OR REPLACE FUNCTION admin_delete_member_data(member_user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251124191157_add_admin_delete_functions.sql:82: CREATE OR REPLACE FUNCTION admin_delete_member(member_user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251124191157_add_admin_delete_functions.sql:104: CREATE OR REPLACE FUNCTION admin_delete_trusted_partner_data(tp_user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251124191157_add_admin_delete_functions.sql:257: CREATE OR REPLACE FUNCTION admin_delete_trusted_partner(tp_user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251124191157_add_admin_delete_functions.sql:275: CREATE OR REPLACE FUNCTION is_admin(user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251124192035_fix_missing_admin_columns.sql:15: ALTER TABLE public.profiles ADD COLUMN admin_created BOOLEAN DEFAULT false;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251124192035_fix_missing_admin_columns.sql:28: ALTER TABLE public.profiles ADD COLUMN password_set BOOLEAN DEFAULT true;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251125100511_update_trigger_for_trusted_partner.sql:6: CREATE OR REPLACE FUNCTION public.handle_new_user_role_assignment()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251125100512_add_admin_created_password_set_columns.sql:15: ALTER TABLE public.profiles ADD COLUMN admin_created BOOLEAN DEFAULT false;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251125100512_add_admin_created_password_set_columns.sql:28: ALTER TABLE public.profiles ADD COLUMN password_set BOOLEAN DEFAULT true;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251125120000_fix_trusted_partner_deletion_function.sql:4: CREATE OR REPLACE FUNCTION admin_delete_trusted_partner_data(tp_user_id UUID)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251201000000_fix_admin_memberships_infinite_recursion.sql:19: CREATE POLICY "Admins can view all memberships" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251201000000_fix_admin_memberships_infinite_recursion.sql:29: CREATE POLICY "Admins can insert any membership" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251201000000_fix_admin_memberships_infinite_recursion.sql:39: CREATE POLICY "Admins can update any membership" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20251201000000_fix_admin_memberships_infinite_recursion.sql:49: CREATE POLICY "Admins can delete any membership" ON public.memberships
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260105000000_fix_member_signup_trigger.sql:7: CREATE OR REPLACE FUNCTION public.handle_new_user_role_assignment()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql:20: -- Create policy for trusted partners to upload deal images to their own folder
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql:22: CREATE POLICY "Trusted partners can upload own deal images" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql:30: CREATE POLICY "Trusted partners can update own deal images" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql:38: CREATE POLICY "Trusted partners can delete own deal images" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql:46: CREATE POLICY "Anyone can view deal images" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260207182830_fix_deal_image_upload_rls.sql:54: CREATE POLICY "Admins can manage partner deal images" ON storage.objects
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260518090000_allow_null_discount_id_on_deal_authorizations.sql:7: ALTER TABLE public.deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260518090000_allow_null_discount_id_on_deal_authorizations.sql:10: ALTER TABLE public.deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260518090000_allow_null_discount_id_on_deal_authorizations.sql:13: ALTER TABLE public.deal_authorizations
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260518090000_allow_null_discount_id_on_deal_authorizations.sql:28: EXECUTE 'ALTER TABLE public.processed_bills ALTER COLUMN discount_id DROP NOT NULL';
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260518090000_allow_null_discount_id_on_deal_authorizations.sql:29: EXECUTE 'ALTER TABLE public.processed_bills DROP CONSTRAINT IF EXISTS processed_bills_discount_id_fkey';
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260518090000_allow_null_discount_id_on_deal_authorizations.sql:30: EXECUTE 'ALTER TABLE public.processed_bills
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613000000_add_member_terms_acceptance_rpc.sql:6: -- 1. Add columns (idempotent)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613000000_add_member_terms_acceptance_rpc.sql:7: ALTER TABLE public.profiles
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613000000_add_member_terms_acceptance_rpc.sql:8: ADD COLUMN IF NOT EXISTS member_terms_accepted     BOOLEAN      DEFAULT FALSE,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613000000_add_member_terms_acceptance_rpc.sql:9: ADD COLUMN IF NOT EXISTS member_terms_accepted_at  TIMESTAMPTZ  NULL,
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613000000_add_member_terms_acceptance_rpc.sql:10: ADD COLUMN IF NOT EXISTS member_terms_version      TEXT         NULL;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613000000_add_member_terms_acceptance_rpc.sql:25: CREATE OR REPLACE FUNCTION public.accept_member_terms(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613010000_add_member_terms_status_rpc.sql:15: CREATE OR REPLACE FUNCTION public.member_terms_accepted_status(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql:6: ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql:29: CREATE POLICY "Authenticated users can view all businesses"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql:35: CREATE POLICY "Business owners can update their business"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql:42: CREATE POLICY "Authenticated users can create businesses"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql:48: CREATE POLICY "Business owners can delete their business"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql:55: CREATE POLICY "Service role can manage all businesses"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613020000_fix_businesses_rls_recursion.sql:63: CREATE POLICY "Admins can manage all businesses via JWT"
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613123000_fix_create_user_profile_date_cast.sql:5: CREATE OR REPLACE FUNCTION public.create_user_profile(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\20260613130000_fix_create_user_profile_preserve_subscription.sql:5: CREATE OR REPLACE FUNCTION public.create_user_profile(
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\temp_20250915090000_create_get_my_role.sql:10: create function public.get_my_role()
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\temp_20250915102000_create_complete_merchant_signup.sql:9: create or replace function public.complete_trusted_partner_signup(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\temp_20250915102000_create_complete_merchant_signup.sql:116: create or replace function public.try_cast_double(txt text)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\temp_20250916124500_add_validation_to_complete_merchant_signup.sql:12: create or replace function public.complete_trusted_partner_signup(payload jsonb)
+C:\Users\clyde\Local Lekker\local_lekker\local_lekker\supabase\migrations\temp_20250916125000_create_complete_business_profile.sql:8: create or replace function public.complete_business_profile(payload jsonb)

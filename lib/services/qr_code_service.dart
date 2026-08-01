@@ -12,6 +12,53 @@ class QrCodeService {
 
   final SupabaseClient _client = Supabase.instance.client;
 
+  /// Generate a short-lived QR payload to reduce screenshot reuse.
+  Future<String> generateEphemeralQrCode(
+    String userId, {
+    Duration ttl = const Duration(seconds: 45),
+  }) async {
+    try {
+      final profile = await _client
+          .from('profiles')
+          .select('name, surname')
+          .eq('id', userId)
+          .single();
+
+      final name = profile['name'] as String? ?? 'Unknown';
+      final surname = profile['surname'] as String? ?? 'Unknown';
+      final issuedAt = DateTime.now().toUtc();
+      final expiresAt = issuedAt.add(ttl);
+
+      final data = {
+        'type': 'user_qr_v2',
+        'ver': 2,
+        'user_id': userId,
+        'name': name,
+        'surname': surname,
+        'iat': issuedAt.millisecondsSinceEpoch ~/ 1000,
+        'exp': expiresAt.millisecondsSinceEpoch ~/ 1000,
+        'nonce': '${issuedAt.microsecondsSinceEpoch}-${Random().nextInt(999999)}',
+      };
+      return jsonEncode(data);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error generating ephemeral QR code payload: $e');
+      }
+
+      final issuedAt = DateTime.now().toUtc();
+      final expiresAt = issuedAt.add(ttl);
+      final data = {
+        'type': 'user_qr_v2',
+        'ver': 2,
+        'user_id': userId,
+        'iat': issuedAt.millisecondsSinceEpoch ~/ 1000,
+        'exp': expiresAt.millisecondsSinceEpoch ~/ 1000,
+        'nonce': '${issuedAt.microsecondsSinceEpoch}-${Random().nextInt(999999)}',
+      };
+      return jsonEncode(data);
+    }
+  }
+
   /// Generate a unique QR code for a user including name and surname
   Future<String> generateUniqueQrCode(String userId) async {
     try {

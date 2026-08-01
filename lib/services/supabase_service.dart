@@ -37,6 +37,20 @@ class SupabaseService {
 
   final Logger _logger = Logger();
 
+  // In-memory cache of member terms acceptance keyed by userId. Set to true
+  // immediately after a successful acceptMemberTerms RPC so subsequent
+  // navigation checks in the same session can trust the just-written value
+  // even if the follow-up SELECT is blocked by RLS, hits replica lag, or the
+  // column read fails for any other transient reason. Prevents the loop where
+  // the user accepts terms but is bounced back to the terms page.
+  final Set<String> _memberTermsAcceptedCache = <String>{};
+
+  // In-memory cache of resolved user roles keyed by userId. A user's role does
+  // not change within a single app session, so caching it avoids repeating the
+  // multi-table/RPC role resolution on every navigation checkpoint. Cleared on
+  // sign-out so a different user in the same session never inherits a stale role.
+  final Map<String, String> _userRoleCache = <String, String>{};
+
   Future<void> init() async {
     _logger.i('SupabaseService: init() method called');
     _logger.i('SupabaseService: Initializing Supabase...');
@@ -202,7 +216,25 @@ class SupabaseService {
     } catch (e) {
       _logger.w('SupabaseService: Error clearing payment status on signOut: $e');
     }
-    await client.auth.signOut();
+    _memberTermsAcceptedCache.clear();
+    _userRoleCache.clear();
+    // A global sign-out makes a network call to revoke the refresh token. If the
+    // device is offline (e.g. "Failed host lookup" / SocketException), that call
+    // throws and would otherwise block sign-out, forcing the user to tap twice.
+    // Fall back to a local-only sign-out so the on-device session is always
+    // cleared on the first attempt regardless of connectivity.
+    try {
+      await client.auth.signOut();
+    } catch (e) {
+      _logger.w(
+        'SupabaseService: global signOut failed ($e); clearing local session only',
+      );
+      try {
+        await client.auth.signOut(scope: SignOutScope.local);
+      } catch (e2) {
+        _logger.w('SupabaseService: local signOut also failed: $e2');
+      }
+    }
   }
 
   Future<PasswordResetDelivery> resetPassword({required String email}) async {
@@ -361,6 +393,32 @@ class SupabaseService {
     }
   }
 
+  /// Verify a password-reset code WITHOUT changing the password.
+  ///
+  /// On success a recovery session is established so the caller can set the new
+  /// password afterwards via [updatePassword]. This avoids writing a throwaway
+  /// password during the reset flow (which would otherwise leave the account on
+  /// a known temporary password if the user abandons the flow).
+  Future<void> verifyPasswordResetCode({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final response = await client.auth.verifyOTP(
+        email: email.trim().toLowerCase(),
+        token: otp.trim(),
+        type: OtpType.email, // Reset OTP is sent via signInWithOtp
+      );
+      if (response.session == null || response.user == null) {
+        throw Exception('Verification failed');
+      }
+      _logger.i('Password reset code verified for: ${response.user!.email}');
+    } catch (e) {
+      _logger.e('Password reset code verification failed: $e');
+      rethrow;
+    }
+  }
+
   // Get current user
   User? getCurrentUser() {
     final user = client.auth.currentUser;
@@ -373,6 +431,23 @@ class SupabaseService {
   /// Fetch the role for the specified user id, or the current user if
   /// [userId] is not provided. Returns the role string (e.g. 'admin') or null.
   Future<String?> getUserRole({String? userId}) async {
+    final lookupId = userId ?? client.auth.currentUser?.id;
+    if (lookupId == null) return null;
+
+    // Session cache: role is stable for the lifetime of a session.
+    final cached = _userRoleCache[lookupId];
+    if (cached != null) {
+      return cached;
+    }
+
+    final resolved = await _resolveUserRole(userId: userId);
+    if (resolved != null) {
+      _userRoleCache[lookupId] = resolved;
+    }
+    return resolved;
+  }
+
+  Future<String?> _resolveUserRole({String? userId}) async {
     final user = client.auth.currentUser;
     final lookupId = userId ?? user?.id;
     if (lookupId == null) return null;
@@ -381,21 +456,35 @@ class SupabaseService {
       'SupabaseService.getUserRole: looking up role for userId=$lookupId',
     );
 
-    // Special case: check if this is the admin user by email
-    if (user?.email == 'admin@locallekker.com' ||
-        user?.email == 'locallekkerclub@gmail.com') {
-      _logger.i(
-        'SupabaseService.getUserRole: detected admin user by email, returning admin role',
-      );
-      return 'admin';
-    }
-
     try {
+      // Highest priority: authoritative admin emails. These accounts are the
+      // platform owners and must ALWAYS resolve to 'admin', regardless of
+      // metadata, RLS recursion, stale sessions, or missing DB rows. Only
+      // applied when resolving the *current* user's own role.
+      const adminEmails = <String>{
+        'admin@locallekker.com',
+        'locallekkerclub@gmail.com',
+      };
+      if ((userId == null || userId == user?.id) &&
+          user?.email != null &&
+          adminEmails.contains(user!.email!.trim().toLowerCase())) {
+        _logger.d(
+          'SupabaseService.getUserRole: authoritative admin email match for "${user.email}"',
+        );
+        return 'admin';
+      }
+
       // First priority: check user metadata (set during signup - most authoritative)
+      // NOTE: Only trust metadata for elevated roles (trusted_partner, admin).
+      // 'member' is the default set on every signup and should always be
+      // confirmed against the DB, because an admin/partner account may have
+      // been created with default metadata and later promoted in the DB.
       if (user?.userMetadata != null &&
           user!.userMetadata!.containsKey('user_type')) {
         final userType = user.userMetadata!['user_type']?.toString();
-        if (userType != null && userType.isNotEmpty) {
+        if (userType != null &&
+            userType.isNotEmpty &&
+            userType.toLowerCase() != 'member') {
           _logger.d(
             'SupabaseService.getUserRole: using user metadata, user_type="$userType"',
           );
@@ -403,7 +492,42 @@ class SupabaseService {
         }
       }
 
-      // Second priority: prefer the memberships table (memberships.user_id -> role).
+      // Second priority: the SECURITY DEFINER get_my_role() RPC. This is the
+      // most reliable source because it bypasses RLS and therefore avoids the
+      // "infinite recursion detected in policy" errors that can silently break
+      // the direct memberships/profiles table queries below. It resolves the
+      // role only for the *currently authenticated* user (auth.uid()), so we
+      // only use it when looking up the current user's own role.
+      if (userId == null || userId == user?.id) {
+        try {
+          final rpcRes = await client.rpc('get_my_role');
+          String? rpcRole;
+          if (rpcRes is String) {
+            rpcRole = rpcRes;
+          } else if (rpcRes is Map && rpcRes.containsKey('role')) {
+            rpcRole = rpcRes['role']?.toString();
+          } else if (rpcRes is List && rpcRes.isNotEmpty) {
+            final first = rpcRes.first;
+            if (first is Map && first.containsKey('role')) {
+              rpcRole = first['role']?.toString();
+            } else if (first is String) {
+              rpcRole = first;
+            }
+          }
+          if (rpcRole != null && rpcRole.isNotEmpty) {
+            _logger.d(
+              'SupabaseService.getUserRole: resolved role via get_my_role() RPC: "$rpcRole"',
+            );
+            return rpcRole;
+          }
+        } catch (e) {
+          _logger.w(
+            'SupabaseService.getUserRole: get_my_role() RPC unavailable, falling back to direct queries: $e',
+          );
+        }
+      }
+
+      // Third priority: prefer the memberships table (memberships.user_id -> role).
       try {
         final memRes = await client
             .from('memberships')
@@ -516,6 +640,16 @@ class SupabaseService {
             'SupabaseService.getUserRole admin-dashboard RPC fallback failed: $e2',
           );
         }
+      }
+
+      // Last-resort: email-based admin detection as a safety net when all
+      // DB/RPC lookups fail (e.g. first boot before memberships row exists).
+      if (user?.email == 'admin@locallekker.com' ||
+          user?.email == 'locallekkerclub@gmail.com') {
+        _logger.w(
+          'SupabaseService.getUserRole: all DB lookups failed, falling back to email-based admin detection',
+        );
+        return 'admin';
       }
 
       return null;
@@ -654,6 +788,7 @@ class SupabaseService {
     String? phone,
     required String method,
     bool isForSignIn = false,
+    bool isResumeSignup = false,
     Map<String, dynamic>? userMetadata,
   }) async {
     try {
@@ -664,6 +799,16 @@ class SupabaseService {
           shouldCreateUser: false, // Don't create user if they don't exist
         );
         _logger.i('Sign-in OTP sent to: $email');
+      } else if (isResumeSignup) {
+        // Resume signup: auth user already exists (signup was abandoned),
+        // re-send the verification OTP without creating a duplicate user.
+        // Pass updated metadata so any edited profile fields propagate.
+        await client.auth.signInWithOtp(
+          email: email,
+          shouldCreateUser: false,
+          data: userMetadata,
+        );
+        _logger.i('Resume-signup OTP sent to: $email');
       } else {
         // For signup OTP, use signInWithOtp which creates account and sends 6-digit OTP
         await client.auth.signInWithOtp(
@@ -696,11 +841,10 @@ class SupabaseService {
     bool isForSignIn = false,
   }) async {
     try {
-      // For sign-in OTPs (sent via signInWithOtp), use email type
-      // For signup OTPs (sent via signUp), use signup type
-      final otpType = (method == 'email' && isForSignIn)
-          ? OtpType.email
-          : OtpType.signup;
+      // OTPs are sent via signInWithOtp for both sign-in and signup flows.
+      // Verification must therefore use OtpType.email for email delivery,
+      // otherwise valid codes can be rejected as the wrong token type.
+      final otpType = method == 'email' ? OtpType.email : OtpType.sms;
 
       final response = await client.auth.verifyOTP(
         email: email,
@@ -774,7 +918,7 @@ class SupabaseService {
               'business_name': userMetadata['business_name'],
           };
 
-          await client.from('profiles').insert(profileData);
+          await client.from('profiles').upsert(profileData);
 
           // If this is a trusted partner, create the trusted_partners and memberships records
           if (profileData['role'] == 'trusted_partner') {
@@ -971,21 +1115,74 @@ class SupabaseService {
         );
       }
 
+      var profileSaved = false;
+
       try {
-        final result = await client
-            .from('profiles')
-            .upsert(profileData)
-            .select();
-        if (kDebugMode) {
-          print('🔐 SupabaseService.createUserProfile: upsert result: $result');
-        }
+        // Avoid upsert+select here because some RLS/policy combinations
+        // allow the write but fail the chained readback.
+        await client.from('profiles').upsert(profileData);
+        profileSaved = true;
       } catch (upsertError) {
         if (kDebugMode) {
           print(
             '🔐 SupabaseService.createUserProfile: upsert error: $upsertError',
           );
         }
-        rethrow;
+
+        // Fallback for deployments where profiles policies recurse or block
+        // direct writes but allow the security-definer RPC path.
+        final errorText = upsertError.toString().toLowerCase();
+        final shouldTryRpcFallback =
+            _isProfilesRecursionError(upsertError) ||
+            errorText.contains('row-level security') ||
+            errorText.contains('permission denied') ||
+            errorText.contains('not allowed');
+
+        if (shouldTryRpcFallback) {
+          try {
+            final rpcData = Map<String, dynamic>.from(profileData);
+
+            try {
+              await client.rpc(
+                'create_user_profile',
+                params: {'p_user_id': userId, 'p_user_data': rpcData},
+              );
+            } catch (rpcError) {
+              // Keep compatibility with older deployments where the RPC may
+              // still reject date_of_birth parsing.
+              final retryData = Map<String, dynamic>.from(rpcData)
+                ..remove('date_of_birth');
+              await client.rpc(
+                'create_user_profile',
+                params: {'p_user_id': userId, 'p_user_data': retryData},
+              );
+
+              if (kDebugMode) {
+                print(
+                  '🔐 SupabaseService.createUserProfile: create_user_profile retry succeeded without date_of_birth after initial failure: $rpcError',
+                );
+              }
+            }
+
+            profileSaved = true;
+
+            if (kDebugMode) {
+              print(
+                '🔐 SupabaseService.createUserProfile: create_user_profile RPC fallback succeeded',
+              );
+            }
+          } catch (rpcError) {
+            if (kDebugMode) {
+              print(
+                '🔐 SupabaseService.createUserProfile: create_user_profile RPC fallback failed: $rpcError',
+              );
+            }
+          }
+        }
+
+        if (!profileSaved) {
+          rethrow;
+        }
       }
 
       // Try to create membership
@@ -1149,40 +1346,6 @@ class SupabaseService {
   Future<dynamic> completeBusinessProfile(Map<String, dynamic> params) async {
     try {
       _logger.i('completeBusinessProfile: calling rpc with payload: $params');
-
-      // Preflight: ensure user data is available in profiles table
-      // Skip users table preflight to avoid email constraint issues
-      try {
-        final uid = client.auth.currentUser?.id;
-        final email = client.auth.currentUser?.email;
-        final name = client.auth.currentUser?.userMetadata?['name'] as String?;
-        final surname =
-            client.auth.currentUser?.userMetadata?['surname'] as String?;
-        if (uid != null && email != null) {
-          // Just ensure profiles table has the user data
-          final fullName = (surname != null && surname.isNotEmpty)
-              ? (name != null ? '$name $surname' : surname)
-              : (name ?? '');
-
-          await client.from('profiles').upsert({
-            'id': uid,
-            'email': email,
-            'name': fullName,
-            'surname': surname ?? '',
-          }).select();
-          _logger.i(
-            'completeBusinessProfile: profiles preflight succeeded with name: $fullName, surname: $surname',
-          );
-        } else {
-          _logger.w(
-            'completeBusinessProfile: no authenticated uid/email available for preflight',
-          );
-        }
-      } catch (e) {
-        _logger.w(
-          'completeBusinessProfile: profiles preflight failed (non-fatal): $e',
-        );
-      }
 
       final res = await client.rpc(
         'complete_business_profile',
@@ -1567,6 +1730,17 @@ class SupabaseService {
         print('🔐 SupabaseService.updateUserProfile: Clean data: $cleanData');
       }
 
+      if (cleanData.isEmpty) {
+        if (kDebugMode) {
+          print(
+            '🔐 SupabaseService.updateUserProfile: No non-null profile fields supplied, skipping update',
+          );
+        }
+        return true;
+      }
+
+      // Avoid update+select here because some RLS policy combinations recurse
+      // when a SELECT is chained to UPDATE on profiles.
       await client.from('profiles').update(cleanData).eq('id', userId);
 
       if (kDebugMode) {
@@ -1576,6 +1750,56 @@ class SupabaseService {
       }
       return true;
     } catch (e) {
+      // Fallback for environments where profiles RLS policies recurse (42P17).
+      // Use security-definer RPC if available to persist profile updates.
+      if (_isProfilesRecursionError(e)) {
+        if (kDebugMode) {
+          print(
+            '🔐 SupabaseService.updateUserProfile: detected profiles recursion, attempting create_user_profile RPC fallback',
+          );
+        }
+
+        try {
+          final fallbackData = Map<String, dynamic>.from(profileData);
+          fallbackData.removeWhere((key, value) => value == null);
+          fallbackData['email'] ??= client.auth.currentUser?.email;
+
+          try {
+            await client.rpc(
+              'create_user_profile',
+              params: {'p_user_id': userId, 'p_user_data': fallbackData},
+            );
+          } catch (rpcError) {
+            // Keep a safe fallback for environments where the RPC is still on
+            // an older deployment that cannot parse date_of_birth.
+            final retryData = Map<String, dynamic>.from(fallbackData)
+              ..remove('date_of_birth');
+            await client.rpc(
+              'create_user_profile',
+              params: {'p_user_id': userId, 'p_user_data': retryData},
+            );
+            if (kDebugMode) {
+              print(
+                '🔐 SupabaseService.updateUserProfile: create_user_profile retry succeeded without date_of_birth after initial failure: $rpcError',
+              );
+            }
+          }
+
+          if (kDebugMode) {
+            print(
+              '🔐 SupabaseService.updateUserProfile: create_user_profile fallback succeeded',
+            );
+          }
+          return true;
+        } catch (rpcError) {
+          if (kDebugMode) {
+            print(
+              '🔐 SupabaseService.updateUserProfile: create_user_profile fallback failed: $rpcError',
+            );
+          }
+        }
+      }
+
       if (kDebugMode) {
         print(
           '🔐 SupabaseService.updateUserProfile: Error updating profile: $e',
@@ -1583,6 +1807,13 @@ class SupabaseService {
       }
       return false;
     }
+  }
+
+  bool _isProfilesRecursionError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('42p17') ||
+        (message.contains('infinite recursion') &&
+            message.contains('relation "profiles"'));
   }
 
   // Create initial profile for user
@@ -1786,11 +2017,40 @@ class SupabaseService {
     final normalizedEmail = email.trim().toLowerCase();
     _logger.d('getProfileByEmail: looking up $normalizedEmail');
 
+    // Strategy 1: RPC function (SECURITY DEFINER) for signup prefill lookup.
+    // This supports abandoned-signup detection before authentication where
+    // direct table reads can be blocked by RLS.
+    try {
+      final rpcResponse = await client.rpc(
+        'get_signup_profile_by_email',
+        params: {'user_email': normalizedEmail},
+      );
+
+      if (rpcResponse != null) {
+        if (rpcResponse is List && rpcResponse.isNotEmpty) {
+          final profile = Map<String, dynamic>.from(
+            rpcResponse.first as Map,
+          );
+          _logger.d('getProfileByEmail: RPC profile found for $normalizedEmail');
+          return profile;
+        }
+
+        if (rpcResponse is Map) {
+          final profile = Map<String, dynamic>.from(rpcResponse);
+          _logger.d('getProfileByEmail: RPC profile found for $normalizedEmail');
+          return profile;
+        }
+      }
+    } catch (rpcError) {
+      _logger.w('getProfileByEmail: RPC lookup failed for $normalizedEmail: $rpcError');
+    }
+
+    // Strategy 2: direct table read (works when RLS allows it).
     try {
       final profile = await client
           .from('profiles')
           .select(
-            'id, email, name, surname, street, suburb, city, province, contact, gender, ethnicity, date_of_birth, is_deactivated',
+            'id, email, name, surname, street, suburb, city, province, contact, gender, ethnicity, date_of_birth, is_deactivated, subscription, role, is_tp_member, profile_photo_url',
           )
           .eq('email', normalizedEmail)
           .maybeSingle();
@@ -1930,22 +2190,48 @@ class SupabaseService {
     }
   }
 
-  /// Record member terms acceptance in profiles table.
-  /// Expects columns: member_terms_accepted (bool), member_terms_accepted_at (timestamptz), member_terms_version (text).
+  /// Record trusted partner *payment* terms acceptance via SECURITY DEFINER RPC
+  /// so it succeeds regardless of the RLS policy state on profiles (avoids 42P17
+  /// infinite-recursion that occurs with a direct client.from('profiles').update()).
+  Future<bool> acceptTpPaymentTerms({
+    required String userId,
+    required String version,
+  }) async {
+    try {
+      _logger.i('acceptTpPaymentTerms: userId=$userId version=$version');
+      final result = await client.rpc(
+        'accept_tp_payment_terms',
+        params: {'p_user_id': userId, 'p_version': version},
+      );
+      _logger.i('acceptTpPaymentTerms: RPC result=$result');
+      return result == true;
+    } catch (e) {
+      _logger.e('acceptTpPaymentTerms error: $e');
+      return false;
+    }
+  }
+
+  /// Record member terms acceptance via RPC (SECURITY DEFINER) so it succeeds
+  /// regardless of the current RLS policy state on the profiles table.
   Future<bool> acceptMemberTerms({
     required String userId,
     required String version,
   }) async {
     try {
       _logger.i('acceptMemberTerms: userId=$userId version=$version');
-      await client
-          .from('profiles')
-          .update({
-            'member_terms_accepted': true,
-            'member_terms_accepted_at': DateTime.now().toIso8601String(),
-            'member_terms_version': version,
-          })
-          .eq('id', userId);
+      final result = await client.rpc(
+        'accept_member_terms',
+        params: {'p_user_id': userId, 'p_version': version},
+      );
+      final accepted = result == true;
+      if (!accepted) {
+        _logger.w('acceptMemberTerms: RPC returned $result for userId=$userId');
+        return false;
+      }
+      // Cache acceptance for the rest of this session so the immediate
+      // navigation gate (hasMemberAcceptedTerms) cannot bounce the user back
+      // to the terms page if the follow-up SELECT is blocked by RLS or fails.
+      _memberTermsAcceptedCache.add(userId);
       await syncVerificationStatus(userId);
       return true;
     } catch (e) {
@@ -1954,10 +2240,50 @@ class SupabaseService {
     }
   }
 
-  /// Lightweight check for member terms acceptance. Returns true only if the
-  /// profile row exists AND the boolean column is explicitly true.
-  /// Any other value (false, null, missing) returns false so we can re-prompt.
-  Future<bool> hasMemberAcceptedTerms(String userId) async {
+  /// Lightweight check for member terms acceptance.
+  ///
+  /// Order of resolution:
+  /// 1. In-memory session cache (set by acceptMemberTerms on success). This is
+  ///    the single source of truth right after the user accepts, and prevents
+  ///    the post-save loop when DB reads are blocked by RLS or transiently
+  ///    fail.
+  /// 2. SECURITY DEFINER RPC `member_terms_accepted_status` (bypasses RLS).
+  /// 3. Direct table SELECT (legacy / fallback when the RPC isn't deployed).
+  Future<bool> hasMemberAcceptedTerms(
+    String userId, {
+    Map<String, dynamic>? profile,
+  }) async {
+    if (_memberTermsAcceptedCache.contains(userId)) {
+      return true;
+    }
+    // Reuse an already-loaded profile to avoid a redundant DB read. The
+    // `member_terms_accepted` column on profiles is the source of truth
+    // (written by acceptMemberTerms), so when the caller has just fetched the
+    // full profile we can resolve acceptance without another round-trip.
+    if (profile != null && profile.containsKey('member_terms_accepted')) {
+      final accepted = profile['member_terms_accepted'] == true;
+      if (accepted) {
+        _memberTermsAcceptedCache.add(userId);
+      }
+      return accepted;
+    }
+    try {
+      final rpcResult = await client.rpc(
+        'member_terms_accepted_status',
+        params: {'p_user_id': userId},
+      );
+      if (rpcResult == true) {
+        _memberTermsAcceptedCache.add(userId);
+        return true;
+      }
+      if (rpcResult == false) {
+        return false;
+      }
+      // null / unexpected -> fall through to direct SELECT
+    } catch (e) {
+      _logger.w('hasMemberAcceptedTerms: RPC fallback to direct SELECT: $e');
+    }
+
     try {
       final res = await client
           .from('profiles')
@@ -1974,6 +2300,9 @@ class SupabaseService {
       _logger.d(
         'hasMemberAcceptedTerms: userId=$userId accepted=$accepted raw=$value',
       );
+      if (accepted) {
+        _memberTermsAcceptedCache.add(userId);
+      }
       return accepted;
     } catch (e) {
       _logger.e('hasMemberAcceptedTerms error: $e');
@@ -1989,7 +2318,7 @@ class SupabaseService {
       final profile = await client
           .from('profiles')
           .select(
-            'role, subscription, member_terms_accepted, partner_terms_accepted, is_tp_member',
+            'role, subscription, member_terms_accepted, partner_terms_accepted, is_tp_member, verified',
           )
           .eq('id', userId)
           .maybeSingle();
@@ -2003,6 +2332,7 @@ class SupabaseService {
       final isTpMember = profile['is_tp_member'] == true;
       final memberTermsAccepted = profile['member_terms_accepted'] == true;
       final partnerTermsAccepted = profile['partner_terms_accepted'] == true;
+      final currentVerified = profile['verified'] == true;
 
       _logger.i(
         'syncVerificationStatus: Initial state - role=$role, memberTermsAccepted=$memberTermsAccepted, partnerTermsAccepted=$partnerTermsAccepted, isTpMember=$isTpMember',
@@ -2048,6 +2378,17 @@ class SupabaseService {
       _logger.i(
         'syncVerificationStatus: About to update verified=$shouldVerify for userId=$userId',
       );
+
+      // Skip the write entirely when the flag does not change. A fresh member
+      // accepting terms (still pending payment) has verified=false and stays
+      // false, so the UPDATE is pure overhead and can needlessly trip the
+      // profiles verified-flag trigger (observed as 500s during terms accept).
+      if (shouldVerify == currentVerified) {
+        _logger.i(
+          'syncVerificationStatus: verified unchanged ($currentVerified) for userId=$userId - skipping update',
+        );
+        return shouldVerify;
+      }
 
       await client
           .from('profiles')

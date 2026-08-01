@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/chat_service.dart';
 import '../../services/supabase_service.dart';
 import '../../models/chat_conversation.dart';
@@ -22,6 +23,8 @@ class _ChatListPageState extends State<ChatListPage> {
   final Map<String, String> _displayNames = {};
   final Map<String, String> _businessNames = {};
   final Map<String, bool> _hasUnread = {};
+  final Map<String, String?> _logoCache = {};
+  final Set<String> _logoFetchInFlight = {};
   String? _currentUserId;
   bool _loading = true;
 
@@ -117,7 +120,7 @@ class _ChatListPageState extends State<ChatListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Messages'),
         actions: [
           IconButton(
@@ -165,11 +168,66 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
+  void _ensureLogo(String userId) {
+    if (_logoCache.containsKey(userId)) return;
+    if (_logoFetchInFlight.contains(userId)) return;
+    _logoFetchInFlight.add(userId);
+    ChatService.instance
+        .fetchBusinessLogoForUser(userId)
+        .then((url) {
+          if (!mounted) return;
+          setState(() {
+            _logoCache[userId] = url;
+          });
+        })
+        .whenComplete(() => _logoFetchInFlight.remove(userId));
+  }
+
+  Widget _buildLeadingAvatar(
+    ChatConversation c,
+    String? otherId,
+    bool showUnread,
+    bool isAdmin,
+  ) {
+    if (isAdmin) {
+      return CircleAvatar(
+        backgroundColor: showUnread ? Colors.red.shade100 : Colors.white,
+        child: ClipOval(
+          child: Image.asset(
+            'assets/heart_flag.png',
+            fit: BoxFit.cover,
+            width: 40,
+            height: 40,
+          ),
+        ),
+      );
+    }
+    if (otherId != null) {
+      _ensureLogo(otherId);
+      final logo = _logoCache[otherId];
+      if (logo != null && logo.isNotEmpty) {
+        return CircleAvatar(
+          backgroundColor: showUnread ? Colors.red.shade100 : Colors.grey.shade200,
+          backgroundImage: NetworkImage(logo),
+        );
+      }
+    }
+    return CircleAvatar(
+      backgroundColor: showUnread ? Colors.red : null,
+      child: const Icon(Icons.store),
+    );
+  }
+
   Widget _conversationTile(ChatConversation c) {
     final isAdmin = c.isAdmin;
     final latest = _latestMessages[c.id];
 
     final title = _conversationTitle(c, isAdmin);
+
+    final others = c.participantIds
+        .where((id) => id != _currentUserId)
+        .toList();
+    final otherId = others.isNotEmpty ? others.first : null;
 
     final subtitle = latest != null ? latest.content : 'No messages yet';
     final showUnread = _hasUnread[c.id] ?? false;
@@ -190,10 +248,7 @@ class _ChatListPageState extends State<ChatListPage> {
       child: Card(
         margin: EdgeInsets.zero,
         child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: showUnread ? Colors.red : null,
-            child: Icon(isAdmin ? Icons.support_agent : Icons.store),
-          ),
+          leading: _buildLeadingAvatar(c, otherId, showUnread, isAdmin),
           title: Text(
             title,
             style: TextStyle(
@@ -235,7 +290,7 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   String _conversationTitle(ChatConversation c, bool isAdmin) {
-    if (isAdmin) return 'Admin Support';
+    if (isAdmin) return 'Local Lekker Club';
     final others = c.participantIds
         .where((id) => id != _currentUserId)
         .toList();

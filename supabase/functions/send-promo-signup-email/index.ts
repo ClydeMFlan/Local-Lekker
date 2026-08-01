@@ -51,7 +51,10 @@ serve(async (req) => {
           },
         })
 
-        const durationText = free_months ? `${free_months} month(s) free` : 'Lifetime access'
+        const durationText = free_months ? `${free_months} month(s) free` : 'free lifetime membership'
+        const signupNote = free_months
+          ? `Pay R1.00 signup and enjoy ${durationText}.`
+          : 'Pay R1.00 signup and enjoy a free lifetime membership.'
 
         const emailBody = `
 Hi Admin,
@@ -60,6 +63,7 @@ A new member has signed up for a promotion!
 
 Promotion: ${promotion_name}
 Duration: ${durationText}
+Note: ${signupNote}
 
 Member Details:
   Name: ${member_name}
@@ -72,11 +76,20 @@ Please log into the Local Lekker admin dashboard to review and confirm this sign
 This is an automated notification from the Local Lekker app.
 `
 
+        const escapeHtml = (s: string) => s
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;')
+        const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#222;"><pre style="font-family:Arial,sans-serif;white-space:pre-wrap;margin:0;">${escapeHtml(emailBody)}</pre></body></html>`
+
         await client.send({
           from: smtpUser,
           to: adminEmail,
-          subject: `New Promo Signup – ${member_name} for ${promotion_name}`,
+          subject: `New Promo Signup - ${member_name} for ${promotion_name}`,
           content: emailBody,
+          html: htmlBody,
         })
 
         await client.close()

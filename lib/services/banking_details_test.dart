@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -11,8 +12,17 @@ class BankingDetailsTest {
   // Paystack API URL
   static const String _baseUrl = 'https://api.paystack.co';
 
-  // Get Paystack secret key from environment
+  // Get Paystack secret key from environment.
+  // The secret key is a server-only credential and is intentionally NOT bundled
+  // in .env, so this getter returns empty outside local debugging. This utility
+  // must never call Paystack directly from a release build.
   String get _secretKey {
+    if (kReleaseMode) {
+      throw StateError(
+        'BankingDetailsTest uses the Paystack secret key directly and must not '
+        'run in release builds. Use the paystack-proxy Edge Function instead.',
+      );
+    }
     try {
       return dotenv.env['PAYSTACK_SECRET_KEY'] ?? '';
     } catch (e) {

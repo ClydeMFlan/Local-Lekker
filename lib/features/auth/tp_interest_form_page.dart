@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/supabase_service.dart';
 import 'tp_interest_thank_you_page.dart';
 
@@ -118,7 +119,7 @@ class _TpInterestFormPageState extends State<TpInterestFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Become a Trusted Partner')),
+      appBar: BrandedAppBar(title: const Text('Become a Trusted Partner')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(

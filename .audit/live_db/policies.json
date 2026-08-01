@@ -1,0 +1,1932 @@
+﻿[
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "admin_full_access_admin_promo_keys",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "admin_promo_keys",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "authenticated_read_admin_promo_keys",
+    "qual": "(auth.role() = 'authenticated'::text)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "admin_promo_keys",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "authenticated_update_admin_promo_keys",
+    "qual": "(auth.role() = 'authenticated'::text)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "admin_promo_keys",
+    "with_check": "(auth.role() = 'authenticated'::text)"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can view archived members",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "archived_members",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Service role can insert archived members",
+    "qual": null,
+    "roles": "{service_role}",
+    "schemaname": "public",
+    "tablename": "archived_members",
+    "with_check": "true"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can insert archived paystack",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "archived_paystack_data",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can view archived paystack",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "archived_paystack_data",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can insert archived payments",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "archived_pending_payments",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can view archived payments",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "archived_pending_payments",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can insert archived receipts",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "archived_receipts",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can view archived receipts",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "archived_receipts",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Partners can insert approvals for their bills",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "bill_approvals",
+    "with_check": "(partner_id = ( SELECT auth.uid() AS uid))"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Partners can update their own approvals",
+    "qual": "(partner_id = ( SELECT auth.uid() AS uid))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "bill_approvals",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Partners can view their own approvals",
+    "qual": "(partner_id = ( SELECT auth.uid() AS uid))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "bill_approvals",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can delete their own bills",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "business_bills",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can insert their own bills",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "business_bills",
+    "with_check": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can update their own bills",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "business_bills",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can view their own bills",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "business_bills",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can delete their own logos",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "business_logos",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can insert their own logos",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "business_logos",
+    "with_check": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can update their own logos",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "business_logos",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can view their own logos",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "business_logos",
+    "with_check": null
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can manage all businesses via JWT",
+    "qual": "((COALESCE(((auth.jwt() -\u003e 'app_metadata'::text) -\u003e\u003e 'user_type'::text), ''::text) = 'admin'::text) OR (COALESCE(((auth.jwt() -\u003e 'app_metadata'::text) -\u003e\u003e 'role'::text), ''::text) = 'admin'::text))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "businesses",
+    "with_check": "((COALESCE(((auth.jwt() -\u003e 'app_metadata'::text) -\u003e\u003e 'user_type'::text), ''::text) = 'admin'::text) OR (COALESCE(((auth.jwt() -\u003e 'app_metadata'::text) -\u003e\u003e 'role'::text), ''::text) = 'admin'::text))"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Authenticated users can create businesses",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "businesses",
+    "with_check": "(owner_member_id = auth.uid())"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Authenticated users can view all businesses",
+    "qual": "true",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "businesses",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can delete their business",
+    "qual": "(owner_member_id = auth.uid())",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "businesses",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can update their business",
+    "qual": "(owner_member_id = auth.uid())",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "businesses",
+    "with_check": "(owner_member_id = auth.uid())"
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Service role can manage all businesses",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "businesses",
+    "with_check": "(auth.role() = 'service_role'::text)"
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can manage their calibration receipts",
+    "qual": "(business_id = auth.uid())",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "calibration_receipts",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view active calibration receipts",
+    "qual": "(is_active = true)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "calibration_receipts",
+    "with_check": null
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Service role can manage all calibration receipts",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "calibration_receipts",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "chat_conv_update_last_read",
+    "qual": "(auth.uid() = ANY (participant_ids))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "chat_conversations",
+    "with_check": "((auth.uid() = ANY (participant_ids)) AND (last_read_at IS NOT NULL))"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "chat_conversations_insert",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "chat_conversations",
+    "with_check": "(auth.uid() = ANY (participant_ids))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "chat_conversations_select",
+    "qual": "((auth.uid() = ANY (participant_ids)) OR (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "chat_conversations",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "chat_messages_insert",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "chat_messages",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM chat_conversations c\n  WHERE ((c.id = chat_messages.conversation_id) AND ((auth.uid() = ANY (c.participant_ids)) OR ((c.is_admin = true) AND (EXISTS ( SELECT 1\n           FROM profiles p\n          WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))))))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "chat_messages_select",
+    "qual": "(EXISTS ( SELECT 1\n   FROM chat_conversations c\n  WHERE ((c.id = chat_messages.conversation_id) AND ((auth.uid() = ANY (c.participant_ids)) OR (EXISTS ( SELECT 1\n           FROM profiles p\n          WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text))))))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "chat_messages",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "chat_messages_update",
+    "qual": "(EXISTS ( SELECT 1\n   FROM chat_conversations c\n  WHERE ((c.id = chat_messages.conversation_id) AND ((auth.uid() = ANY (c.participant_ids)) OR (EXISTS ( SELECT 1\n           FROM profiles p\n          WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text))))))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "chat_messages",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can delete deal authorizations",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": null
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can manage deal authorizations",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can update their authorizations",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can view their authorizations",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can delete their own deal authorizations",
+    "qual": "((member_id = auth.uid()) AND (status = 'pending'::text))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can update their own deal authorizations",
+    "qual": "(auth.uid() = member_id)",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": "(auth.uid() = member_id)"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view their authorizations",
+    "qual": "(member_id = auth.uid())",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can delete deal authorizations",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "deal_auth_insert_member",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "deal_auth_select_business",
+    "qual": "(business_id IN ( SELECT b.id\n   FROM businesses b\n  WHERE (b.owner_member_id = auth.uid())))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "deal_auth_select_member",
+    "qual": "(member_id = auth.uid())",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "deal_auth_update_business",
+    "qual": "(business_id IN ( SELECT b.id\n   FROM businesses b\n  WHERE (b.owner_member_id = auth.uid())))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "deal_auth_update_member",
+    "qual": "(member_id = auth.uid())",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "deal_authorizations",
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members and trusted partners can insert receipts",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "deal_receipts",
+    "with_check": "((auth.uid() = member_id) OR (auth.uid() = trusted_partner_id))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view their own receipts",
+    "qual": "(auth.uid() = member_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "deal_receipts",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can view their business receipts",
+    "qual": "(auth.uid() = trusted_partner_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "deal_receipts",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can insert their own receipts",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "member_receipts",
+    "with_check": "(( SELECT auth.uid() AS uid) = member_id)"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can update their own receipts",
+    "qual": "(( SELECT auth.uid() AS uid) = member_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "member_receipts",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view their own receipts",
+    "qual": "(( SELECT auth.uid() AS uid) = member_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "member_receipts",
+    "with_check": null
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can manage their bank accounts",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "members_bank_accounts",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can insert their own card details",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "members_card_details",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can manage their card details",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "members_card_details",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can update their own card details",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "members_card_details",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view their own card details",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "members_card_details",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can insert any membership",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "memberships",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can view all memberships",
+    "qual": "((COALESCE((auth.jwt() -\u003e\u003e 'role'::text), ''::text) = 'admin'::text) OR (COALESCE((auth.jwt() -\u003e\u003e 'email'::text), ''::text) = ANY (ARRAY['admin@locallekker.com'::text, 'clydemflan@gmail.com'::text, 'locallekkerclub@gmail.com'::text])))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "memberships",
+    "with_check": null
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Service role can manage memberships",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "memberships",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can insert their own membership",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "memberships",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can insert their own memberships",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "memberships",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can update their own memberships",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "memberships",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can view their own membership",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "memberships",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can view their own memberships",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "memberships",
+    "with_check": null
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "memberships_policy",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "memberships",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can delete own notifications",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "notifications",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can view own notifications",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "notifications",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "notifications_insert_authenticated",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "notifications",
+    "with_check": "true"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "notifications_update_policy",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "notifications",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can delete archived notifications",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "notifications_archive",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can view archived notifications",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "notifications_archive",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "System can insert into archive",
+    "qual": null,
+    "roles": "{service_role}",
+    "schemaname": "public",
+    "tablename": "notifications_archive",
+    "with_check": "true"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can view own archived notifications",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "notifications_archive",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can insert payments",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "payments",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can insert their own payments",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "payments",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can insert payments",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "payments",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.role = 'trusted_partner'::text))))"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can insert their own processed bills",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "processed_bills",
+    "with_check": "(auth.uid() = member_id)"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can update their own processed bills",
+    "qual": "(auth.uid() = member_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "processed_bills",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view their own processed bills",
+    "qual": "(auth.uid() = member_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "processed_bills",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can insert profiles",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "profiles",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can update all profiles",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text))))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "profiles",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can view all profiles",
+    "qual": "((COALESCE((auth.jwt() -\u003e\u003e 'role'::text), ''::text) = 'admin'::text) OR (COALESCE((auth.jwt() -\u003e\u003e 'email'::text), ''::text) = ANY (ARRAY['admin@locallekker.com'::text, 'clydemflan@gmail.com'::text, 'locallekkerclub@gmail.com'::text])))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "profiles",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "TPs can read profiles of members with deal authorizations",
+    "qual": "(EXISTS ( SELECT 1\n   FROM (deal_authorizations da\n     JOIN businesses b ON ((b.id = da.business_id)))\n  WHERE ((da.member_id = profiles.id) AND (b.owner_member_id = auth.uid()))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "profiles",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can insert own profile",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "profiles",
+    "with_check": "(id = auth.uid())"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can update own profile",
+    "qual": "(auth.uid() = id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "profiles",
+    "with_check": "(auth.uid() = id)"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can view own profile",
+    "qual": "(id = auth.uid())",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "profiles",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "tp_can_read_member_profiles",
+    "qual": "((role = 'member'::text) AND (((auth.jwt() -\u003e 'user_metadata'::text) -\u003e\u003e 'user_type'::text) = 'trusted_partner'::text))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "profiles",
+    "with_check": null
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "admin_full_access_promotion_participant_emails",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "promotion_participant_emails",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "members_read_own_promotion_participant_eligibility",
+    "qual": "((auth.role() = 'authenticated'::text) AND (lower(email) = lower(COALESCE(( SELECT p.email\n   FROM profiles p\n  WHERE (p.id = auth.uid())), ''::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "promotion_participant_emails",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "members_update_own_participant_claim",
+    "qual": "((auth.role() = 'authenticated'::text) AND (lower(email) = lower(COALESCE(( SELECT p.email\n   FROM profiles p\n  WHERE (p.id = auth.uid())), ''::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "promotion_participant_emails",
+    "with_check": "((claimed_by = auth.uid()) AND (is_claimed = true))"
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "admin_full_access_promotion_signups",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "promotion_signups",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "members_insert_own_signups",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "promotion_signups",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "members_read_own_signups",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "promotion_signups",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view their eligible promotions",
+    "qual": "((EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))) OR (EXISTS ( SELECT 1\n   FROM promotion_participant_emails ppe\n  WHERE ((ppe.promotion_id = promotions.id) AND (ppe.email = lower(TRIM(BOTH FROM auth.email())))))))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "promotions",
+    "with_check": null
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "admin_full_access_promotions",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "promotions",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "authenticated_read_active_promotions",
+    "qual": "((auth.role() = 'authenticated'::text) AND (is_active = true) AND ((ends_at IS NULL) OR (ends_at \u003e now())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "promotions",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Anyone can read active recovery sessions",
+    "qual": "((used = false) AND (expires_at \u003e now()))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "recovery_sessions",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Authenticated users can insert recovery sessions",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "recovery_sessions",
+    "with_check": "true"
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Service role can manage renewals",
+    "qual": "((auth.jwt() -\u003e\u003e 'role'::text) = 'service_role'::text)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscription_renewals",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can insert their own renewal records",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscription_renewals",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can view their own renewal history",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscription_renewals",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can view all subscriptions",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscriptions",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Authenticated members can insert subscriptions",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscriptions",
+    "with_check": "(auth.uid() IS NOT NULL)"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can update their own subscriptions",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscriptions",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view their own subscriptions",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscriptions",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can delete their own subscriptions",
+    "qual": "(user_id = auth.uid())",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscriptions",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can insert their own subscriptions",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscriptions",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can update their own subscriptions",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscriptions",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can view their own subscriptions",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "subscriptions",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "members_insert_own_subscriptions",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "subscriptions",
+    "with_check": "(user_id = auth.uid())"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admin can read TP inquiries",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "tp_inquiries",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admin can update TP inquiries",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "tp_inquiries",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Anyone can submit a TP inquiry",
+    "qual": null,
+    "roles": "{anon,authenticated}",
+    "schemaname": "public",
+    "tablename": "tp_inquiries",
+    "with_check": "true"
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "admin_full_access_tp_member_keys",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "tp_member_keys",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "authenticated_read_tp_member_keys",
+    "qual": "(auth.role() = 'authenticated'::text)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "tp_member_keys",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "authenticated_update_tp_member_keys",
+    "qual": "(auth.role() = 'authenticated'::text)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "tp_member_keys",
+    "with_check": "(auth.role() = 'authenticated'::text)"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view partner bank accounts for payment",
+    "qual": "(EXISTS ( SELECT 1\n   FROM deal_authorizations da\n  WHERE ((da.trusted_partner_id = trusted_partner_bank_accounts.user_id) AND (da.member_id = auth.uid()) AND (da.status = ANY (ARRAY['approved'::text, 'pending'::text])))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_bank_accounts",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can delete own bank accounts",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_bank_accounts",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can insert own bank accounts",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_bank_accounts",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can update own bank accounts",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_bank_accounts",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can view own bank accounts",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_bank_accounts",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admin can view all trusted partner discounts",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can delete any deal",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can manage all discounts",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins have full access to trusted_partner_discounts",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Authenticated users can view all active discounts",
+    "qual": "true",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can create discounts",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))"
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can manage their discounts",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can update their discounts",
+    "qual": "(business_id IN ( SELECT businesses.id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid())))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can insert their own discounts",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": "(auth.uid() = trusted_partner_id)"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can update their own discounts",
+    "qual": "(auth.uid() = trusted_partner_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view active deals from non-deactivated partners",
+    "qual": "((is_active = true) AND (NOT (trusted_partner_id IN ( SELECT profiles.id\n   FROM profiles\n  WHERE ((profiles.is_deactivated = true) AND (profiles.role = 'trusted_partner'::text))))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view active discounts from all trusted partners",
+    "qual": "(is_active = true)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view all active discounts by city",
+    "qual": "(is_active = true)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view their own discounts",
+    "qual": "(auth.uid() = trusted_partner_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can delete their own deals",
+    "qual": "(auth.uid() = trusted_partner_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partner_discounts",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admin can view all trusted partners",
+    "qual": "((EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text)))) OR ((auth.jwt() -\u003e\u003e 'email'::text) = ANY (ARRAY['admin@locallekker.com'::text, 'locallekkerclub@gmail.com'::text, 'clydemflan@gmail.com'::text])))",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "trusted_partners",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can delete trusted_partners",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partners",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can insert trusted_partners",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partners",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can update trusted_partners",
+    "qual": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partners",
+    "with_check": "(EXISTS ( SELECT 1\n   FROM memberships\n  WHERE ((memberships.user_id = auth.uid()) AND (memberships.role = 'admin'::text))))"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can insert own trusted partner record",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partners",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can update own trusted partner record",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partners",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view own trusted partner record",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partners",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Service role can insert trusted_partners",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partners",
+    "with_check": "(auth.role() = 'service_role'::text)"
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Service role can manage trusted_partners",
+    "qual": "(auth.role() = 'service_role'::text)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "trusted_partners",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admin can view all user QR codes",
+    "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "user_qr_codes",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can insert their own QR codes",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "user_qr_codes",
+    "with_check": "(auth.uid() = user_id)"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can update their own QR codes",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "user_qr_codes",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can view their own QR codes",
+    "qual": "(auth.uid() = user_id)",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "user_qr_codes",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "tp_can_read_user_qr_codes",
+    "qual": "(((auth.jwt() -\u003e 'user_metadata'::text) -\u003e\u003e 'user_type'::text) = 'trusted_partner'::text)",
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "user_qr_codes",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members and trusted partners can insert virtual receipts",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "public",
+    "tablename": "virtual_receipts",
+    "with_check": "((EXISTS ( SELECT 1\n   FROM deal_authorizations\n  WHERE ((deal_authorizations.id = virtual_receipts.deal_authorization_id) AND (deal_authorizations.member_id = auth.uid())))) OR (EXISTS ( SELECT 1\n   FROM deal_authorizations\n  WHERE ((deal_authorizations.id = virtual_receipts.deal_authorization_id) AND (deal_authorizations.trusted_partner_id = auth.uid())))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Members can view their own virtual receipts",
+    "qual": "(EXISTS ( SELECT 1\n   FROM deal_authorizations\n  WHERE ((deal_authorizations.id = virtual_receipts.deal_authorization_id) AND (deal_authorizations.member_id = ( SELECT auth.uid() AS uid)))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "virtual_receipts",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can view virtual receipts for their authorizat",
+    "qual": "(EXISTS ( SELECT 1\n   FROM deal_authorizations\n  WHERE ((deal_authorizations.id = virtual_receipts.deal_authorization_id) AND (EXISTS ( SELECT 1\n           FROM businesses\n          WHERE ((businesses.id = deal_authorizations.trusted_partner_id) AND (businesses.owner_member_id = ( SELECT auth.uid() AS uid))))))))",
+    "roles": "{public}",
+    "schemaname": "public",
+    "tablename": "virtual_receipts",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can delete deal images",
+    "qual": "((bucket_id = 'business-bills'::text) AND (name ~~ 'deal_images/%'::text) AND (EXISTS ( SELECT 1\n   FROM memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.role = 'admin'::text)))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can delete deal images for authorized partners",
+    "qual": "((bucket_id = 'business-bills'::text) AND (name ~~ 'deal_images/%'::text) AND (EXISTS ( SELECT 1\n   FROM memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.role = 'admin'::text)))) AND (EXISTS ( SELECT 1\n   FROM businesses b\n  WHERE (((b.owner_member_id)::text = split_part(objects.name, '/'::text, 2)) AND (COALESCE(b.allow_admin_deal_creation, false) = true)))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can manage deal images",
+    "qual": "((bucket_id = 'business-bills'::text) AND (name ~~ 'deal_images/%'::text) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'business-bills'::text) AND (name ~~ 'deal_images/%'::text) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))))"
+  },
+  {
+    "cmd": "ALL",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can manage partner deal images",
+    "qual": "((bucket_id = 'business-bills'::text) AND ((storage.foldername(name))[1] = 'deal_images'::text) AND (EXISTS ( SELECT 1\n   FROM (businesses b\n     JOIN memberships m ON (((m.user_id = auth.uid()) AND (m.role = 'admin'::text))))\n  WHERE (((b.owner_member_id)::text = (storage.foldername(b.name))[2]) AND (COALESCE(b.allow_admin_deal_creation, false) = true)))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'business-bills'::text) AND ((storage.foldername(name))[1] = 'deal_images'::text) AND (EXISTS ( SELECT 1\n   FROM (businesses b\n     JOIN memberships m ON (((m.user_id = auth.uid()) AND (m.role = 'admin'::text))))\n  WHERE (((b.owner_member_id)::text = (storage.foldername(b.name))[2]) AND (COALESCE(b.allow_admin_deal_creation, false) = true)))))"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can update deal images",
+    "qual": "((bucket_id = 'business-bills'::text) AND (name ~~ 'deal_images/%'::text) AND (EXISTS ( SELECT 1\n   FROM memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.role = 'admin'::text)))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can update deal images for authorized partners",
+    "qual": "((bucket_id = 'business-bills'::text) AND (name ~~ 'deal_images/%'::text) AND (EXISTS ( SELECT 1\n   FROM memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.role = 'admin'::text)))) AND (EXISTS ( SELECT 1\n   FROM businesses b\n  WHERE (((b.owner_member_id)::text = split_part(objects.name, '/'::text, 2)) AND (COALESCE(b.allow_admin_deal_creation, false) = true)))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can upload deal images",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'business-bills'::text) AND (name ~~ 'deal_images/%'::text) AND (EXISTS ( SELECT 1\n   FROM memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.role = 'admin'::text)))))"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can upload deal images for authorized partners",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'business-bills'::text) AND (name ~~ 'deal_images/%'::text) AND (EXISTS ( SELECT 1\n   FROM memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.role = 'admin'::text)))) AND (EXISTS ( SELECT 1\n   FROM businesses b\n  WHERE (((b.owner_member_id)::text = split_part(b.name, '/'::text, 2)) AND (COALESCE(b.allow_admin_deal_creation, false) = true)))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can view all deal images",
+    "qual": "((bucket_id = 'business-bills'::text) AND (name ~~ 'deal_images/%'::text) AND (EXISTS ( SELECT 1\n   FROM memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.role = 'admin'::text)))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins can view deal images",
+    "qual": "((bucket_id = 'business-bills'::text) AND (name ~~ 'deal_images/%'::text) AND (EXISTS ( SELECT 1\n   FROM memberships m\n  WHERE ((m.user_id = auth.uid()) AND (m.role = 'admin'::text)))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Allow authenticated uploads to deal-images",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'deal-images'::text) AND (auth.uid() IS NOT NULL))"
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Allow owners to manage deal-images",
+    "qual": "((bucket_id = 'deal-images'::text) AND (auth.uid() IS NOT NULL))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Allow public read of deal-images",
+    "qual": "(bucket_id = 'deal-images'::text)",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Anyone can view deal images",
+    "qual": "((bucket_id = 'business-bills'::text) AND ((storage.foldername(name))[1] = 'deal_images'::text))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Authenticated users can view partner logos",
+    "qual": "(bucket_id = 'partner-logos'::text)",
+    "roles": "{authenticated}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can delete their bills",
+    "qual": "((bucket_id = 'business-bills'::text) AND ((storage.foldername(name))[1] IN ( SELECT (businesses.id)::text AS id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can delete their logos",
+    "qual": "((bucket_id = 'business-logos'::text) AND ((storage.foldername(name))[1] IN ( SELECT (businesses.id)::text AS id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can update their bills",
+    "qual": "((bucket_id = 'business-bills'::text) AND ((storage.foldername(name))[1] IN ( SELECT (businesses.id)::text AS id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can update their logos",
+    "qual": "((bucket_id = 'business-logos'::text) AND ((storage.foldername(name))[1] IN ( SELECT (businesses.id)::text AS id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can upload their bills",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'business-bills'::text) AND ((storage.foldername(name))[1] IN ( SELECT (businesses.id)::text AS id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can upload their logos",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'business-logos'::text) AND ((storage.foldername(name))[1] IN ( SELECT (businesses.id)::text AS id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can view their bills",
+    "qual": "((bucket_id = 'business-bills'::text) AND ((storage.foldername(name))[1] IN ( SELECT (businesses.id)::text AS id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Business owners can view their logos",
+    "qual": "((bucket_id = 'business-logos'::text) AND ((storage.foldername(name))[1] IN ( SELECT (businesses.id)::text AS id\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can delete own deal images",
+    "qual": "((bucket_id = 'business-bills'::text) AND ((storage.foldername(name))[1] = 'deal_images'::text) AND ((storage.foldername(name))[2] = (auth.uid())::text))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can delete their logos",
+    "qual": "((bucket_id = 'partner-logos'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]) AND (EXISTS ( SELECT 1\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can update own deal images",
+    "qual": "((bucket_id = 'business-bills'::text) AND ((storage.foldername(name))[1] = 'deal_images'::text) AND ((storage.foldername(name))[2] = (auth.uid())::text))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can update their logos",
+    "qual": "((bucket_id = 'partner-logos'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]) AND (EXISTS ( SELECT 1\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can upload own deal images",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'business-bills'::text) AND ((storage.foldername(name))[1] = 'deal_images'::text) AND ((storage.foldername(name))[2] = (auth.uid())::text))"
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "Trusted partners can upload their logos",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'partner-logos'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]) AND (EXISTS ( SELECT 1\n   FROM businesses\n  WHERE (businesses.owner_member_id = auth.uid()))))"
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "admin_delete_promo_images",
+    "qual": "((bucket_id = 'promo-images'::text) AND (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))))",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "admin_upload_promo_images",
+    "qual": null,
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'promo-images'::text) AND (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))))"
+  },
+  {
+    "cmd": "DELETE",
+    "permissive": "PERMISSIVE",
+    "policyname": "admins can delete partner logos",
+    "qual": "((bucket_id = 'partner-logos'::text) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))))",
+    "roles": "{authenticated}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  },
+  {
+    "cmd": "INSERT",
+    "permissive": "PERMISSIVE",
+    "policyname": "admins can insert partner logos",
+    "qual": null,
+    "roles": "{authenticated}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'partner-logos'::text) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))))"
+  },
+  {
+    "cmd": "UPDATE",
+    "permissive": "PERMISSIVE",
+    "policyname": "admins can update partner logos",
+    "qual": "((bucket_id = 'partner-logos'::text) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))))",
+    "roles": "{authenticated}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": "((bucket_id = 'partner-logos'::text) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))))"
+  },
+  {
+    "cmd": "SELECT",
+    "permissive": "PERMISSIVE",
+    "policyname": "public_read_promo_images",
+    "qual": "(bucket_id = 'promo-images'::text)",
+    "roles": "{public}",
+    "schemaname": "storage",
+    "tablename": "objects",
+    "with_check": null
+  }
+]

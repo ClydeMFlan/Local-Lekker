@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
 import '../../models/deal_authorization.dart';
 import '../../services/discount_service.dart';
 import '../../services/deal_authorization_service.dart';
 import '../../services/supabase_service.dart';
+import '../../core/utils/display_name_helpers.dart';
 import 'receipt_generator_page.dart';
 import 'package:flutter/foundation.dart';
 
 /// Local Lekker brand palette.
-const Color kBrandBlue = Color(0xFF001489);
-const Color kBrandGreen = Color(0xFF2E7D32);
-const Color kBrandYellow = Color(0xFFFFB81C);
+const Color kBrandBlue = Color(0xFF0E5BA0);
+const Color kBrandGreen = Color(0xFF3C8C44);
+const Color kBrandYellow = Color(0xFFF4B400);
 
 class DealAuthorizationDashboard extends StatefulWidget {
   const DealAuthorizationDashboard({super.key});
@@ -31,6 +33,10 @@ class _DealAuthorizationDashboardState
   List<DealAuthorization> _approvedAuthorizations = [];
   List<Map<String, dynamic>> _receipts = [];
   bool _isLoading = true;
+  // _isRefreshing is true during background reloads triggered by realtime
+  // events. We keep the existing list visible instead of showing a blank
+  // loading spinner, preventing the "second deal disappears" visual glitch.
+  bool _isRefreshing = false;
   RealtimeChannel? _dealAuthChannel;
 
   @override
@@ -77,7 +83,7 @@ class _DealAuthorizationDashboardState
               if (kDebugMode) {
                 print('[DASHBOARD_REALTIME] Deal auth change detected, refreshing...');
               }
-              _loadAuthorizations();
+              _loadAuthorizations(background: true);
             },
           )
           .subscribe();
@@ -88,8 +94,14 @@ class _DealAuthorizationDashboardState
     }
   }
 
-  Future<void> _loadAuthorizations() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadAuthorizations({bool background = false}) async {
+    if (background) {
+      // For realtime-triggered refreshes keep the current list visible;
+      // only show the top-level spinner on the very first load.
+      setState(() => _isRefreshing = true);
+    } else {
+      setState(() => _isLoading = true);
+    }
     try {
       final user = SupabaseService.instance.getCurrentUser();
       if (user != null) {
@@ -137,8 +149,10 @@ class _DealAuthorizationDashboardState
           }
         });
 
-        // Load receipts for Receipts tab
-        await _loadReceipts();
+        // Load receipts for Receipts tab. Mirror the background flag so
+        // realtime-triggered refreshes never surface transient network
+        // hiccups as scary error banners.
+        await _loadReceipts(silent: background);
 
         // Create notifications for any existing pending authorizations
         // This ensures trusted partners get notified of pending requests
@@ -151,48 +165,95 @@ class _DealAuthorizationDashboardState
         }
       }
     } catch (e) {
-      if (mounted) {
+      // Background refreshes (realtime-triggered) must stay silent: a momentary
+      // connection abort right after approving a deal should not alarm the
+      // partner when the data will reload on the next event or manual refresh.
+      if (mounted && !background) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load authorizations: $e')),
+          SnackBar(
+            content: Text(
+              _isTransientNetworkError(e)
+                  ? 'No internet connection. Check your network and try again.'
+                  : 'Failed to load authorizations: $e',
+            ),
+          ),
         );
+      } else {
+        _logger.w('Authorization refresh failed (background=$background): $e');
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (background) {
+        if (mounted) setState(() => _isRefreshing = false);
+      } else {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  Future<void> _loadReceipts() async {
-    try {
-      final user = SupabaseService.instance.getCurrentUser();
-      if (user == null) return;
+  /// Returns true for recoverable network blips (e.g. "Software caused
+  /// connection abort") that commonly fire during the burst of activity right
+  /// after a deal is approved. These should never be surfaced as error banners.
+  bool _isTransientNetworkError(Object e) {
+    final s = e.toString();
+    return s.contains('SocketException') ||
+        s.contains('ClientException') ||
+        s.contains('Failed host lookup') ||
+        s.contains('connection abort') ||
+        s.contains('Connection closed') ||
+        s.contains('Connection reset') ||
+        s.contains('connection error') ||
+        s.contains('TimeoutException');
+  }
 
-      if (kDebugMode) {
-        print('🧾 Loading receipts for trusted partner: ${user.id}');
-      }
+  Future<void> _loadReceipts({bool silent = false}) async {
+    final user = SupabaseService.instance.getCurrentUser();
+    if (user == null) return;
 
-      final response = await SupabaseService.instance.client
-          .from('deal_receipts')
-          .select()
-          .eq('trusted_partner_id', user.id)
-          .order('created_at', ascending: false);
+    if (kDebugMode) {
+      print('🧾 Loading receipts for trusted partner: ${user.id}');
+    }
 
-      if (kDebugMode) {
-        print('🧾 Loaded ${response.length} receipts');
-      }
+    const maxAttempts = 2;
+    Object? lastError;
 
-      setState(() {
-        _receipts = List<Map<String, dynamic>>.from(response);
-      });
-    } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error loading receipts: $e');
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load receipts: $e')));
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = await SupabaseService.instance.client
+            .from('deal_receipts')
+            .select()
+            .eq('trusted_partner_id', user.id)
+            .order('created_at', ascending: false);
+
+        if (kDebugMode) {
+          print('🧾 Loaded ${response.length} receipts');
+        }
+
+        if (!mounted) return;
+        setState(() {
+          _receipts = List<Map<String, dynamic>>.from(response);
+        });
+        return;
+      } catch (e) {
+        lastError = e;
+        // Retry once for transient network blips before giving up.
+        if (_isTransientNetworkError(e) && attempt < maxAttempts) {
+          _logger.w('Transient receipt fetch failure (attempt $attempt): $e');
+          await Future.delayed(const Duration(milliseconds: 600));
+          continue;
+        }
+        break;
       }
     }
+
+    _logger.e('Error loading receipts: $lastError');
+
+    // Never show a banner for silent (background/realtime) refreshes or for
+    // transient connection hiccups — the list reloads on the next refresh.
+    if (!mounted || silent || _isTransientNetworkError(lastError!)) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to load receipts: $lastError')),
+    );
   }
 
   void _checkForPendingPOSPayments() {
@@ -261,38 +322,54 @@ class _DealAuthorizationDashboardState
 
       if (!mounted) return;
 
-      // If POS payment, show confirmation dialog immediately
+      // If POS payment, defer dialog showing to next frame to avoid context lifecycle issues
       if (paymentMethod == 'pos') {
         // Reload to get the updated auth object
-        final updatedDealData = await SupabaseService.instance.client
-            .from('deal_authorizations')
-            .select('''
-              *,
-              trusted_partner_discounts (
-                id,
-                name,
-                description,
-                item_name,
-                item_price,
-                percentage,
-                fixed_amount,
-                is_active
+        try {
+          final updatedDealData = await SupabaseService.instance.client
+              .from('deal_authorizations')
+              .select('''
+                *,
+                trusted_partner_discounts (
+                  id,
+                  name,
+                  description,
+                  item_name,
+                  item_price,
+                  percentage,
+                  fixed_amount,
+                  is_active
+                ),
+                profiles!deal_authorizations_member_id_fkey (
+                  id,
+                  name,
+                  surname,
+                  email
+                )
+              ''')
+              .eq('id', dealId)
+              .single();
+
+          final auth = DealAuthorization.fromJson(updatedDealData);
+
+          if (mounted) {
+            // Defer dialog to next frame to ensure widget tree is stable during chained approvals
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _showPOSPaymentConfirmation(auth);
+              }
+            });
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error loading payment details: $e'),
+                backgroundColor: Colors.red,
               ),
-              profiles!deal_authorizations_member_id_fkey (
-                id,
-                name,
-                surname,
-                email
-              )
-            ''')
-            .eq('id', dealId)
-            .single();
-
-        final auth = DealAuthorization.fromJson(updatedDealData);
-
-        if (mounted) {
-          // Show POS payment confirmation dialog
-          _showPOSPaymentConfirmation(auth);
+            );
+          }
+          _loadAuthorizations();
         }
       } else {
         // For in-app payment, just show success message
@@ -455,17 +532,53 @@ class _DealAuthorizationDashboardState
     );
   }
 
+  Future<String?> _getLatestDealStatus(String dealId) async {
+    try {
+      final response = await SupabaseService.instance.client
+          .from('deal_authorizations')
+          .select('status')
+          .eq('id', dealId)
+          .maybeSingle();
+
+      return response?['status'] as String?;
+    } catch (e) {
+      _logger.w('Could not load latest deal status for $dealId: $e');
+      return null;
+    }
+  }
+
   void _showPOSPaymentConfirmation(DealAuthorization auth) {
-    final memberName = auth.member != null
-        ? '${auth.member!.name ?? 'Unknown'} ${auth.member!.surname ?? 'Member'}'
-        : 'Unknown Member';
+    // Verify mounted state and context before attempting to show dialog
+    if (!mounted || !context.mounted) {
+      return;
+    }
+
+    // Guard against stale cards/dialogs for already-processed deals.
+    if (auth.status != 'approved') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'This deal is already ${auth.status}. Refreshing dashboard...',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      _loadAuthorizations();
+      return;
+    }
+
+    final memberName = buildMemberDisplayName(
+      name: auth.member?.name,
+      surname: auth.member?.surname,
+      email: auth.member?.email,
+    );
     final discountName = auth.discount?.name ?? 'Unknown Deal';
     final amount = auth.amount?.toStringAsFixed(2) ?? '0.00';
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
@@ -560,13 +673,55 @@ class _DealAuthorizationDashboardState
         actions: [
           OutlinedButton.icon(
             onPressed: () async {
-              // Close dialog
-              Navigator.of(context).pop();
+              // Close dialog using dialog context
+              Navigator.of(dialogContext).pop();
 
               // Handle unsuccessful payment
               try {
                 final user = SupabaseService.instance.getCurrentUser();
                 if (user == null) return;
+
+                final latestStatus = await _getLatestDealStatus(auth.id);
+                if (!mounted || !context.mounted) return;
+
+                if (latestStatus == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Could not verify latest deal status. Please try again.',
+                      ),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  _loadAuthorizations();
+                  return;
+                }
+
+                if (latestStatus == 'completed') {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'This deal is already completed. No changes applied.',
+                      ),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  _loadAuthorizations();
+                  return;
+                }
+
+                if (latestStatus != 'approved') {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Deal status changed to "$latestStatus". Refreshing...',
+                      ),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  _loadAuthorizations();
+                  return;
+                }
 
                 await _dealService.cancelPOSPayment(
                   dealId: auth.id,
@@ -574,7 +729,7 @@ class _DealAuthorizationDashboardState
                   reason: 'Payment unsuccessful at POS terminal',
                 );
 
-                if (mounted) {
+                if (mounted && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
@@ -586,7 +741,7 @@ class _DealAuthorizationDashboardState
                   _loadAuthorizations();
                 }
               } catch (e) {
-                if (mounted) {
+                if (mounted && context.mounted) {
                   ScaffoldMessenger.of(
                     context,
                   ).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -603,20 +758,62 @@ class _DealAuthorizationDashboardState
           ),
           ElevatedButton.icon(
             onPressed: () async {
-              // Close dialog
-              Navigator.of(context).pop();
+              // Close dialog using dialog context
+              Navigator.of(dialogContext).pop();
 
               // Handle successful payment
               try {
                 final user = SupabaseService.instance.getCurrentUser();
                 if (user == null) return;
 
+                final latestStatus = await _getLatestDealStatus(auth.id);
+                if (!mounted || !context.mounted) return;
+
+                if (latestStatus == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Could not verify latest deal status. Please try again.',
+                      ),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  _loadAuthorizations();
+                  return;
+                }
+
+                if (latestStatus == 'completed') {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'This deal is already completed. No changes applied.',
+                      ),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  _loadAuthorizations();
+                  return;
+                }
+
+                if (latestStatus != 'approved') {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Deal status changed to "$latestStatus". Refreshing...',
+                      ),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  _loadAuthorizations();
+                  return;
+                }
+
                 await _dealService.completePOSPayment(
                   dealId: auth.id,
                   trustedPartnerId: user.id,
                 );
 
-                if (mounted) {
+                if (mounted && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
@@ -628,7 +825,7 @@ class _DealAuthorizationDashboardState
                   _loadAuthorizations();
                 }
               } catch (e) {
-                if (mounted) {
+                if (mounted && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Failed to complete payment: $e')),
                   );
@@ -653,7 +850,7 @@ class _DealAuthorizationDashboardState
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        appBar: AppBar(
+        appBar: BrandedAppBar(
           title: const Text('Deal Authorizations'),
           backgroundColor: kBrandBlue,
           foregroundColor: Colors.white,
@@ -747,11 +944,25 @@ class _DealAuthorizationDashboardState
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : TabBarView(
+            : Stack(
                 children: [
-                  _buildAuthorizationList(_pendingAuthorizations, 'pending'),
-                  _buildAuthorizationList(_approvedAuthorizations, 'approved'),
-                  _buildReceiptsTab(),
+                  TabBarView(
+                    children: [
+                      _buildAuthorizationList(_pendingAuthorizations, 'pending'),
+                      _buildAuthorizationList(_approvedAuthorizations, 'approved'),
+                      _buildReceiptsTab(),
+                    ],
+                  ),
+                  // Subtle top progress bar shown during background realtime
+                  // refreshes so the user sees activity without the list
+                  // blanking out (fixes the "second deal disappears" bug).
+                  if (_isRefreshing)
+                    const Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: LinearProgressIndicator(minHeight: 3),
+                    ),
                 ],
               ),
       ),
@@ -985,9 +1196,11 @@ class _DealAuthorizationDashboardState
   }
 
   Widget _buildAuthorizationCard(DealAuthorization auth, String type) {
-    final memberName = auth.member != null
-        ? '${auth.member!.name ?? 'Unknown'} ${auth.member!.surname ?? 'Member'}'
-        : 'Unknown Member';
+    final memberName = buildMemberDisplayName(
+      name: auth.member?.name,
+      surname: auth.member?.surname,
+      email: auth.member?.email,
+    );
     final discountName = auth.discount?.name ?? 'Unknown Deal';
 
     return Card(

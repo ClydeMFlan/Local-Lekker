@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:logger/logger.dart';
 import '../../services/supabase_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/promotion_campaign_service.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 class AdminPromotionDetailScreen extends StatefulWidget {
   final String promotionId;
@@ -292,14 +294,14 @@ class _AdminPromotionDetailScreenState
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Promotion')),
+        appBar: BrandedAppBar(title: const Text('Promotion')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_promotion == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Promotion')),
+        appBar: BrandedAppBar(title: const Text('Promotion')),
         body: const Center(child: Text('Promotion not found')),
       );
     }
@@ -309,14 +311,13 @@ class _AdminPromotionDetailScreenState
     final freeMonths = promo['free_months'];
     final durationText = freeMonths != null ? '$freeMonths month(s) free' : 'Lifetime';
     final imageUrl = promo['image_url'] as String?;
-    final pendingCount = _signups.where((s) => s['status'] == 'pending').length;
-    final confirmedCount =
-        _signups.where((s) => s['status'] == 'confirmed').length;
+    final pendingParticipants =
+        _participants.where((p) => p['is_claimed'] != true).length;
     final claimedParticipants =
-      _participants.where((p) => p['is_claimed'] == true).length;
+        _participants.where((p) => p['is_claimed'] == true).length;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: Text(promo['name'] ?? 'Promotion'),
         actions: [
           IconButton(
@@ -352,7 +353,7 @@ class _AdminPromotionDetailScreenState
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.card_giftcard, color: Colors.teal),
+                            const Icon(Icons.card_giftcard, color: AppColors.primary),
                             const SizedBox(width: 8),
                             Text(durationText,
                                 style: const TextStyle(
@@ -375,21 +376,40 @@ class _AdminPromotionDetailScreenState
                         Row(
                           children: [
                             _buildStatChip(
-                                Icons.people, '$pendingCount pending',
+                                Icons.hourglass_empty,
+                                '$pendingParticipants pending',
                                 color: Colors.orange),
                             const SizedBox(width: 8),
                             _buildStatChip(
-                                Icons.check_circle, '$confirmedCount confirmed',
+                                Icons.check_circle,
+                                '$claimedParticipants confirmed',
                                 color: Colors.green),
                             const SizedBox(width: 8),
                             _buildStatChip(
-                                Icons.group, '${_signups.length} total',
+                                Icons.group,
+                                '${_participants.length} total',
                                 color: Colors.blue),
                             const SizedBox(width: 8),
-                            _buildStatChip(
-                                Icons.mail,
-                                '${_participants.length} participants',
-                                color: Colors.indigo),
+                            InkWell(
+                              onTap: _participants.isNotEmpty
+                                  ? _showParticipantEmailsDialog
+                                  : null,
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.indigo.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Icon(
+                                  Icons.mail_outline,
+                                  size: 18,
+                                  color: _participants.isNotEmpty
+                                      ? Colors.indigo
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         if (_participants.isNotEmpty) ...[
@@ -440,9 +460,9 @@ class _AdminPromotionDetailScreenState
                             ),
                             deleteIcon: const Icon(Icons.close, size: 16),
                             onDeleted: () => _removeEmailChip(email),
-                            backgroundColor: Colors.teal.shade50,
-                            deleteIconColor: Colors.teal.shade700,
-                            side: BorderSide(color: Colors.teal.shade200),
+                            backgroundColor: AppColors.primarySwatch.shade50,
+                            deleteIconColor: AppColors.primarySwatch.shade700,
+                            side: BorderSide(color: AppColors.primarySwatch.shade200),
                           );
                         }).toList(),
                       ),
@@ -474,7 +494,7 @@ class _AdminPromotionDetailScreenState
                         ElevatedButton(
                           onPressed: _addEmailChip,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
+                            backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -495,7 +515,7 @@ class _AdminPromotionDetailScreenState
                             fontSize: 13,
                             color: _pendingEmails.isEmpty
                                 ? Colors.grey
-                                : Colors.teal.shade700,
+                                : AppColors.primarySwatch.shade700,
                             fontWeight: _pendingEmails.isEmpty
                                 ? FontWeight.normal
                                 : FontWeight.w600,
@@ -517,7 +537,7 @@ class _AdminPromotionDetailScreenState
                             _isImporting ? 'Importing...' : 'Import Emails',
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
+                            backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                           ),
                         ),
@@ -614,6 +634,68 @@ class _AdminPromotionDetailScreenState
         );
       }
     }
+  }
+
+  void _showParticipantEmailsDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.mail_outline, color: Colors.indigo),
+            const SizedBox(width: 8),
+            Text('Participant Emails (${_participants.length})'),
+          ],
+        ),
+        contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _participants.length,
+            itemBuilder: (_, i) {
+              final p = _participants[i];
+              final isClaimed = p['is_claimed'] == true;
+              return ListTile(
+                dense: true,
+                leading: Icon(
+                  isClaimed ? Icons.check_circle : Icons.hourglass_empty,
+                  size: 18,
+                  color: isClaimed ? Colors.green : Colors.orange,
+                ),
+                title: Text(
+                  p['email'] ?? '',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                trailing: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (isClaimed ? Colors.green : Colors.orange)
+                        .withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    isClaimed ? 'CONFIRMED' : 'PENDING',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isClaimed ? Colors.green : Colors.orange,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildParticipantCard(Map<String, dynamic> participant) {

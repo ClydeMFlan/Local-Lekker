@@ -136,13 +136,21 @@ class _LoadingScreenState extends State<LoadingScreen>
         final navigationService = NavigationService();
         final targetScreen = await navigationService.getInitialScreen();
 
+        // Re-check mounted after the async gap
+        if (!mounted) {
+          if (kDebugMode) {
+            print('🎬 LoadingScreen: Auto-transition cancelled after await - not mounted');
+          }
+          return;
+        }
+
         if (kDebugMode) {
           print(
             '🎬 LoadingScreen: Navigating to ${targetScreen.runtimeType} with fade transition',
           );
         }
 
-        Navigator.of(context).pushReplacement(
+        Navigator.of(this.context).pushReplacement(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
                 targetScreen,
@@ -167,7 +175,7 @@ class _LoadingScreenState extends State<LoadingScreen>
       }
       // Fallback: just pop the loading screen
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(this.context).pop();
       }
     }
   }
@@ -185,13 +193,21 @@ class _LoadingScreenState extends State<LoadingScreen>
         final navigationService = NavigationService();
         final targetScreen = await navigationService.getInitialScreen();
 
+        // Re-check mounted after the async gap
+        if (!mounted) {
+          if (kDebugMode) {
+            print('🎬 LoadingScreen: Default transition cancelled after await - not mounted');
+          }
+          return;
+        }
+
         if (kDebugMode) {
           print(
             '🎬 LoadingScreen: Navigating to ${targetScreen.runtimeType} with fade transition',
           );
         }
 
-        Navigator.of(context).pushReplacement(
+        Navigator.of(this.context).pushReplacement(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
                 targetScreen,
@@ -220,7 +236,7 @@ class _LoadingScreenState extends State<LoadingScreen>
       }
       // Fallback: just pop the loading screen
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(this.context).pop();
       }
     }
   }

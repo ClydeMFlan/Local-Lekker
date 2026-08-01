@@ -318,12 +318,20 @@ async function markSubscriptionFailed(
     })
     .eq("id", subscriptionId)
 
-  // Send in-app notification so the member knows
+  // Update profile subscription field so NavigationService routes to
+  // PaymentRequiredScreen on next login instead of MembersHomePage.
+  await supabase
+    .from("profiles")
+    .update({ subscription: "payment_failed", updated_at: new Date().toISOString() })
+    .eq("id", userId)
+
+  // Send in-app payment_failure notification so PaymentFailureAlert banner
+  // appears in the app on next open.
   await supabase.from("notifications").insert({
     user_id: userId,
-    title: "Subscription Renewal Failed",
-    message: "We couldn't renew your Local Lekker subscription. Please update your payment method in the app.",
-    type: "subscription_renewal",
+    title: "Subscription Payment Failed",
+    message: "We couldn't renew your Local Lekker subscription. Please update your payment method in the app to continue enjoying discounts.",
+    type: "payment_failure",
     is_read: false,
     data: { reason, source: "scheduled_renewal" },
   })

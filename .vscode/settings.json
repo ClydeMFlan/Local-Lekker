@@ -1,4 +1,14 @@
 {
+  "localLekker.workspacePreset": "Local Lekker Dynamic Hybrid Mode (5-Agent)",
+  "localLekker.schemaAwareness": true,
+  "localLekker.schemaSources": [
+    "supabase/migrations/**",
+    "supabase/functions/**",
+    "supabase/seed.sql",
+    "lib/services/**",
+    "lib/models/**",
+    "supabase/types/**"
+  ],
   "files.exclude": {
     "**/.dart_tool": false,
     "**/.idea": false

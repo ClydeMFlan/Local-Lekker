@@ -1,0 +1,314 @@
+﻿[
+  {
+    "action_statement": "EXECUTE FUNCTION handle_new_user_role_assignment()",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "table_name": "users",
+    "table_schema": "auth",
+    "trigger_name": "handle_new_user_role_assignment_trigger"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION handle_new_user_role_assignment()",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "table_name": "users",
+    "table_schema": "auth",
+    "trigger_name": "trigger_automatic_role_assignment"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_bill_approval_status()",
+    "action_timing": "AFTER",
+    "event_manipulation": "UPDATE",
+    "table_name": "bill_approvals",
+    "table_schema": "public",
+    "trigger_name": "trigger_update_bill_approval_status"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_bill_approvals_updated_at()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "bill_approvals",
+    "table_schema": "public",
+    "trigger_name": "update_bill_approvals_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_business_bills_updated_at()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "business_bills",
+    "table_schema": "public",
+    "trigger_name": "update_business_bills_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_business_logos_updated_at()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "business_logos",
+    "table_schema": "public",
+    "trigger_name": "update_business_logos_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "businesses",
+    "table_schema": "public",
+    "trigger_name": "update_businesses_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION trigger_member_deal_request_confirmation_email()",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "table_name": "deal_authorizations",
+    "table_schema": "public",
+    "trigger_name": "on_deal_authorization_send_member_confirmation"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "deal_authorizations",
+    "table_schema": "public",
+    "trigger_name": "update_deal_authorizations_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION validate_deal_status_transition()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "deal_authorizations",
+    "table_schema": "public",
+    "trigger_name": "validate_deal_status_transition"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION check_member_deal_update()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "deal_authorizations",
+    "table_schema": "public",
+    "trigger_name": "validate_member_deal_update"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION trigger_member_payment_success_email()",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "table_name": "deal_receipts",
+    "table_schema": "public",
+    "trigger_name": "on_deal_receipt_send_member_payment_email"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION trigger_tp_payment_success_email()",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "table_name": "deal_receipts",
+    "table_schema": "public",
+    "trigger_name": "on_deal_receipt_send_tp_payment_email"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_deal_receipts_updated_at()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "deal_receipts",
+    "table_schema": "public",
+    "trigger_name": "update_deal_receipts_updated_at_trigger"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "memberships",
+    "table_schema": "public",
+    "trigger_name": "update_memberships_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION supabase_functions.http_request('https://qdrotavcmmevhgveodcp.supabase.co/functions/v1/send-push-notification', 'POST', '{\"Content-type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkcm90YXZjbW1ldmhndmVvZGNwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzUyMDEzNSwiZXhwIjoyMDczMDk2MTM1fQ.Eia0-0EtnJkPs38anPxM70yKPHiSbhLA1zzLumh1lJI\"}', '{}', '5000')",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "table_name": "notifications",
+    "table_schema": "public",
+    "trigger_name": "send_push_notification_on_insert"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "notifications",
+    "table_schema": "public",
+    "trigger_name": "update_notifications_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION handle_payment_completion()",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "table_name": "payments",
+    "table_schema": "public",
+    "trigger_name": "trigger_payment_completion"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION handle_payment_completion()",
+    "action_timing": "AFTER",
+    "event_manipulation": "UPDATE",
+    "table_name": "payments",
+    "table_schema": "public",
+    "trigger_name": "trigger_payment_completion"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_payments_updated_at()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "payments",
+    "table_schema": "public",
+    "trigger_name": "trigger_update_payments_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION create_bill_approval()",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "table_name": "processed_bills",
+    "table_schema": "public",
+    "trigger_name": "trigger_create_bill_approval"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "processed_bills",
+    "table_schema": "public",
+    "trigger_name": "update_processed_bills_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "profiles",
+    "table_schema": "public",
+    "trigger_name": "update_profiles_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION normalize_promotion_participant_email()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "promotion_participant_emails",
+    "table_schema": "public",
+    "trigger_name": "trg_normalize_promotion_participant_email"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION normalize_promotion_participant_email()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "INSERT",
+    "table_name": "promotion_participant_emails",
+    "table_schema": "public",
+    "trigger_name": "trg_normalize_promotion_participant_email"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "subscriptions",
+    "table_schema": "public",
+    "trigger_name": "update_subscriptions_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION notify_admins_on_tp_inquiry()",
+    "action_timing": "AFTER",
+    "event_manipulation": "INSERT",
+    "table_name": "tp_inquiries",
+    "table_schema": "public",
+    "trigger_name": "on_tp_inquiry_insert_notify_admins"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_tp_inquiries_updated_at()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "tp_inquiries",
+    "table_schema": "public",
+    "trigger_name": "tp_inquiries_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_trusted_partner_bank_accounts_updated_at()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "trusted_partner_bank_accounts",
+    "table_schema": "public",
+    "trigger_name": "update_trusted_partner_bank_accounts_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "trusted_partner_discounts",
+    "table_schema": "public",
+    "trigger_name": "update_trusted_partner_discounts_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_trusted_partner_discounts_updated_at()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "trusted_partner_discounts",
+    "table_schema": "public",
+    "trigger_name": "update_trusted_partner_discounts_updated_at_trigger"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION set_tp_unique_key()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "INSERT",
+    "table_name": "trusted_partners",
+    "table_schema": "public",
+    "trigger_name": "trigger_set_tp_unique_key"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "trusted_partners",
+    "table_schema": "public",
+    "trigger_name": "update_trusted_partners_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "user_qr_codes",
+    "table_schema": "public",
+    "trigger_name": "update_user_qr_codes_updated_at"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION storage.enforce_bucket_name_length()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "INSERT",
+    "table_name": "buckets",
+    "table_schema": "storage",
+    "trigger_name": "enforce_bucket_name_length_trigger"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION storage.enforce_bucket_name_length()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "buckets",
+    "table_schema": "storage",
+    "trigger_name": "enforce_bucket_name_length_trigger"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION storage.protect_delete()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "DELETE",
+    "table_name": "buckets",
+    "table_schema": "storage",
+    "trigger_name": "protect_buckets_delete"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION storage.protect_delete()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "DELETE",
+    "table_name": "objects",
+    "table_schema": "storage",
+    "trigger_name": "protect_objects_delete"
+  },
+  {
+    "action_statement": "EXECUTE FUNCTION storage.update_updated_at_column()",
+    "action_timing": "BEFORE",
+    "event_manipulation": "UPDATE",
+    "table_name": "objects",
+    "table_schema": "storage",
+    "trigger_name": "update_objects_updated_at"
+  }
+]

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/supabase_service.dart';
 import '../../services/cache_service.dart';
 import '../../services/discount_service.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import '../../services/chat_service.dart';
 import '../chat/chat_thread_page.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 class TrustedPartnersByCategoryPage extends StatefulWidget {
   final String? cityFilter;
@@ -289,6 +291,15 @@ class _TrustedPartnersByCategoryPageState
 
         final dealCount = dealCountMap[ownerId] ?? 0;
 
+        // Hide trusted partners that currently have no active deals.
+        // Expired deals are auto-deactivated by the scheduled-deal-expiry-worker
+        // edge function, so a partner with dealCount == 0 has nothing to offer
+        // members right now and should not appear in the listing until they
+        // publish a new active deal.
+        if (dealCount == 0) {
+          continue;
+        }
+
         partners.add({
           ...b,
           'owner_name': ownerName,
@@ -431,7 +442,7 @@ class _TrustedPartnersByCategoryPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Trusted Partners'),
         actions: [
           IconButton(
@@ -519,7 +530,7 @@ class _TrustedPartnersByCategoryPageState
                       prefixIcon: Icon(
                         Icons.local_offer,
                         color: _selectedDealCategory != null
-                            ? Colors.teal
+                            ? AppColors.primary
                             : Colors.grey,
                       ),
                     ),
@@ -558,7 +569,7 @@ class _TrustedPartnersByCategoryPageState
                       prefixIcon: Icon(
                         Icons.location_on,
                         color: _selectedCityFilter != null
-                            ? Colors.teal
+                            ? AppColors.primary
                             : Colors.grey,
                       ),
                     ),

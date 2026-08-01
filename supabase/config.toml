@@ -14,3 +14,8 @@ entrypoint = "./functions/create-profile-function/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/delete-auth-user/index.ts"
+
+[functions.scheduled-renewal-worker]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/scheduled-renewal-worker/index.ts"

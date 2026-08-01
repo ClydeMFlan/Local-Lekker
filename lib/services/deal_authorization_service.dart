@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import '../models/deal_authorization.dart';
+import '../core/utils/display_name_helpers.dart';
 import 'discount_service.dart';
 import 'notification_service.dart';
 
@@ -33,23 +34,35 @@ class DealAuthorizationService {
         print('🔍 [REQUEST_DEAL] Starting for discountId: $discountId');
       }
 
-      // Verify member has active subscription before allowing deal request
-      final subscriptionCheck = await _supabase
-          .from('subscriptions')
-          .select('status, current_period_end')
-          .eq('user_id', memberId)
-          .eq('status', 'active')
+      // TP members (activated via promo key) bypass subscriptions entirely,
+      // so check for TP membership first before requiring an active subscription.
+      final profileCheck = await _supabase
+          .from('profiles')
+          .select('is_tp_member')
+          .eq('id', memberId)
           .maybeSingle();
 
-      if (subscriptionCheck == null) {
-        throw Exception('You need an active subscription to request deals.');
-      }
+      final isTpMember = profileCheck?['is_tp_member'] == true;
 
-      final periodEnd = subscriptionCheck['current_period_end'] as String?;
-      if (periodEnd != null) {
-        final expiryDate = DateTime.parse(periodEnd);
-        if (expiryDate.isBefore(DateTime.now())) {
-          throw Exception('Your subscription has expired. Please renew to request deals.');
+      if (!isTpMember) {
+        // Verify member has active subscription before allowing deal request
+        final subscriptionCheck = await _supabase
+            .from('subscriptions')
+            .select('status, current_period_end')
+            .eq('user_id', memberId)
+            .eq('status', 'active')
+            .maybeSingle();
+
+        if (subscriptionCheck == null) {
+          throw Exception('You need an active subscription to request deals.');
+        }
+
+        final periodEnd = subscriptionCheck['current_period_end'] as String?;
+        if (periodEnd != null) {
+          final expiryDate = DateTime.parse(periodEnd);
+          if (expiryDate.isBefore(DateTime.now())) {
+            throw Exception('Your subscription has expired. Please renew to request deals.');
+          }
         }
       }
 
@@ -438,6 +451,7 @@ class DealAuthorizationService {
             '${memberResponse['name'] ?? ''} ${memberResponse['surname'] ?? ''}'
                 .trim();
         final memberEmail = memberResponse['email'] ?? '';
+        final resolvedDiscountName = await _resolveDiscountName(deal);
 
         // Create receipt in deal_receipts table (for trusted partner's receipt tab)
         await _supabase.from('deal_receipts').insert({
@@ -449,7 +463,7 @@ class DealAuthorizationService {
           'amount': deal.amount,
           'payment_method': 'in_app',
           'business_name': businessResponse['name'],
-          'discount_name': deal.discount?.name ?? 'Unknown Deal',
+          'discount_name': resolvedDiscountName,
           'member_name': memberName,
           'member_email': memberEmail,
         });
@@ -572,6 +586,11 @@ class DealAuthorizationService {
       // Get deal details first
       final deal = await _getDealAuthorization(dealId);
 
+      // Idempotency guard: if already completed, treat as success.
+      if (deal.status == 'completed') {
+        return;
+      }
+
       // Check if deal is in approved status
       if (deal.status != 'approved') {
         throw Exception(
@@ -583,12 +602,29 @@ class DealAuthorizationService {
       final receiptNumber = 'RCP-${DateTime.now().millisecondsSinceEpoch}';
       final qrCode = 'QR-${dealId.substring(0, 8)}';
 
-      // Get business details
-      final businessResponse = await _supabase
+      // Get business details from the exact business referenced by this deal.
+      // Querying by owner_member_id can fail when a TP owns multiple businesses.
+      Map<String, dynamic>? businessResponse;
+
+      if (deal.businessId != null && deal.businessId!.isNotEmpty) {
+        businessResponse = await _supabase
+            .from('businesses')
+            .select('id, name')
+            .eq('id', deal.businessId!)
+            .maybeSingle();
+      }
+
+      // Fallback for legacy rows where business_id may be missing.
+      businessResponse ??= await _supabase
           .from('businesses')
           .select('id, name')
           .eq('owner_member_id', trustedPartnerId)
-          .single();
+          .limit(1)
+          .maybeSingle();
+
+      if (businessResponse == null) {
+        throw Exception('Business not found for POS payment completion');
+      }
 
       // Get member details
       final memberResponse = await _supabase
@@ -597,10 +633,13 @@ class DealAuthorizationService {
           .eq('id', deal.memberId)
           .single();
 
-      final memberName =
-          '${memberResponse['name'] ?? ''} ${memberResponse['surname'] ?? ''}'
-              .trim();
-      final memberEmail = memberResponse['email'] ?? '';
+      final memberEmail = (memberResponse['email'] as String?) ?? '';
+      final memberName = buildMemberDisplayName(
+        name: memberResponse['name'] as String?,
+        surname: memberResponse['surname'] as String?,
+        email: memberEmail,
+      );
+      final resolvedDiscountName = await _resolveDiscountName(deal);
 
       // Create receipt in deal_receipts table
       await _supabase.from('deal_receipts').insert({
@@ -612,7 +651,7 @@ class DealAuthorizationService {
         'amount': deal.amount,
         'payment_method': 'pos',
         'business_name': businessResponse['name'],
-        'discount_name': deal.discount?.name ?? 'Unknown Deal',
+        'discount_name': resolvedDiscountName,
         'member_name': memberName,
         'member_email': memberEmail,
       });
@@ -712,6 +751,40 @@ class DealAuthorizationService {
         .single();
 
     return DealAuthorization.fromJson(response);
+  }
+
+  Future<String> _resolveDiscountName(DealAuthorization deal) async {
+    // Prefer in-memory relationship when present.
+    final joinedName = deal.discount?.name?.trim();
+    if (joinedName != null && joinedName.isNotEmpty) {
+      return joinedName;
+    }
+
+    // Fall back to persisted request snapshot for resilience.
+    final snapshotName = deal.dealSnapshot?['name']?.toString().trim();
+    if (snapshotName != null && snapshotName.isNotEmpty) {
+      return snapshotName;
+    }
+
+    // Last resort: query the discount row by ID.
+    if (deal.discountId.isNotEmpty) {
+      try {
+        final discount = await _supabase
+            .from('trusted_partner_discounts')
+            .select('name')
+            .eq('id', deal.discountId)
+            .maybeSingle();
+
+        final dbName = discount?['name']?.toString().trim();
+        if (dbName != null && dbName.isNotEmpty) {
+          return dbName;
+        }
+      } catch (e) {
+        _logger.w('Could not resolve discount name for ${deal.discountId}: $e');
+      }
+    }
+
+    return 'Unknown Deal';
   }
 
   Future<Map<String, dynamic>> _getDiscountWithTrustedPartner(

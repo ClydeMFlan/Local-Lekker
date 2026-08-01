@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/supabase_service.dart';
 
 /// Payment Gateway Terms & Conditions page for Trusted Partners.
@@ -32,13 +33,15 @@ class _TpPaymentTermsPageState extends State<TpPaymentTermsPage> {
       _error = null;
     });
     try {
-      await SupabaseService.instance.client.from('profiles').update({
-        'partner_payment_terms_accepted': true,
-        'partner_payment_terms_accepted_at': DateTime.now().toIso8601String(),
-        'partner_payment_terms_version': _termsVersion,
-      }).eq('id', user.id);
-
+      final ok = await SupabaseService.instance.acceptTpPaymentTerms(
+        userId: user.id,
+        version: _termsVersion,
+      );
       if (!mounted) return;
+      if (!ok) {
+        setState(() => _error = 'Could not save your acceptance. Please try again.');
+        return;
+      }
       widget.onAccepted();
     } catch (e) {
       if (!mounted) return;
@@ -59,7 +62,7 @@ class _TpPaymentTermsPageState extends State<TpPaymentTermsPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Payment Terms'),
       ),
       body: SafeArea(

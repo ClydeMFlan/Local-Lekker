@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../models/discount.dart';
 import '../../services/deal_authorization_service.dart';
 import '../../services/supabase_service.dart';
@@ -16,8 +17,8 @@ class DealAuthorizationRequestPage extends StatefulWidget {
 class _DealAuthorizationRequestPageState
     extends State<DealAuthorizationRequestPage> {
   // Brand colors
-  static const Color _kBrandBlue = Color(0xFF001489); // RGB 0,20,137
-  static const Color _kBrandGreen = Color(0xFF007749); // RGB 0,119,73
+  static const Color _kBrandBlue = Color(0xFF0E5BA0); // RGB 0,20,137
+  static const Color _kBrandGreen = Color(0xFF3C8C44); // RGB 0,119,73
   static const Color _kBrandGreenLight = Color(0xFFE6F2EC); // light green bg
 
   final DealAuthorizationService _dealService = DealAuthorizationService();
@@ -28,7 +29,7 @@ class _DealAuthorizationRequestPageState
   final GlobalKey _priceFieldKey = GlobalKey();
   String? _priceError;
 
-  String _selectedPaymentMethod = 'in_app'; // 'in_app' or 'pos'
+  String? _selectedPaymentMethod; // null means not yet chosen
   bool _isSubmitting = false;
   late int _quantity; // Current quantity (items or grams)
 
@@ -149,10 +150,25 @@ class _DealAuthorizationRequestPageState
         return;
       }
 
+      // Require explicit payment method selection
+      if (_selectedPaymentMethod == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select a payment method before submitting.'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
+            ),
+          );
+        }
+        return;
+      }
+
       await _dealService.requestDealAuthorization(
         memberId: user.id,
         discountId: discount.id,
-        paymentMethod: _selectedPaymentMethod,
+        paymentMethod: _selectedPaymentMethod!,
         amount: amount,
         quantity: _quantity,
         memberEnteredPrice: memberEnteredPrice,
@@ -196,7 +212,7 @@ class _DealAuthorizationRequestPageState
         widget.deal['trusted_partners'] as Map<String, dynamic>?;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Request Deal Authorization'),
         backgroundColor: _kBrandBlue,
         foregroundColor: Colors.white,
@@ -638,22 +654,40 @@ class _DealAuthorizationRequestPageState
             const SizedBox(height: 24),
 
             // Payment method selection
-            const Text(
-              'Payment Method',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Row(
+              children: [
+                const Text(
+                  'Payment Method',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '*',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red.shade600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Choose how you will pay for this deal',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 12),
             _buildPaymentMethodCard(
               'in_app',
               'In-App Payment',
-              'Pay securely through the app using your saved payment method',
+              'Pay securely through the app after the partner approves your request',
               Icons.phone_android,
             ),
             const SizedBox(height: 12),
             _buildPaymentMethodCard(
               'pos',
-              'POS Payment',
-              'Pay directly at the trusted partner\'s location',
+              'POS Payment (In-Store)',
+              'Visit the partner\'s store and pay at their counter',
               Icons.store,
             ),
 

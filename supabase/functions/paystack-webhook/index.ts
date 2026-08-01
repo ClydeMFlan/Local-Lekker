@@ -34,6 +34,32 @@ async function verifySignature(
     return hashHex === signature
 }
 
+// ── Date helpers (mirror Dart SubscriptionService logic) ─────────────
+// Adds one calendar month, clamping the day (e.g. Jan 31 → Feb 28). Mirrors
+// SubscriptionService.oneCalendarMonthFrom so webhook-activated periods match
+// app-activated periods exactly.
+function oneCalendarMonthFrom(from: Date): Date {
+    const year = from.getFullYear()
+    const month = from.getMonth() // 0-based
+    const day = from.getDate()
+    // Last day of the target month (month + 1), used to clamp overflow.
+    const maxDay = new Date(year, month + 2, 0).getDate()
+    const clampedDay = day > maxDay ? maxDay : day
+    return new Date(
+        year, month + 1, clampedDay,
+        from.getHours(), from.getMinutes(), from.getSeconds(), from.getMilliseconds(),
+    )
+}
+
+// Adds N calendar months using native rollover. Mirrors the intro-campaign
+// free-period calc in the app: DateTime(year, month + freeMonths, day).
+function addMonths(from: Date, months: number): Date {
+    return new Date(
+        from.getFullYear(), from.getMonth() + months, from.getDate(),
+        from.getHours(), from.getMinutes(), from.getSeconds(), from.getMilliseconds(),
+    )
+}
+
 serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
@@ -107,6 +133,10 @@ serve(async (req) => {
             case 'subscription.disable':
                 await handleSubscriptionDisable(supabase, data)
                 break
+            case 'transfer.failed':
+            case 'transfer.reversed':
+                await handleTransferFailed(supabase, data, event)
+                break
             default:
                 console.log('Unhandled event:', event)
         }
@@ -144,6 +174,12 @@ async function handleChargeSuccess(supabase: any, data: any) {
     // ── Subscription payment ──────────────────────────────
     if (paymentType === 'subscription') {
         await recoverSubscriptionPayment(supabase, userId, reference, amount, metadata)
+        return
+    }
+
+    // ── Intro campaign (R1) entry-offer payment ───────────
+    if (paymentType === 'promotion_intro') {
+        await recoverIntroCampaignPayment(supabase, userId, reference, amount, metadata)
         return
     }
 
@@ -189,7 +225,8 @@ async function recoverSubscriptionPayment(
         const existing = new Date(expiresAt)
         if (existing > now) baseDate = existing
     }
-    const newExpiry = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000)
+    const newExpiry = oneCalendarMonthFrom(baseDate)
+    const renewalChargeCents = Number(metadata.renewal_charge_cents ?? 9900)
 
     // Update subscription
     if (existingSub) {
@@ -197,7 +234,11 @@ async function recoverSubscriptionPayment(
             .from('subscriptions')
             .update({
                 status: 'active',
+                plan_type: 'subscription',
+                current_period_start: now.toISOString(),
                 current_period_end: newExpiry.toISOString(),
+                auto_renew: true,
+                renewal_charge_cents: renewalChargeCents,
                 updated_at: now.toISOString(),
             })
             .eq('id', existingSub.id)
@@ -206,8 +247,11 @@ async function recoverSubscriptionPayment(
         await supabase.from('subscriptions').insert({
             user_id: userId,
             status: 'active',
+            plan_type: 'subscription',
             current_period_start: now.toISOString(),
             current_period_end: newExpiry.toISOString(),
+            auto_renew: true,
+            renewal_charge_cents: renewalChargeCents,
             created_at: now.toISOString(),
             updated_at: now.toISOString(),
         })
@@ -242,6 +286,161 @@ async function recoverSubscriptionPayment(
     })
 
     console.log(`Subscription activated for ${userId} until ${newExpiry.toISOString()}`)
+}
+
+// ── Intro campaign payment recovery ───────────────────────────────────
+// Safety net: if the app was killed after Paystack charged the R1 intro fee
+// but before activateIntroCampaignSubscription ran, this activates the
+// promotional subscription server-side so the member isn't charged but stuck.
+// Mirrors SubscriptionService.activateIntroCampaignSubscription.
+async function recoverIntroCampaignPayment(
+    supabase: any,
+    userId: string,
+    reference: string,
+    amount: number,
+    metadata: any,
+) {
+    console.log(`Recovering intro campaign payment for user ${userId}`)
+
+    const promotionId = metadata.promotion_id
+    const participantId = metadata.participant_id
+    const initialChargeCents = Number(metadata.initial_charge_cents ?? 100)
+    const renewalChargeCents = Number(metadata.renewal_charge_cents ?? 9900)
+
+    if (!promotionId || !participantId) {
+        console.warn('promotion_intro: missing promotion_id/participant_id in metadata, skipping')
+        return
+    }
+
+    // Idempotent: if a subscription is already active, the app handled it.
+    const { data: existingSub } = await supabase
+        .from('subscriptions')
+        .select('id, status')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+    if (existingSub?.status === 'active') {
+        console.log('Intro subscription already active, skipping')
+        return
+    }
+
+    // Authoritative free-month lookup. promotions.free_months IS NULL means a
+    // lifetime membership (never expires) — see confirm_promo_signup(). Metadata
+    // coerces NULL -> 0, which would create an already-expired subscription and
+    // block the member from requesting deals after paying the R1 intro fee.
+    let isLifetime = false
+    let effectiveFreeMonths = Number(metadata.free_months ?? 0)
+    {
+        const { data: promoRow } = await supabase
+            .from('promotions')
+            .select('free_months')
+            .eq('id', promotionId)
+            .maybeSingle()
+        if (promoRow) {
+            if (promoRow.free_months === null || promoRow.free_months === undefined) {
+                isLifetime = true
+            } else {
+                effectiveFreeMonths = Number(promoRow.free_months)
+            }
+        }
+    }
+
+    const now = new Date()
+    // Never create an already-expired subscription. Lifetime → 100 years;
+    // otherwise grant the free months, with a one-month floor so the R1 payment
+    // always buys at least the first billing period before R99.
+    const monthsToGrant = isLifetime ? 1200 : (effectiveFreeMonths > 0 ? effectiveFreeMonths : 1)
+    const freePeriodEnd = addMonths(now, monthsToGrant)
+
+    // Deactivate old QR codes, then issue a fresh one valid for the free period.
+    await supabase.from('user_qr_codes').update({ is_active: false }).eq('user_id', userId)
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('name, surname')
+        .eq('id', userId)
+        .single()
+
+    await supabase.from('user_qr_codes').insert({
+        user_id: userId,
+        qr_code: `QR_${userId}_${now.getTime()}`,
+        name: profile?.name ?? 'Unknown',
+        surname: profile?.surname ?? 'Unknown',
+        is_active: true,
+        expires_at: freePeriodEnd.toISOString(),
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+    })
+
+    const subscriptionData: Record<string, unknown> = {
+        user_id: userId,
+        plan_type: 'promotion_intro',
+        promotion_id: promotionId,
+        promo_participant_id: participantId,
+        current_period_start: now.toISOString(),
+        current_period_end: freePeriodEnd.toISOString(),
+        free_period_end: freePeriodEnd.toISOString(),
+        initial_charge_cents: initialChargeCents,
+        renewal_charge_cents: renewalChargeCents,
+        intro_charge_reference: reference,
+        intro_charge_paid_at: now.toISOString(),
+        status: 'active',
+        auto_renew: true,
+        updated_at: now.toISOString(),
+    }
+
+    if (existingSub) {
+        await supabase.from('subscriptions').update(subscriptionData).eq('id', existingSub.id)
+    } else {
+        subscriptionData.created_at = now.toISOString()
+        await supabase.from('subscriptions').insert(subscriptionData)
+    }
+
+    // Activate profile
+    await supabase
+        .from('profiles')
+        .update({
+            subscription: 'active',
+            subscription_status: 'active',
+            updated_at: now.toISOString(),
+        })
+        .eq('id', userId)
+
+    // Mark the promo participant as claimed
+    await supabase
+        .from('promotion_participant_emails')
+        .update({
+            is_claimed: true,
+            claimed_by: userId,
+            claimed_at: now.toISOString(),
+        })
+        .eq('id', participantId)
+
+    // Notification
+    await supabase.from('notifications').insert({
+        user_id: userId,
+        title: 'Entry Offer Activated',
+        message: isLifetime
+            ? `Welcome to Local Lekker! Your lifetime membership is now active.`
+            : effectiveFreeMonths > 0
+                ? `Welcome to Local Lekker! Enjoy ${effectiveFreeMonths} month(s) free until ${freePeriodEnd.toLocaleDateString('en-ZA')}.`
+                : `Welcome to Local Lekker! Your membership is active until ${freePeriodEnd.toLocaleDateString('en-ZA')}.`,
+        type: 'subscription_renewal',
+        is_read: false,
+        data: {
+            reference,
+            expires_at: freePeriodEnd.toISOString(),
+            amount: amount / 100,
+            promotion_id: promotionId,
+            free_months: effectiveFreeMonths,
+            lifetime: isLifetime,
+            source: 'webhook',
+        },
+    })
+
+    console.log(`Intro campaign activated for ${userId} until ${freePeriodEnd.toISOString()}`)
 }
 
 // ── Deal payment recovery ─────────────────────────────────────────────
@@ -313,22 +512,137 @@ async function recoverDealPayment(
         return
     }
 
-    // Notify user
+    // ── Fetch deal details for receipt generation ─────────────────────
+    const { data: dealFull } = await supabase
+        .from('deal_authorizations')
+        .select(`
+            *,
+            trusted_partner_discounts(*, businesses(*)),
+            profiles(*)
+        `)
+        .eq('id', deal.id)
+        .single()
+
+    const discountData = dealFull?.trusted_partner_discounts
+    const businessData = discountData?.businesses
+    const memberData = dealFull?.profiles
+    const businessId = discountData?.business_id ?? dealFull?.business_id ?? null
+    const trustedPartnerId = discountData?.trusted_partner_id ?? businessData?.owner_member_id ?? null
+    const memberName = [memberData?.name, memberData?.surname].filter(Boolean).join(' ') || 'Member'
+    const businessName = businessData?.name ?? 'Business'
+    const dealName = discountData?.name ?? 'Deal'
+    const dealAmount = (dealFull?.amount ?? amount / 100) as number
+
+    // ── Generate receipt number ───────────────────────────────────────
+    let receiptNumber = `RCP-${Date.now()}`
+    if (businessId) {
+        try {
+            const { data: rpcResult } = await supabase.rpc('get_next_receipt_number', {
+                p_business_id: businessId,
+            })
+            if (rpcResult) receiptNumber = rpcResult as string
+        } catch (e) {
+            console.warn('get_next_receipt_number failed, using fallback:', e)
+        }
+    }
+
+    const qrCode = `RECEIPT:${deal.id}:${receiptNumber}`
+    const transactionDate = new Date().toISOString()
+
+    // ── Insert virtual_receipts ───────────────────────────────────────
+    if (businessId) {
+        const receiptData = {
+            receipt_number: receiptNumber,
+            deal_authorization_id: deal.id,
+            business_name: businessName,
+            business_id: businessId,
+            member_name: memberName,
+            member_email: memberData?.email ?? 'N/A',
+            discount_name: dealName,
+            amount: dealAmount,
+            payment_method: 'in_app',
+            transaction_date: transactionDate,
+            status: 'completed',
+        }
+
+        const { error: vrError } = await supabase
+            .from('virtual_receipts')
+            .insert({
+                deal_authorization_id: deal.id,
+                receipt_number: receiptNumber,
+                receipt_data: receiptData,
+                qr_code: qrCode,
+            })
+
+        if (vrError) {
+            console.error('Failed to insert virtual_receipt (webhook recovery):', vrError.message)
+        } else {
+            console.log(`virtual_receipt created for deal ${deal.id}: ${receiptNumber}`)
+        }
+
+        // ── Insert deal_receipts ──────────────────────────────────────
+        const { error: drError } = await supabase
+            .from('deal_receipts')
+            .insert({
+                member_id: memberData?.id ?? userId,
+                trusted_partner_id: trustedPartnerId,
+                business_id: businessId,
+                deal_authorization_id: deal.id,
+                receipt_number: receiptNumber,
+                amount: dealAmount,
+                business_name: businessName,
+                discount_name: dealName,
+                member_name: memberName,
+                member_email: memberData?.email,
+                payment_method: 'in_app',
+            })
+
+        if (drError) {
+            console.error('Failed to insert deal_receipt (webhook recovery):', drError.message)
+        } else {
+            console.log(`deal_receipt created for deal ${deal.id}: ${receiptNumber}`)
+        }
+    }
+
+    // ── Notify member ─────────────────────────────────────────────────
     await supabase.from('notifications').insert({
         user_id: userId,
         title: 'Payment Confirmed',
-        message: `Your deal payment of R${(amount / 100).toFixed(2)} has been confirmed.`,
-        type: 'deal_payment',
+        message: `Your payment of R${dealAmount.toFixed(2)} to ${businessName} for ${dealName} was confirmed. Receipt #${receiptNumber} generated.`,
+        type: 'payment_success',
         is_read: false,
         data: {
             deal_authorization_id: deal.id,
             reference,
-            amount: amount / 100,
+            amount: dealAmount,
+            receipt_number: receiptNumber,
+            business_name: businessName,
             source: 'webhook',
         },
     })
 
-    console.log(`Deal ${deal.id} recovered and marked completed`)
+    // ── Notify trusted partner ────────────────────────────────────────
+    if (trustedPartnerId) {
+        await supabase.from('notifications').insert({
+            user_id: trustedPartnerId,
+            title: '💰 Payment Received',
+            message: `${memberName} paid R${dealAmount.toFixed(2)} for ${dealName}. Receipt #${receiptNumber} generated.`,
+            type: 'payment_received',
+            is_read: false,
+            data: {
+                deal_authorization_id: deal.id,
+                member_id: userId,
+                member_name: memberName,
+                deal_name: dealName,
+                amount: dealAmount,
+                receipt_number: receiptNumber,
+                business_name: businessName,
+                source: 'webhook',
+            },
+        })
+    }
+
+    console.log(`Deal ${deal.id} recovered and marked completed, receipt: ${receiptNumber}`)
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -469,7 +783,7 @@ async function handleSubscriptionCharge(supabase: any, data: any) {
         if (existing > now) baseDate = existing
     }
 
-    const newExpiry = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000)
+    const newExpiry = oneCalendarMonthFrom(baseDate)
 
     // Update subscription
     if (currentSub) {
@@ -625,7 +939,7 @@ async function ensureActiveQRCode(supabase: any, userId: string) {
     }
 
     const now = new Date()
-    const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+    const expiresAt = oneCalendarMonthFrom(now)
 
     await supabase.from('user_qr_codes').insert({
         user_id: userId,
@@ -637,4 +951,84 @@ async function ensureActiveQRCode(supabase: any, userId: string) {
     })
 
     console.log(`Created QR code for ${userId}`)
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// transfer.failed / transfer.reversed
+// Fires when Paystack cannot settle funds to a subaccount's bank account.
+// This is the server-side signal for the "pending 24h then failed" pattern
+// caused by unverifiable ZAR bank accounts on subaccounts.
+// ═══════════════════════════════════════════════════════════════════════
+async function handleTransferFailed(supabase: any, data: any, event: string) {
+    const transferCode = data.transfer_code ?? data.reference ?? 'unknown'
+    const recipient = data.recipient
+    const subaccountCode = recipient?.details?.account_number
+        ? `ACCT_${recipient?.code ?? 'unknown'}`
+        : recipient?.code ?? 'unknown'
+    const amount = (data.amount ?? 0) / 100
+    const reason = data.reason ?? data.gateway_response ?? 'Unknown reason'
+    const now = new Date().toISOString()
+
+    console.error(`${event}: transfer_code=${transferCode} subaccount=${subaccountCode} amount=R${amount} reason=${reason}`)
+
+    // Find the trusted partner linked to this subaccount so we can notify them
+    const { data: bankingRow } = await supabase
+        .from('trusted_partner_bank_accounts')
+        .select('user_id, bank_name, account_holder_name')
+        .eq('subaccount_code', subaccountCode)
+        .maybeSingle()
+
+    if (bankingRow) {
+        const partnerId = bankingRow.user_id
+
+        // Notify the trusted partner that their settlement failed
+        await supabase.from('notifications').insert({
+            user_id: partnerId,
+            title: '⚠️ Settlement Failed',
+            message: `A payment settlement of R${amount.toFixed(2)} to your bank account failed. Please verify your banking details in your Business Profile to avoid future payment issues.`,
+            type: 'settlement_failed',
+            is_read: false,
+            data: {
+                transfer_code: transferCode,
+                subaccount_code: subaccountCode,
+                amount,
+                reason,
+                event,
+                failed_at: now,
+                action_required: 'update_banking_details',
+            },
+        })
+
+        console.log(`Settlement failure notification sent to partner ${partnerId}`)
+    } else {
+        // Subaccount not matched in DB — log for manual investigation
+        console.error(`transfer.failed: No DB record for subaccount=${subaccountCode}. Manual investigation required. Amount: R${amount}`)
+    }
+
+    // Notify all admin users so they can investigate and manually refund/reroute
+    const { data: admins } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin')
+
+    if (admins && admins.length > 0) {
+        const adminNotifications = admins.map((admin: any) => ({
+            user_id: admin.id,
+            title: '🚨 Partner Settlement Failed',
+            message: `Settlement of R${amount.toFixed(2)} to subaccount ${subaccountCode} failed (${reason}). Manual action required.`,
+            type: 'admin_settlement_failed',
+            is_read: false,
+            data: {
+                transfer_code: transferCode,
+                subaccount_code: subaccountCode,
+                amount,
+                reason,
+                event,
+                failed_at: now,
+                partner_user_id: bankingRow?.user_id ?? null,
+            },
+        }))
+        await supabase.from('notifications').insert(adminNotifications)
+        console.log(`Admin settlement failure alert sent to ${admins.length} admin(s)`)
+    }
 }

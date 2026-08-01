@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/notification.dart';
@@ -52,20 +54,39 @@ class DealApprovalPopupService {
   // Guard flag to prevent double-tap on payment authorization
   bool _paymentInitInProgress = false;
 
+  // Guard flag to prevent concurrent checkAndShowApprovalPopup calls.
+  // Without this, multiple realtime events firing in quick succession can
+  // open stacked approval dialogs on the member home screen.
+  bool _approvalCheckInProgress = false;
+
   // Tracks whether the payment progress overlay is currently shown so we
   // can dismiss it safely on success/error paths.
   bool _paymentProgressOpen = false;
 
-  /// Show a full-screen, non-dismissible progress overlay while a payment
-  /// is being processed. Replaces the previous SnackBar approach so that
-  /// the underlying authorisation screen is fully covered until the
-  /// operation completes (or fails).
+  /// Flag flipped when the member taps Cancel on the overlay. Callers can
+  /// poll this to bail out of post-network work after a timeout/cancel.
+  bool _paymentProgressCancelled = false;
+
+  /// Stored root NavigatorState captured when the overlay is shown so that
+  /// we can reliably pop it from the Cancel callback without depending on a
+  /// potentially-stale builder context.
+  NavigatorState? _overlayNavigator;
+
+  /// Show a full-screen progress overlay while a payment is being
+  /// processed. After [showCancelAfter] (default 8s) a Cancel button
+  /// appears so members are never stuck waiting on a slow Edge Function.
   void _showPaymentProgressOverlay(
     BuildContext context, {
     required String message,
+    Duration showCancelAfter = const Duration(seconds: 8),
   }) {
     if (_paymentProgressOpen) return;
     _paymentProgressOpen = true;
+    _paymentProgressCancelled = false;
+    // Capture the root navigator NOW while the context is definitely mounted.
+    // Using this stable reference in the Cancel callback avoids issues with
+    // the dialog builder's ctx becoming unreachable after a deep navigator push.
+    _overlayNavigator = Navigator.of(context, rootNavigator: true);
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -84,34 +105,18 @@ class DealApprovalPopupService {
                 horizontal: 28,
                 vertical: 32,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(
-                    width: 56,
-                    height: 56,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 4,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Please wait, do not close the app.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                ],
+              child: _PaymentProgressContent(
+                message: message,
+                showCancelAfter: showCancelAfter,
+                onCancel: () {
+                  _paymentProgressCancelled = true;
+                  _paymentProgressOpen = false;
+                  final nav = _overlayNavigator;
+                  _overlayNavigator = null;
+                  if (nav != null && nav.canPop()) {
+                    nav.pop();
+                  }
+                },
               ),
             ),
           ),
@@ -124,9 +129,10 @@ class DealApprovalPopupService {
   void _dismissPaymentProgressOverlay(BuildContext context) {
     if (!_paymentProgressOpen) return;
     _paymentProgressOpen = false;
-    final navigator = Navigator.of(context, rootNavigator: true);
-    if (navigator.canPop()) {
-      navigator.pop();
+    final nav = _overlayNavigator ?? Navigator.of(context, rootNavigator: true);
+    _overlayNavigator = null;
+    if (nav.canPop()) {
+      nav.pop();
     }
   }
 
@@ -135,6 +141,22 @@ class DealApprovalPopupService {
     BuildContext context,
     String userId,
   ) async {
+    // Prevent concurrent executions: if a popup check is already running,
+    // bail out immediately so we never stack two approval dialogs.
+    if (_approvalCheckInProgress) {
+      if (kDebugMode) {
+        print('[INFO] checkAndShowApprovalPopup already running, skipping concurrent call');
+      }
+      return;
+    }
+    _approvalCheckInProgress = true;
+
+    // Self-heal singleton flags before showing a fresh popup so a stuck
+    // guard from a previous session can never silently block a tap.
+    _paymentInitInProgress = false;
+    _paymentProgressOpen = false;
+    _paymentProgressCancelled = false;
+    _overlayNavigator = null;
     try {
       // Get unread deal_approved notifications
       final notifications = await _notificationService.getUserNotifications(
@@ -172,12 +194,21 @@ class DealApprovalPopupService {
       if (kDebugMode) {
         print('[ERROR] Failed to check for approval popups: $e');
       }
+    } finally {
+      _approvalCheckInProgress = false;
     }
   }
 
   /// Public helper to start payment for a known deal id
   Future<void> startPaymentForDeal(BuildContext context, String dealId) async {
     try {
+      // Self-heal: if a previous attempt left the guard flag stuck (e.g.
+      // hot-restart mid-flow or an unhandled exception before `finally`),
+      // a fresh user-initiated start should always be allowed.
+      _paymentInitInProgress = false;
+      _paymentProgressOpen = false;
+      _paymentProgressCancelled = false;
+      _overlayNavigator = null;
       final deal = await _getDealAuthorization(dealId);
       await _showApprovalDialog(context, deal, 'manual_start');
     } catch (e) {
@@ -273,14 +304,15 @@ class DealApprovalPopupService {
               ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Your deal authorization at $businessName has been approved.',
-                style: const TextStyle(fontSize: 16),
-              ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your deal authorization at $businessName has been approved.',
+                  style: const TextStyle(fontSize: 16),
+                ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -300,23 +332,31 @@ class DealApprovalPopupService {
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Discount:'),
-                        Text(
-                          discountName,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            discountName,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Business:'),
-                        Text(
-                          businessName,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            businessName,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
                         ),
                       ],
                     ),
@@ -363,50 +403,90 @@ class DealApprovalPopupService {
                     ),
                     if (deal.amount != null) ...[
                       const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Payment breakdown',
-                              style: TextStyle(fontWeight: FontWeight.w600),
+                      Builder(
+                        builder: (_) {
+                          final newPrice = deal.amount!;
+                          final savingsFromField =
+                              deal.appliedDiscountAmount ?? 0;
+                          final originalPrice =
+                              deal.memberEnteredPrice ??
+                              (newPrice + savingsFromField);
+                          final totalSavings = savingsFromField > 0
+                              ? savingsFromField
+                              : (originalPrice - newPrice);
+                          final hasSavings =
+                              totalSavings > 0.009 &&
+                              originalPrice > newPrice + 0.009;
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('You pay'),
-                                Text('R${deal.amount!.toStringAsFixed(2)}'),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Partner receives'),
-                                Text(
-                                  'R${payoutContext.partnerReceives(deal.amount!).toStringAsFixed(2)}',
+                                const Text(
+                                  'Price breakdown',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Platform/processing fee'),
-                                Text(
-                                  'R${payoutContext.platformFee(deal.amount!).toStringAsFixed(2)}',
+                                const SizedBox(height: 8),
+                                if (hasSavings) ...[
+                                  Row(
+                                    children: [
+                                      const Expanded(
+                                        child: Text('Original price'),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'R${originalPrice.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                          decoration:
+                                              TextDecoration.lineThrough,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                ],
+                                Row(
+                                  children: [
+                                    const Expanded(child: Text('New price')),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'R${newPrice.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                if (hasSavings) ...[
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      const Expanded(
+                                        child: Text('Total saving'),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'R${totalSavings.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.green.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                     ],
                     const Divider(height: 24),
@@ -457,7 +537,8 @@ class DealApprovalPopupService {
                     ],
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -515,11 +596,23 @@ class DealApprovalPopupService {
                   print('🔴 Amount: ${deal.amount}');
                 }
 
-                // Guard against double-tap
+                // Guard against double-tap. Surface feedback if we ever
+                // block — silent no-ops here previously left the button
+                // looking dead after a stuck flag.
                 if (_paymentInitInProgress) {
                   if (kDebugMode) {
                     print(
                       '⚠️ Payment initialization already in progress, ignoring tap',
+                    );
+                  }
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'A payment is already starting — please wait a moment.',
+                        ),
+                        duration: Duration(seconds: 3),
+                      ),
                     );
                   }
                   return;
@@ -532,10 +625,28 @@ class DealApprovalPopupService {
                 _paymentInitInProgress = true;
 
                 try {
-                  // Mark notification as read (skip for manual starts)
+                  // Dismiss the approval dialog FIRST so the member gets
+                  // immediate feedback. Anything that can fail (marking the
+                  // notification, network calls) must NOT block the UI
+                  // transition — otherwise the button feels dead.
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+
+                  // Mark notification as read in the background. Swallow
+                  // errors here because a stale/RLS-rejected notification
+                  // must never block the payment flow.
                   if (notificationId != 'manual_start') {
-                    await _notificationService.markNotificationAsRead(
-                      notificationId,
+                    unawaited(
+                      _notificationService
+                          .markNotificationAsRead(notificationId)
+                          .catchError((Object e) {
+                            if (kDebugMode) {
+                              print(
+                                '⚠️ markNotificationAsRead failed (ignored): $e',
+                              );
+                            }
+                          }),
                     );
                   } else {
                     if (kDebugMode) {
@@ -543,86 +654,30 @@ class DealApprovalPopupService {
                     }
                   }
 
-                  if (dialogContext.mounted) {
-                    Navigator.of(dialogContext).pop();
-
+                  if (context.mounted) {
                     // Navigate to payment page based on payment method
                     if (deal.paymentMethod == 'in_app') {
-                      // Show payment confirmation dialog
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Confirm Payment'),
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'You are about to pay R${deal.amount!.toStringAsFixed(2)} for $discountName.',
-                              ),
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.blue.shade200,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.info_outline,
-                                      color: Colors.blue.shade700,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Payment will be processed by Local Lekker and transferred to $businessName.',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.blue.shade700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(ctx).pop(false),
-                              child: const Text('Cancel'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () => Navigator.of(ctx).pop(true),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: Text(
-                                payoutContext.hasValidSubaccount
-                                    ? 'Proceed to Payment'
-                                    : 'Banking Required',
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      if (confirmed == true &&
-                          payoutContext.hasValidSubaccount) {
-                        // Process in-app payment via Paystack
+                      // Skip the extra confirmation dialog — the approval
+                      // popup itself already shows the amount and partner
+                      // banking status. Go straight to the saved card /
+                      // CVV entry page so the member can complete payment.
+                      if (payoutContext.hasValidSubaccount) {
                         await _processInAppPayment(
                           context,
                           deal,
                           businessName,
                           discountName,
                           payoutContext,
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '$businessName has not completed banking setup yet. Please try again later.',
+                            ),
+                            backgroundColor: Colors.orange,
+                            duration: const Duration(seconds: 5),
+                          ),
                         );
                       }
                     } else {
@@ -636,6 +691,20 @@ class DealApprovalPopupService {
                         ),
                       );
                     }
+                  }
+                } catch (e, st) {
+                  if (kDebugMode) {
+                    print('❌ Authorize Payment handler failed: $e');
+                    print('❌ $st');
+                  }
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Could not start payment: $e'),
+                        backgroundColor: Colors.red,
+                        duration: const Duration(seconds: 5),
+                      ),
+                    );
                   }
                 } finally {
                   // Always reset guard flag
@@ -792,6 +861,7 @@ class DealApprovalPopupService {
 
       // If we have a subaccount code, verify it with Paystack API directly
       if (subaccountCode != null && subaccountCode.isNotEmpty) {
+        bool paystackExplicitlyInactive = false;
         try {
           final subaccountDetails = await _paystackService.getSubaccount(
             subaccountCode,
@@ -807,12 +877,26 @@ class DealApprovalPopupService {
             final paystackActive = subaccountDetails['active'];
             if (paystackActive == true) {
               activeFlag = true;
+            } else if (paystackActive == false) {
+              paystackExplicitlyInactive = true;
             }
           }
         } catch (e) {
           if (kDebugMode) {
             print('⚠️ Paystack getSubaccount failed: $e');
           }
+        }
+
+        // A Paystack subaccount code only exists once the partner has completed
+        // their banking setup, so treat its mere presence as "banking ready"
+        // UNLESS Paystack explicitly reports the subaccount as inactive.
+        // This prevents a false "Partner banking not ready" when the local
+        // trusted_partner_bank_accounts is_active/subaccount_active flag is
+        // stale, or when the Paystack lookup transiently fails (null/error).
+        // The same subaccount already settles the member's saved-card payments,
+        // so it must not be rejected for a new-card payment on this deal.
+        if (!paystackExplicitlyInactive) {
+          activeFlag = true;
         }
       }
 
@@ -973,6 +1057,12 @@ class DealApprovalPopupService {
     // Try charging the member's saved card first for instant payment
     final savedMethods = await _paystackService.getSavedPaymentMethods(user.id);
 
+    // Default flags for the WebView (new-card) path. These get overridden
+    // if the member explicitly chose "Use a different card" from the
+    // saved-card selection dialog.
+    bool useNewCardFlow = savedMethods.isEmpty;
+    bool makeNewCardPrimary = false;
+
     if (savedMethods.isNotEmpty) {
       // Hand off to the card selection dialog — drop the overlay so the
       // dialog isn't competing with it.
@@ -981,6 +1071,7 @@ class DealApprovalPopupService {
       final selection = await _showCardSelectionDialog(
         context,
         savedMethods: savedMethods,
+        userId: user.id,
       );
 
       if (selection == null) {
@@ -990,12 +1081,18 @@ class DealApprovalPopupService {
 
       if (selection['use_new_card'] == true) {
         // Member wants to add a new card — fall through to WebView
+        useNewCardFlow = true;
+        makeNewCardPrimary = selection['make_primary'] == true;
         if (kDebugMode) {
-          print('💳 Member chose to use a new card, opening WebView');
+          print(
+            '💳 Member chose to use a new card, opening WebView '
+            '(make_primary=$makeNewCardPrimary)',
+          );
         }
       } else {
         // Member selected a saved card and confirmed CVV
         final selectedAuthCode = selection['authorization_code'] as String;
+        final selectedCvv = selection['cvv'] as String?;
 
       if (context.mounted) {
         _showPaymentProgressOverlay(
@@ -1010,6 +1107,7 @@ class DealApprovalPopupService {
 
       final chargeResult = await _paystackService.chargeSavedCard(
         authorizationCode: selectedAuthCode,
+        cvv: selectedCvv,
         amount: deal.amount!,
         userId: user.id,
         userEmail: user.email!,
@@ -1022,6 +1120,7 @@ class DealApprovalPopupService {
         if (kDebugMode) {
           print('✅ Saved card charge successful for deal ${deal.id}');
         }
+
 
         // Update deal authorization status to 'completed' directly
         try {
@@ -1103,13 +1202,73 @@ class DealApprovalPopupService {
         return;
       }
 
-      // Saved card charge failed — fall through to WebView
+      // Saved card charge failed (wrong CVV, declined, etc.).
+      // Show a clear error and re-open the card selection / CVV dialog
+      // so the member can correct their CVV or choose a different card.
+      // Do NOT fall through to the WebView — the member already has a
+      // saved card; silently reloading the card-entry page is confusing.
+      final gatewayReason = (chargeResult != null && chargeResult.startsWith('failed:'))
+          ? chargeResult.substring('failed:'.length)
+          : 'Payment declined';
+      // Paystack's risk engine can flag a card for fraud/velocity after several
+      // rapid attempts. That is a bank/gateway decision the app cannot override,
+      // so surface an accurate message (NOT a misleading "check your CVV").
+      final lowerReason = gatewayReason.toLowerCase();
+      final bool isRiskDecline = lowerReason.contains('fraud') ||
+          lowerReason.contains('risk') ||
+          lowerReason.contains('security') ||
+          lowerReason.contains('suspected') ||
+          lowerReason.contains('do not honor') ||
+          lowerReason.contains('do not honour');
+      final String memberFacingMessage = isRiskDecline
+          ? 'Your bank or card provider declined this payment for security '
+              'reasons. Please wait a few minutes and try again, use a '
+              'different card, or contact your bank to approve the payment.'
+          : '$gatewayReason. Please check your CVV or use a different card.';
       if (kDebugMode) {
-        print('⚠️ Saved card charge failed, falling back to WebView');
+        print('⚠️ Saved card charge failed (“$gatewayReason”) — showing error and re-opening CVV dialog');
       }
       if (context.mounted) {
         _dismissPaymentProgressOverlay(context);
         ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(memberFacingMessage),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: isRiskDecline ? 8 : 6),
+          ),
+        );
+        // Re-open the card selection so the member can retry. Refetch fresh
+        // methods in case a card was deleted during the previous dialog.
+        final refreshedMethods =
+            await _paystackService.getSavedPaymentMethods(user.id);
+        if (!context.mounted) return;
+        if (refreshedMethods.isEmpty) {
+          // No saved cards left — fall through to the new-card WebView.
+          useNewCardFlow = true;
+        } else {
+          final retrySelection = await _showCardSelectionDialog(
+            context,
+            savedMethods: refreshedMethods,
+            userId: user.id,
+          );
+          if (retrySelection != null && context.mounted) {
+            if (retrySelection['use_new_card'] == true) {
+              // Let them add a new card via WebView (fall through to
+              // the existing WebView block below).
+              useNewCardFlow = true;
+              makeNewCardPrimary = retrySelection['make_primary'] == true;
+            } else {
+              // They picked/confirmed a card again — retry charge recursively
+              // via startPaymentForDeal so the full flow runs cleanly.
+              await startPaymentForDeal(context, deal.id);
+              return;
+            }
+          } else {
+            // User cancelled the retry dialog.
+            return;
+          }
+        }
       }
       } // end of saved card selection block
     }
@@ -1129,26 +1288,78 @@ class DealApprovalPopupService {
     if (kDebugMode) {
       print('💳 Calling Paystack service...');
     }
-    final paymentResult = await _paystackService.startOneTimePayment(
-      itemName: '$discountName at $businessName',
-      itemDescription: 'Payment to $businessName for $discountName',
-      amount: deal.amount!,
-      userId: user.id,
-      userEmail: user.email!,
-      subaccountCode: subaccountCode,
-      businessName: businessName,
-      extraMetadata: {'deal_authorization_id': deal.id},
-    );
+    // Hard safety-net timeout. The proxy itself retries with a 10s
+    // per-attempt timeout (10+2+10=22s) plus ~3s for name lookup, so
+    // 35s gives the proxy's own retry/503 path time to propagate
+    // naturally before we forcibly abort.
+    Map<String, String>? paymentResult;
+    String? paymentError;
+    try {
+      paymentResult = await _paystackService
+          .startOneTimePayment(
+            itemName: '$discountName at $businessName',
+            itemDescription: 'Payment to $businessName for $discountName',
+            amount: deal.amount!,
+            userId: user.id,
+            userEmail: user.email!,
+            subaccountCode: subaccountCode,
+            businessName: businessName,
+            extraMetadata: {'deal_authorization_id': deal.id},
+            // When the member explicitly chose "Use a different card", don't
+            // attach the saved Paystack customer_code — otherwise the hosted
+            // checkout will default to the saved card instead of showing the
+            // new-card entry form.
+            useCustomerCode: !useNewCardFlow,
+          )
+          .timeout(
+            const Duration(seconds: 35),
+            onTimeout: () {
+              if (kDebugMode) {
+                print('⏱️ startOneTimePayment exceeded 35s — aborting');
+              }
+              paymentError = 'Timed out after 35s';
+              return null;
+            },
+          );
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ startOneTimePayment threw: $e');
+      }
+      paymentError = e.toString();
+      paymentResult = null;
+    }
+
+    // Member tapped Cancel on the overlay while we were waiting — bail
+    // out silently (overlay is already dismissed).
+    if (_paymentProgressCancelled) {
+      _paymentProgressCancelled = false;
+      return;
+    }
 
     final authorizationUrl = paymentResult?['authorization_url'];
     final transactionReference = paymentResult?['reference'];
 
     if (authorizationUrl == null) {
+      // Surface the real reason so we can diagnose in the field. The
+      // raw error is verbose but every detail (status codes, response
+      // body snippets) is needed to tell apart proxy 401, key issues,
+      // subaccount problems, timeouts, etc.
+      final reason = paymentError ?? 'No response from payment gateway';
       if (context.mounted) {
         _dismissPaymentProgressOverlay(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to initialize payment. Please try again.'),
+          SnackBar(
+            content: Text(
+              'Payment could not start. Reason: $reason',
+              maxLines: 6,
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 12),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => startPaymentForDeal(context, deal.id),
+            ),
           ),
         );
       }
@@ -1159,29 +1370,24 @@ class DealApprovalPopupService {
       if (kDebugMode) {
         print('💳 Opening DealPaymentWebViewPage...');
       }
-      // Push the WebView first, THEN dismiss the overlay. This keeps a
-      // visual cover in place until the WebView page mounts and shows
-      // its own loading indicator, eliminating the brief white-flash
-      // gap that previously appeared between dismissing the overlay
-      // and the WebView's first frame.
-      final navFuture = Navigator.push(
+      // Dismiss the progress overlay FIRST. Both the overlay dialog and
+      // the WebView are pushed on the root navigator, so if we push the
+      // WebView before popping the dialog, the subsequent nav.pop() would
+      // remove the WebView (top of stack) and leave the dialog stuck on
+      // screen — making it look like "Initializing payment…" hangs forever.
+      _dismissPaymentProgressOverlay(context);
+      if (!context.mounted) return;
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => DealPaymentWebViewPage(
             authorizationUrl: authorizationUrl,
             dealId: deal.id,
             transactionReference: transactionReference,
+            makeNewCardPrimary: makeNewCardPrimary,
           ),
         ),
       );
-      // Dismiss after the next frame so the new route is on top before
-      // we tear down the dialog.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) {
-          _dismissPaymentProgressOverlay(context);
-        }
-      });
-      await navFuture;
     }
   }
 
@@ -1189,17 +1395,22 @@ class DealApprovalPopupService {
   /// If a saved card is selected, prompts for CVV.
   /// Returns:
   ///   - {'authorization_code': '...', 'use_new_card': false} if saved card selected + CVV confirmed
-  ///   - {'use_new_card': true} if member wants to add a new card
+  ///   - {'use_new_card': true, 'make_primary': bool} if member wants to add a new card
   ///   - null if cancelled
   Future<Map<String, dynamic>?> _showCardSelectionDialog(
     BuildContext context, {
     required List<Map<String, dynamic>> savedMethods,
+    required String userId,
   }) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return _CardSelectionDialog(savedMethods: savedMethods);
+        return _CardSelectionDialog(
+          savedMethods: savedMethods,
+          userId: userId,
+          paystackService: _paystackService,
+        );
       },
     );
 
@@ -1372,8 +1583,14 @@ class DealApprovalPopupService {
 /// Stateful dialog for card selection + CVV entry
 class _CardSelectionDialog extends StatefulWidget {
   final List<Map<String, dynamic>> savedMethods;
+  final String userId;
+  final PaystackService paystackService;
 
-  const _CardSelectionDialog({required this.savedMethods});
+  const _CardSelectionDialog({
+    required this.savedMethods,
+    required this.userId,
+    required this.paystackService,
+  });
 
   @override
   State<_CardSelectionDialog> createState() => _CardSelectionDialogState();
@@ -1382,18 +1599,26 @@ class _CardSelectionDialog extends StatefulWidget {
 class _CardSelectionDialogState extends State<_CardSelectionDialog> {
   late String? _selectedAuthCode;
   bool _showCvvInput = false;
+  bool _makeNewCardPrimary = false;
+  bool _isDeleting = false;
+  // Local, mutable copy so inline deletions update the picker immediately
+  // without rebuilding the whole payment flow.
+  late List<Map<String, dynamic>> _methods;
   final _cvvController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
+    _methods = List<Map<String, dynamic>>.from(widget.savedMethods);
     // Pre-select primary card, or first card
-    final primary = widget.savedMethods.where((m) => m['is_primary'] == true);
+    final primary = _methods.where((m) => m['is_primary'] == true);
     if (primary.isNotEmpty) {
       _selectedAuthCode = primary.first['authorization_code'];
+    } else if (_methods.isNotEmpty) {
+      _selectedAuthCode = _methods.first['authorization_code'];
     } else {
-      _selectedAuthCode = widget.savedMethods.first['authorization_code'];
+      _selectedAuthCode = null;
     }
   }
 
@@ -1401,6 +1626,67 @@ class _CardSelectionDialogState extends State<_CardSelectionDialog> {
   void dispose() {
     _cvvController.dispose();
     super.dispose();
+  }
+
+  /// Delete a saved card inline so the member can free up a slot when they have
+  /// reached the [PaystackService.maxSavedCards] limit and want to add another.
+  Future<void> _deleteCard(Map<String, dynamic> card) async {
+    final authCode = card['authorization_code'] as String;
+    final cardType = card['card_type'] ?? 'Card';
+    final last4 = card['last4'] ?? '****';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Card'),
+        content: Text(
+          'Remove $cardType •••• $last4 from your saved cards? '
+          'You can add it again later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      await widget.paystackService.deletePaymentMethod(widget.userId, authCode);
+      if (!mounted) return;
+      setState(() {
+        _methods.removeWhere((m) => m['authorization_code'] == authCode);
+        // If the deleted card was selected, fall back to the primary/first.
+        if (_selectedAuthCode == authCode) {
+          final primary = _methods.where((m) => m['is_primary'] == true);
+          _selectedAuthCode = primary.isNotEmpty
+              ? primary.first['authorization_code']
+              : (_methods.isNotEmpty
+                    ? _methods.first['authorization_code']
+                    : null);
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not delete card: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
+    }
   }
 
   IconData _getCardIcon(String cardType) {
@@ -1431,7 +1717,7 @@ class _CardSelectionDialogState extends State<_CardSelectionDialog> {
               style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 16),
-            ...widget.savedMethods.map((method) {
+            ..._methods.map((method) {
               final authCode = method['authorization_code'] as String;
               final cardType = method['card_type'] ?? 'Card';
               final last4 = method['last4'] ?? '****';
@@ -1517,6 +1803,23 @@ class _CardSelectionDialogState extends State<_CardSelectionDialog> {
                               ),
                             ),
                           ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          onPressed:
+                              _isDeleting ? null : () => _deleteCard(method),
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: Colors.red.shade400,
+                            size: 20,
+                          ),
+                          tooltip: 'Delete card',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1524,38 +1827,114 @@ class _CardSelectionDialogState extends State<_CardSelectionDialog> {
               );
             }),
             const SizedBox(height: 8),
-            // Add new card option
-            InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                Navigator.of(context).pop({'use_new_card': true});
-              },
-              child: Container(
+            if (_methods.length >= PaystackService.maxSavedCards)
+              // Card limit reached — the member must delete a card above
+              // before a new one can be added.
+              Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
+                  color: Colors.orange.shade50,
+                  border: Border.all(color: Colors.orange.shade200),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      Icons.add_circle_outline,
-                      color: Theme.of(context).primaryColor,
-                      size: 22,
+                      Icons.info_outline,
+                      color: Colors.orange.shade700,
+                      size: 20,
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Use a different card',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: Theme.of(context).primaryColor,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'You have reached the ${PaystackService.maxSavedCards}-card '
+                        'limit. Delete a card above to add a new one.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade900,
+                        ),
                       ),
                     ),
                   ],
                 ),
+              )
+            else ...[
+              // Add new card option
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  Navigator.of(context).pop({
+                    'use_new_card': true,
+                    'make_primary': _makeNewCardPrimary,
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.add_circle_outline,
+                        color: Theme.of(context).primaryColor,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Use a different card',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              // "Make this my primary card" toggle for the new-card flow.
+              // Applied only when the member taps "Use a different card".
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => setState(
+                  () => _makeNewCardPrimary = !_makeNewCardPrimary,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: Checkbox(
+                          value: _makeNewCardPrimary,
+                          onChanged: (v) => setState(
+                            () => _makeNewCardPrimary = v ?? false,
+                          ),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Make this my primary card for future payments and subscription renewals',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1575,7 +1954,7 @@ class _CardSelectionDialogState extends State<_CardSelectionDialog> {
   }
 
   Widget _buildCvvScreen(BuildContext context) {
-    final selectedCard = widget.savedMethods.firstWhere(
+    final selectedCard = _methods.firstWhere(
       (m) => m['authorization_code'] == _selectedAuthCode,
     );
     final cardType = selectedCard['card_type'] ?? 'Card';
@@ -1652,12 +2031,92 @@ class _CardSelectionDialogState extends State<_CardSelectionDialog> {
             if (_formKey.currentState!.validate()) {
               Navigator.of(context).pop({
                 'authorization_code': _selectedAuthCode,
+                'cvv': _cvvController.text.trim(),
                 'use_new_card': false,
               });
             }
           },
           child: const Text('Confirm'),
         ),
+      ],
+    );
+  }
+}
+
+
+/// Internal widget for the payment progress overlay. Shows a spinner and
+/// message, plus a Cancel button after [showCancelAfter] elapses so the
+/// member is never trapped waiting on a slow/failed network request.
+class _PaymentProgressContent extends StatefulWidget {
+  const _PaymentProgressContent({
+    required this.message,
+    required this.showCancelAfter,
+    required this.onCancel,
+  });
+
+  final String message;
+  final Duration showCancelAfter;
+  final VoidCallback onCancel;
+
+  @override
+  State<_PaymentProgressContent> createState() =>
+      _PaymentProgressContentState();
+}
+
+class _PaymentProgressContentState extends State<_PaymentProgressContent> {
+  bool _showCancel = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(widget.showCancelAfter, () {
+      if (mounted) setState(() => _showCancel = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(
+          width: 56,
+          height: 56,
+          child: CircularProgressIndicator(
+            strokeWidth: 4,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          widget.message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Please wait, do not close the app.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+        if (_showCancel) ...[
+          const SizedBox(height: 20),
+          TextButton(
+            onPressed: widget.onCancel,
+            child: const Text('Cancel'),
+          ),
+        ],
       ],
     );
   }

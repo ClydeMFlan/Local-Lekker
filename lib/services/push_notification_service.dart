@@ -798,6 +798,7 @@ class PushNotificationService {
   /// FCM from delivering push notifications.
   Future<void> _requestBatteryOptimizationExemption() async {
     try {
+      if (kIsWeb) return;
       if (!Platform.isAndroid) return;
 
       const platform = MethodChannel('com.locallekker.app/battery');

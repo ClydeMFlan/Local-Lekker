@@ -631,15 +631,16 @@ class DiscountService {
           final auth = DealAuthorization.fromJson(json);
           authorizations.add(auth);
         } catch (e) {
-          _logger.e('Error parsing deal authorization at index $i: $e');
-          _logger.e(
+          _logger.w('Skipping deal authorization at index $i due to parse error: $e');
+          _logger.w(
             'Problematic JSON keys: ${(responseList[i] as Map).keys.toList()}',
           );
-          _logger.e('id: ${responseList[i]['id']}');
-          _logger.e('member_id: ${responseList[i]['member_id']}');
-          _logger.e('business_id: ${responseList[i]['business_id']}');
-          _logger.e('discount_id: ${responseList[i]['discount_id']}');
-          throw Exception('Error parsing deal authorization at index $i: $e');
+          _logger.w('id: ${responseList[i]['id']}');
+          _logger.w('member_id: ${responseList[i]['member_id']}');
+          _logger.w('business_id: ${responseList[i]['business_id']}');
+          _logger.w('discount_id: ${responseList[i]['discount_id']}');
+          // Skip this record — one bad row should not block the entire list
+          continue;
         }
       }
       return authorizations;
@@ -653,7 +654,7 @@ class DiscountService {
     required String status,
     String? rejectionReason,
   }) async {
-    const maxRetries = 3;
+    const maxRetries = 5;
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         final now = DateTime.now().toUtc().toIso8601String();
@@ -678,20 +679,24 @@ class DiscountService {
         _logger.i('✅ Updated deal authorization $dealId to status: $status');
         return; // Success, exit retry loop
       } catch (e) {
-        final isRetryable = e.toString().contains('502') ||
-            e.toString().contains('500') ||
-            e.toString().contains('Bad Gateway') ||
-            e.toString().contains('503');
+        final errorStr = e.toString();
+        final isRetryable = errorStr.contains('502') ||
+            errorStr.contains('500') ||
+            errorStr.contains('Bad Gateway') ||
+            errorStr.contains('503') ||
+            errorStr.contains('403') || // RLS transient issues
+            errorStr.contains('timeout');
 
         if (isRetryable && attempt < maxRetries) {
+          final backoffMs = (attempt * 500) + (500 * (attempt - 1));
           _logger.w(
-            '⚠️ Attempt $attempt failed with server error, retrying in ${attempt * 2}s: $e',
+            '⚠️ Attempt $attempt failed with error, retrying in ${backoffMs}ms: $e',
           );
-          await Future.delayed(Duration(seconds: attempt * 2));
+          await Future.delayed(Duration(milliseconds: backoffMs));
           continue;
         }
 
-        _logger.e('❌ Failed to update deal authorization status: $e');
+        _logger.e('❌ Failed to update deal authorization status after $maxRetries attempts: $e');
         throw Exception('Failed to update deal authorization status: $e');
       }
     }

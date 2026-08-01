@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 import 'paystack_service.dart';
 
 class AdminService {
@@ -29,7 +30,7 @@ class AdminService {
       },
       body: jsonEncode({'user_id': userId}),
     ).timeout(
-      const Duration(seconds: 90),
+      const Duration(seconds: 20),
       onTimeout: () => http.Response('{"error":"Request timed out"}', 504),
     );
 
@@ -468,16 +469,30 @@ class AdminService {
 
       _logger.i('Deletion completed: $response');
 
-      Map<String, dynamic> result;
-      if (response is Map) {
-        result = Map<String, dynamic>.from(response);
-      } else {
-        result = {'success': true, 'tp_user_id': tpUserId};
+      if (response is! Map) {
+        throw Exception(
+          'Unexpected delete response type: ${response.runtimeType}. Response: $response',
+        );
+      }
+
+      final result = Map<String, dynamic>.from(response);
+
+      if (result['success'] != true) {
+        final backendMessage = result['message']?.toString();
+        throw Exception(
+          backendMessage == null || backendMessage.isEmpty
+              ? 'Trusted partner deletion failed: $result'
+              : backendMessage,
+        );
       }
 
       // Try edge function as backup for auth deletion (SQL function already attempts it)
-      if (result['success'] == true) {
-        try {
+      try {
+        if (kIsWeb) {
+          _logger.i(
+            'Skipping delete-auth-user edge call on web (CORS); SQL RPC remains source of truth for deletion.',
+          );
+        } else {
           final session = supabase.auth.currentSession;
           if (session != null) {
             await supabase.functions.invoke(
@@ -487,10 +502,10 @@ class AdminService {
             );
             _logger.i('Auth user cleanup via edge function completed');
           }
-        } catch (authError) {
-          // Not critical - SQL function already deleted from auth.users
-          _logger.w('Edge function auth cleanup skipped: $authError');
         }
+      } catch (authError) {
+        // Not critical - SQL function already deleted from auth.users
+        _logger.w('Edge function auth cleanup skipped: $authError');
       }
 
       _logger.i('Trusted partner deletion completed: $result');

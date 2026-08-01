@@ -1,0 +1,4 @@
+REV_01\current_schema.sql	EMPTY
+REV_01\schema.sql	EMPTY
+supabase\supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql	EMPTY
+supabase_backup_last_working_20250924_163328\supabase\supabase\migrations\20250924081831_update_terminology_merchant_to_trusted_partner_user_to_member.sql	EMPTY

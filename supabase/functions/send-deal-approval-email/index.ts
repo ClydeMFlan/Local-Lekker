@@ -111,29 +111,62 @@ serve(async (req) => {
         },
       })
 
-      const emailBody = `
-Hi ${memberName},
+      const businessLabel = business_name || 'Local Business'
+      const paymentLabel = isPOS ? 'In-Store (POS)' : 'In-App Payment'
 
-Great news! Your deal request has been approved on Local Lekker!
+      const textBody = [
+        `Hi ${memberName},`,
+        '',
+        'Great news! Your deal request has been approved on Local Lekker!',
+        '',
+        'Deal Details:',
+        `  Deal: ${deal_name}${quantityText}`,
+        `  Business: ${businessLabel}`,
+        `  Amount: ${formattedAmount}`,
+        `  Payment Method: ${paymentLabel}`,
+        '',
+        paymentInstruction,
+        '',
+        '---',
+        'This is an automated notification from the Local Lekker app.',
+        'If you have any questions, contact us at support@locallekker.co.za',
+      ].join('\r\n')
 
-Deal Details:
-  Deal: ${deal_name}${quantityText}
-  Business: ${business_name || 'Local Business'}
-  Amount: ${formattedAmount}
-  Payment Method: ${isPOS ? 'In-Store (POS)' : 'In-App Payment'}
+      const escapeHtml = (s: string) =>
+        s.replace(/&/g, '&amp;')
+         .replace(/</g, '&lt;')
+         .replace(/>/g, '&gt;')
+         .replace(/"/g, '&quot;')
+         .replace(/'/g, '&#39;')
 
-${paymentInstruction}
-
----
-This is an automated notification from the Local Lekker app.
-If you have any questions, contact us at support@locallekker.co.za
-`
+      const htmlBody = `<!DOCTYPE html>
+<html>
+  <body style="font-family: Arial, sans-serif; color: #222; line-height: 1.5;">
+    <p>Hi ${escapeHtml(memberName)},</p>
+    <p><strong>Great news!</strong> Your deal request has been approved on Local Lekker!</p>
+    <p><strong>Deal Details:</strong></p>
+    <ul>
+      <li><strong>Deal:</strong> ${escapeHtml(deal_name)}${escapeHtml(quantityText)}</li>
+      <li><strong>Business:</strong> ${escapeHtml(businessLabel)}</li>
+      <li><strong>Amount:</strong> ${escapeHtml(formattedAmount)}</li>
+      <li><strong>Payment Method:</strong> ${escapeHtml(paymentLabel)}</li>
+    </ul>
+    <p>${escapeHtml(paymentInstruction)}</p>
+    <hr />
+    <p style="font-size: 12px; color: #666;">
+      This is an automated notification from the Local Lekker app.<br />
+      If you have any questions, contact us at
+      <a href="mailto:support@locallekker.co.za">support@locallekker.co.za</a>
+    </p>
+  </body>
+</html>`
 
       await client.send({
         from: smtpUser,
         to: memberEmail,
-        subject: `Deal Approved – ${deal_name} at ${business_name || 'Local Business'} (${formattedAmount})`,
-        content: emailBody,
+        subject: `Deal Approved - ${deal_name} at ${businessLabel} (${formattedAmount})`,
+        content: textBody,
+        html: htmlBody,
       })
 
       await client.close()

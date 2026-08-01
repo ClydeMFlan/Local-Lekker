@@ -100,46 +100,10 @@ class TpMembershipService {
   Future<void> _applyActivation(String userId) async {
     final client = SupabaseService.instance.client;
 
-    // Update profile flag
-    await SupabaseService.instance.updateUserProfile(
-      userId: userId,
-      profileData: {'is_tp_member': true},
+    await client.rpc(
+      'activate_tp_member_profile',
+      params: {'p_user_id': userId},
     );
-
-    // Update trusted_partner status (only if user has a TP record)
-    final tpRecord = await client
-        .from('trusted_partners')
-        .select('user_id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    if (tpRecord != null) {
-      await client
-          .from('trusted_partners')
-          .update({'tp_member_status': 'active'})
-          .eq('user_id', userId);
-    }
-
-    // Upsert membership gateway — preserve existing TP role
-    final existingMembership = await client
-        .from('memberships')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    if (existingMembership == null) {
-      await client.from('memberships').insert({
-        'user_id': userId,
-        'role': 'member',
-        'gateway': 'trusted_partner_key',
-      });
-    } else if (existingMembership['role'] != 'trusted_partner' &&
-        existingMembership['role'] != 'admin') {
-      await client
-          .from('memberships')
-          .update({'gateway': 'trusted_partner_key'})
-          .eq('user_id', userId);
-    }
 
     // QR code activation / generation — use limit(1) to avoid
     // maybeSingle() error when user has multiple QR rows

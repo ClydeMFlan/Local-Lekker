@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../models/notification.dart';
 import '../../services/discount_service.dart';
 import '../../services/supabase_service.dart';
@@ -108,7 +109,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final unreadCount = _notifications.where((n) => !n.isRead).length;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Notifications'),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,

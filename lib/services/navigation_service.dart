@@ -10,6 +10,7 @@ import 'package:local_lekker/features/auth/members_home_page.dart';
 import 'package:local_lekker/features/admin/admin_dashboard_screen.dart';
 import 'package:local_lekker/features/payments/payments_feature.dart';
 import 'package:local_lekker/features/auth/business_profile_page.dart';
+import 'package:local_lekker/features/auth/member_profile_page.dart';
 import 'package:local_lekker/features/trusted_partner/trusted_partner_terms_page.dart';
 import 'package:local_lekker/features/member/member_terms_page.dart';
 import 'package:flutter/foundation.dart';
@@ -20,86 +21,229 @@ class NavigationService {
   factory NavigationService() => _instance;
   NavigationService._internal();
 
-  /// Check if user has valid profile data in Supabase
-  Future<bool> _userHasValidProfile(String userId) async {
-    try {
-      // Check if user exists in profiles table
-      final response = await SupabaseService.instance.client
-          .from('profiles')
-          .select('id')
-          .eq('id', userId)
-          .order('created_at', ascending: false)
-          .limit(1);
+  bool _isMemberProfileComplete(Map<String, dynamic>? profile) {
+    if (profile == null) return false;
 
-      if (kDebugMode) {
-        print(
-          'NavigationService._userHasValidProfile: userId=$userId, hasProfile=${response.isNotEmpty}',
-        );
+    String readValue(String key) => (profile[key] as String?)?.trim() ?? '';
+
+    final createdAtRaw = profile['created_at'];
+    final isLegacyProfile = createdAtRaw is String && (() {
+      try {
+        final createdAt = DateTime.parse(createdAtRaw);
+        return createdAt.isBefore(DateTime(2025, 9, 24));
+      } catch (_) {
+        return false;
       }
-      return response.isNotEmpty;
+    })();
+
+    final coreFieldsComplete = readValue('name').isNotEmpty &&
+        readValue('surname').isNotEmpty &&
+        readValue('street').isNotEmpty &&
+        readValue('suburb').isNotEmpty &&
+        readValue('city').isNotEmpty &&
+        readValue('province').isNotEmpty &&
+        readValue('contact').isNotEmpty;
+
+    if (!coreFieldsComplete) return false;
+
+    if (isLegacyProfile) return true;
+
+    return readValue('gender').isNotEmpty &&
+        readValue('ethnicity').isNotEmpty &&
+        readValue('date_of_birth').isNotEmpty;
+  }
+
+  Future<Map<String, dynamic>?> _getMemberProfile(String userId) async {
+    try {
+      return await SupabaseService.instance.getUserProfile(userId: userId);
     } catch (e) {
-      // If we can't check the profile, assume it's invalid
       if (kDebugMode) {
         print(
-          'NavigationService._userHasValidProfile ERROR: userId=$userId, error=$e',
+          'NavigationService._getMemberProfile ERROR: userId=$userId, error=$e',
         );
       }
-      return false;
+      return null;
     }
   }
 
   /// Get subscription status for a user
   Future<String?> _getSubscriptionStatus(String userId) async {
     try {
-      // First check the subscriptions table for active subscription
-      final subscriptionResponse = await SupabaseService.instance.client
-          .from('subscriptions')
-          .select('status')
-          .eq('user_id', userId)
-          .eq('status', 'active')
-          .order('created_at', ascending: false)
-          .limit(1);
+      final subscription = await SubscriptionService().getSubscriptionStatus(
+        userId,
+      );
+      final rawStatus =
+          (subscription?['subscription_status'] ?? subscription?['status'])
+              as String?;
+      final status = rawStatus?.trim().toLowerCase();
 
-      if (subscriptionResponse.isNotEmpty) {
+      if (status == 'active') {
         return 'active';
       }
 
-      // If no active subscription, check profile subscription field
-      final profileResponse = await SupabaseService.instance.client
-          .from('profiles')
-          .select('subscription')
-          .eq('id', userId)
-          .order('created_at', ascending: false)
-          .limit(1);
+      // Attempt to recover a payment that succeeded at Paystack but was not
+      // captured by the app (app closed / lost signal during checkout).
+      // A brand-new signup has NO subscription row (subscription == null),
+      // but a stale pre-activation row can also exist, so recover for any
+      // non-active status. STRATEGY 1 (locally-saved reference) is always
+      // safe; STRATEGY 2 (email lookup) is only allowed for members who have
+      // never been activated, so a genuinely lapsed member is not re-activated
+      // off an old successful payment.
+      const preActivationStatuses = {
+        'none',
+        'pending',
+        'incomplete',
+        'processing',
+        'initialized',
+        '',
+      };
+      final allowEmailLookup = subscription == null ||
+          status == null ||
+          preActivationStatuses.contains(status);
+      final recovered = await _tryRecoverPendingPayment(
+        userId,
+        allowEmailLookup: allowEmailLookup,
+      );
+      if (recovered) return 'active';
 
-      if (profileResponse.isEmpty) {
-        // Before returning pending, try to recover from interrupted payment
-        final recovered = await _tryRecoverPendingPayment(userId);
-        if (recovered) return 'active';
-        return 'pending';
-      }
-
-      final status = profileResponse[0]['subscription'] as String? ?? 'pending';
-      if (status != 'active') {
-        // Before returning non-active, try to recover from interrupted payment
-        final recovered = await _tryRecoverPendingPayment(userId);
-        if (recovered) return 'active';
-      }
-      return status;
+      return status ?? 'pending';
     } catch (e) {
-      // If we can't check subscription status, assume it's pending
+      // Fallback path: if subscriptions table read fails (RLS/transient),
+      // trust profiles.subscription when available so active members are not
+      // incorrectly routed to payment.
       if (kDebugMode) {
-        print('NavigationService: Error checking subscription: $e');
+        print(
+          'NavigationService: Error checking subscription for userId=$userId: $e',
+        );
+      }
+
+      // Fallback 1: read latest subscription row directly. This bypasses
+      // service-level enrichment failures (e.g. QR/profile reads) so active
+      // members are not downgraded to pending.
+      try {
+        final direct = await SupabaseService.instance.client
+            .from('subscriptions')
+            .select('status')
+            .eq('user_id', userId)
+            .order('created_at', ascending: false)
+            .limit(1);
+        if (direct.isNotEmpty) {
+          final directStatus =
+              (direct.first['status'] as String?)?.trim().toLowerCase();
+          if (directStatus == 'active') {
+            if (kDebugMode) {
+              print(
+                'NavigationService: Using direct subscriptions fallback status=active for userId=$userId',
+              );
+            }
+            return 'active';
+          }
+          if (directStatus != null && directStatus.isNotEmpty) {
+            return directStatus;
+          }
+        }
+      } catch (directError) {
+        if (kDebugMode) {
+          print(
+            'NavigationService: Direct subscriptions fallback failed for userId=$userId: $directError',
+          );
+        }
+      }
+
+      // Fallback 2: legacy profile subscription field.
+      try {
+        final profile = await SupabaseService.instance.getUserProfile(
+          userId: userId,
+        );
+        final legacyStatus =
+            (profile?['subscription'] as String?)?.trim().toLowerCase();
+        if (legacyStatus == 'active') {
+          if (kDebugMode) {
+            print(
+              'NavigationService: Using fallback profiles.subscription=active for userId=$userId',
+            );
+          }
+          return 'active';
+        }
+      } catch (fallbackError) {
+        if (kDebugMode) {
+          print(
+            'NavigationService: Fallback profile subscription check failed for userId=$userId: $fallbackError',
+          );
+        }
       }
       return 'pending';
     }
+  }
+
+  void _logMemberRoutingTrace({
+    required String source,
+    required String userId,
+    String? email,
+    String? role,
+    bool? profileLoaded,
+    bool? profileComplete,
+    bool? memberTermsAccepted,
+    String? subscriptionStatus,
+    bool? isReactivation,
+  }) {
+    // TEMP TRACE: keep until member sign-in misrouting is fully resolved.
+    Logger().i(
+      'NAV_TRACE [$source] userId=$userId, email=${email ?? ''}, role=${role ?? 'null'}, '
+      'profileLoaded=${profileLoaded?.toString() ?? 'null'}, '
+      'profileComplete=${profileComplete?.toString() ?? 'null'}, '
+      'memberTermsAccepted=${memberTermsAccepted?.toString() ?? 'null'}, '
+      'subscriptionStatus=${subscriptionStatus ?? 'null'}, '
+      'isReactivation=${isReactivation?.toString() ?? 'null'}',
+    );
+  }
+
+  /// Public wrapper so payment screens can proactively self-heal (e.g. when a
+  /// member returns to the "Complete Your Payment" screen after a successful
+  /// but undetected charge). [allowEmailLookup] should be false for
+  /// reactivation flows to avoid re-activating a lapsed member off an old
+  /// successful payment.
+  Future<bool> attemptPaymentRecovery(
+    String userId, {
+    bool allowEmailLookup = true,
+  }) =>
+      _tryRecoverPendingPayment(userId, allowEmailLookup: allowEmailLookup);
+
+  /// Verify a saved transaction reference, retrying a few times to absorb the
+  /// brief window where the bank has already deducted funds but Paystack has
+  /// not yet finalized the (3DS) charge. Swallows transient errors so a single
+  /// network blip never aborts recovery.
+  Future<Map<String, dynamic>?> _verifyWithRetries(
+    PaystackService paystackService,
+    String reference,
+    Logger logger, {
+    int attempts = 3,
+  }) async {
+    for (var attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        final details = await paystackService.verifyTransaction(reference);
+        if (details != null) return details;
+      } catch (e) {
+        logger.w(
+          'NavigationService: verify attempt $attempt/$attempts failed for '
+          '$reference: $e',
+        );
+      }
+      if (attempt < attempts) {
+        await Future.delayed(Duration(seconds: attempt + 1));
+      }
+    }
+    return null;
   }
 
   /// Attempt to recover a payment that succeeded at Paystack but was not
   /// processed by the app (e.g. user lost signal or closed the app).
   /// Returns true if a successful payment was found and the subscription
   /// was activated.
-  Future<bool> _tryRecoverPendingPayment(String userId) async {
+  Future<bool> _tryRecoverPendingPayment(
+    String userId, {
+    bool allowEmailLookup = true,
+  }) async {
     final logger = Logger();
     try {
       final paystackService = PaystackService();
@@ -116,7 +260,10 @@ class NavigationService {
           'NavigationService: Found pending transaction ref=$reference, verifying with Paystack...',
         );
 
-        final verifiedDetails = await paystackService.verifyTransaction(reference);
+        // Retry verification: the bank may have deducted funds before Paystack
+        // finalizes the charge, so a single verify can transiently return null.
+        final verifiedDetails =
+            await _verifyWithRetries(paystackService, reference, logger);
 
         if (verifiedDetails != null) {
           logger.i('NavigationService: Payment CONFIRMED via saved reference!');
@@ -128,12 +275,23 @@ class NavigationService {
             logger: logger,
           );
         } else {
-          logger.w('NavigationService: Saved transaction ref not successful at Paystack');
+          // Keep the saved reference so a later attempt (screen self-heal /
+          // next launch) can still recover once Paystack finalizes.
+          logger.w('NavigationService: Saved transaction ref not successful at Paystack yet');
         }
       }
 
       // STRATEGY 2: No saved reference (member paid before this update) —
-      // search Paystack for recent successful transactions by email
+      // search Paystack for recent successful transactions by email.
+      // Only for members who have never been activated (guards lapsed members).
+      if (!allowEmailLookup) {
+        logger.i(
+          'NavigationService: Email-based recovery not allowed for this member '
+          '(non-pre-activation status) — skipping.',
+        );
+        return false;
+      }
+
       final user = SupabaseService.instance.getCurrentUser();
       final email = user?.email;
       if (email == null || email.isEmpty) return false;
@@ -146,11 +304,19 @@ class NavigationService {
         return false;
       }
 
-      // Verify this transaction belongs to this user via metadata
+      // Verify this transaction belongs to THIS user via metadata.
+      // Email alone is NOT sufficient proof of ownership: emails get reused
+      // across deleted/recreated accounts, so a stale or foreign successful
+      // payment must NEVER silently activate a brand-new signup. Require an
+      // exact user_id match — if the transaction has no user_id, an empty one,
+      // or a different one, do not auto-recover. The member must pay.
       final metadata = txData['metadata'] as Map<String, dynamic>? ?? {};
       final txUserId = metadata['user_id']?.toString();
-      if (txUserId != null && txUserId != userId) {
-        logger.w('NavigationService: Transaction user_id mismatch ($txUserId != $userId)');
+      if (txUserId == null || txUserId.isEmpty || txUserId != userId) {
+        logger.w(
+          'NavigationService: Paystack tx user_id ($txUserId) does not match '
+          'current user ($userId) — not auto-recovering. Routing to payment.',
+        );
         return false;
       }
 
@@ -350,6 +516,13 @@ class NavigationService {
             .maybeSingle();
 
         if (profileData != null && profileData['is_deactivated'] == true) {
+          // Admins are never subject to the payment/reactivation flow
+          final roleCheck = await SupabaseService.instance.getUserRole(
+            userId: member.id,
+          );
+          if (roleCheck?.toLowerCase() == 'admin') {
+            return const AdminDashboardScreen();
+          }
           logger.w(
             'NavigationService: User is deactivated - redirecting to reactivation flow',
           );
@@ -360,46 +533,52 @@ class NavigationService {
         // Continue with normal flow if check fails
       }
 
-      // Check if user has valid profile data
-      final hasProfile = await _userHasValidProfile(member.id);
-      if (!hasProfile) {
-        // User is authenticated but has no profile data
-        // For admin users, don't sign them out - they might have RLS issues
-        // Just log the error and try to proceed with role check
-        if (kDebugMode) {
-          print(
-            'NavigationService.getInitialScreen: WARNING - Profile check failed for user ${member.id}',
-          );
-        }
-
-        // Try to get role anyway - admin might be accessible via getUserRole
-        final role = await SupabaseService.instance.getUserRole(
-          userId: member.id,
-        );
-
-        if (role == 'admin') {
-          if (kDebugMode) {
-            print(
-              'NavigationService.getInitialScreen: User is admin, proceeding despite profile check failure',
-            );
-          }
-          return const AdminDashboardScreen();
-        }
-
-        // For non-admin users, sign them out and show welcome
-        if (kDebugMode) {
-          print(
-            'NavigationService.getInitialScreen: Non-admin user with no profile - signing out',
-          );
-        }
-        await SupabaseService.instance.signOut();
-        return const WelcomePage();
-      }
-
-      // Member is authenticated and has profile, check their role
+      // Member is authenticated, check their role
+      // Note: profile check is skipped here to avoid false sign-outs due to
+      // RLS propagation delays or transient network errors right after sign-in.
       final role = await SupabaseService.instance.getUserRole(
         userId: member.id,
       );
+
+      // If we can't determine role at all, do a profile check as a fallback
+      if (role == null) {
+        final profile = await _getMemberProfile(member.id);
+        if (profile == null) {
+          // Distinguish a genuinely missing profile (deleted account / stale
+          // "ghost" session) from a transient read error. Only force sign-out
+          // when the row is definitively absent, so we never log users out on
+          // transient RLS/network blips.
+          bool profileDefinitelyMissing = false;
+          try {
+            final probe = await SupabaseService.instance.client
+                .from('profiles')
+                .select('id')
+                .eq('id', member.id)
+                .maybeSingle();
+            profileDefinitelyMissing = probe == null;
+          } catch (_) {
+            profileDefinitelyMissing = false;
+          }
+          if (profileDefinitelyMissing) {
+            if (kDebugMode) {
+              print(
+                'NavigationService.getInitialScreen: Profile row missing for ${member.id} - clearing stale session',
+              );
+            }
+            await SupabaseService.instance.signOut();
+            return const WelcomePage();
+          }
+          if (kDebugMode) {
+            print(
+              'NavigationService.getInitialScreen: No role and no profile for user ${member.id} - returning welcome without clearing session',
+            );
+          }
+          return const WelcomePage();
+        }
+        if (!_isMemberProfileComplete(profile)) {
+          return const MemberProfilePage();
+        }
+      }
 
       if (kDebugMode) {
         print(
@@ -445,26 +624,117 @@ class NavigationService {
 
         case 'member':
         default:
+          // Parallelize the independent member fetches (profile + subscription)
+          // to cut sequential round-trips. Terms reuse the loaded profile below.
+          final memberFetches = await Future.wait([
+            _getMemberProfile(member.id),
+            _getSubscriptionStatus(member.id),
+          ]);
+          final profile = memberFetches[0] as Map<String, dynamic>?;
+          final subscriptionStatus = memberFetches[1] as String?;
+          final profileLoaded = profile != null;
+          final profileComplete =
+              profileLoaded ? _isMemberProfileComplete(profile) : null;
+          // Only force profile completion when we can actually read profile data.
+          // If profile read fails (e.g. transient DB/RLS issue), continue with
+          // terms/subscription routing so existing members are not blocked.
+          if (profileLoaded && profileComplete == false) {
+            _logMemberRoutingTrace(
+              source: 'getInitialScreen',
+              userId: member.id,
+              email: member.email,
+              role: role,
+              profileLoaded: profileLoaded,
+              profileComplete: profileComplete,
+            );
+            return const MemberProfilePage();
+          }
           // CRITICAL: Always require member terms acceptance BEFORE payment screens
           final memberAccepted = await SupabaseService.instance
-              .hasMemberAcceptedTerms(member.id);
+              .hasMemberAcceptedTerms(member.id, profile: profile);
           if (!memberAccepted) {
+            _logMemberRoutingTrace(
+              source: 'getInitialScreen',
+              userId: member.id,
+              email: member.email,
+              role: role,
+              profileLoaded: profileLoaded,
+              profileComplete: profileComplete,
+              memberTermsAccepted: memberAccepted,
+            );
             return const MemberTermsPage();
           }
-          // After terms acceptance, check subscription status
-          final subscriptionStatus = await _getSubscriptionStatus(member.id);
+          // Subscription status was fetched in parallel with the profile above.
           if (subscriptionStatus == 'active') {
+            _logMemberRoutingTrace(
+              source: 'getInitialScreen',
+              userId: member.id,
+              email: member.email,
+              role: role,
+              profileLoaded: profileLoaded,
+              profileComplete: profileComplete,
+              memberTermsAccepted: memberAccepted,
+              subscriptionStatus: subscriptionStatus,
+              isReactivation: false,
+            );
             return const MembersHomePage();
           }
+          // If a non-active subscription exists (expired/cancelled/etc.), treat
+          // this as reactivation rather than first-time signup.
+          const reactivationStatuses = {
+            'expired',
+            'cancelled',
+            'inactive',
+            'paused',
+            'past_due',
+            'failed',
+            'payment_failed',
+            'suspended',
+            'unpaid',
+          };
+          final isReactivation =
+              subscriptionStatus != null &&
+              reactivationStatuses.contains(subscriptionStatus.toLowerCase());
+
+          _logMemberRoutingTrace(
+            source: 'getInitialScreen',
+            userId: member.id,
+            email: member.email,
+            role: role,
+            profileLoaded: profileLoaded,
+            profileComplete: profileComplete,
+            memberTermsAccepted: memberAccepted,
+            subscriptionStatus: subscriptionStatus,
+            isReactivation: isReactivation,
+          );
+
           // Only show payment screen after terms are accepted
-          return const PaymentRequiredScreen();
+          return PaymentRequiredScreen(
+            isReactivation: isReactivation,
+          );
       }
     } catch (e) {
-      // On error, fall back to welcome page
+      // On error, check if user is still authenticated before falling back to welcome
       if (kDebugMode) {
         print('NavigationService: Error determining initial screen: $e');
       }
-      return const WelcomePage();
+      final currentUser = SupabaseService.instance.getCurrentUser();
+      if (currentUser == null) {
+        return const WelcomePage();
+      }
+      // User is authenticated but something went wrong - show a safe default
+      // based on what we know from the error context rather than signing them out
+      if (kDebugMode) {
+        print('NavigationService: User is authenticated despite error - retrying role check');
+      }
+      try {
+        final role = await SupabaseService.instance.getUserRole(userId: currentUser.id);
+        if (role?.toLowerCase() == 'trusted_partner') return const TrustedPartnerHomePage();
+        if (role?.toLowerCase() == 'admin') return const AdminDashboardScreen();
+        return const MembersHomePage();
+      } catch (_) {
+        return const WelcomePage();
+      }
     }
   }
 
@@ -481,48 +751,33 @@ class NavigationService {
         return;
       }
 
-      // Check if user has valid profile data
-      final hasProfile = await _userHasValidProfile(member.id);
-      if (!hasProfile) {
-        // User is authenticated but has no profile data
-        // For admin users, don't sign them out - they might have RLS issues
-        // Try to get role first
-        final role = await SupabaseService.instance.getUserRole(
-          userId: member.id,
-        );
+      final role = await SupabaseService.instance.getUserRole(
+        userId: member.id,
+      );
 
-        if (role == 'admin') {
+      // If we can't determine role, do a profile check as a fallback
+      if (role == null) {
+        final profile = await _getMemberProfile(member.id);
+        if (profile == null) {
           if (kDebugMode) {
             print(
-              'NavigationService.navigateToHomeAfterAuth: Admin user, proceeding despite profile check failure',
+              'NavigationService.navigateToHomeAfterAuth: No role and no profile for user ${member.id} - returning welcome without clearing session',
             );
           }
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (context) => const AdminDashboardScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const WelcomePage()),
           );
           return;
         }
-
-        // For non-admin users, sign them out and show welcome
-        if (kDebugMode) {
-          print(
-            'NavigationService.navigateToHomeAfterAuth: Non-admin user with no profile - signing out',
+        if (!_isMemberProfileComplete(profile)) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MemberProfilePage()),
           );
+          return;
         }
-        await SupabaseService.instance.signOut();
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const WelcomePage()),
-        );
-        return;
       }
-
-      final role = await SupabaseService.instance.getUserRole(
-        userId: member.id,
-      );
       Widget homePage;
 
       switch (role?.toLowerCase()) {
@@ -547,17 +802,77 @@ class NavigationService {
           break;
         case 'member':
         default:
+          // Parallelize the independent member fetches (profile + subscription).
+          final memberFetches = await Future.wait([
+            _getMemberProfile(member.id),
+            _getSubscriptionStatus(member.id),
+          ]);
+          final profile = memberFetches[0] as Map<String, dynamic>?;
+          final subscriptionStatus = memberFetches[1] as String?;
+          final profileLoaded = profile != null;
+          final profileComplete =
+              profileLoaded ? _isMemberProfileComplete(profile) : null;
+          if (profileLoaded && profileComplete == false) {
+            _logMemberRoutingTrace(
+              source: 'navigateToHomeAfterAuth',
+              userId: member.id,
+              email: member.email,
+              role: role,
+              profileLoaded: profileLoaded,
+              profileComplete: profileComplete,
+            );
+            homePage = const MemberProfilePage();
+            break;
+          }
           // Always gate on member terms first
           final memberAccepted = await SupabaseService.instance
-              .hasMemberAcceptedTerms(member.id);
+              .hasMemberAcceptedTerms(member.id, profile: profile);
           if (!memberAccepted) {
+            _logMemberRoutingTrace(
+              source: 'navigateToHomeAfterAuth',
+              userId: member.id,
+              email: member.email,
+              role: role,
+              profileLoaded: profileLoaded,
+              profileComplete: profileComplete,
+              memberTermsAccepted: memberAccepted,
+            );
             homePage = const MemberTermsPage();
             break;
           }
-          final subscriptionStatus = await _getSubscriptionStatus(member.id);
+          // Subscription status was fetched in parallel with the profile above.
+          const reactivationStatuses = {
+            'expired',
+            'cancelled',
+            'inactive',
+            'paused',
+            'past_due',
+            'failed',
+            'payment_failed',
+            'suspended',
+            'unpaid',
+          };
+          final isReactivation =
+              subscriptionStatus != null &&
+              reactivationStatuses.contains(subscriptionStatus.toLowerCase());
+
+          _logMemberRoutingTrace(
+            source: 'navigateToHomeAfterAuth',
+            userId: member.id,
+            email: member.email,
+            role: role,
+            profileLoaded: profileLoaded,
+            profileComplete: profileComplete,
+            memberTermsAccepted: memberAccepted,
+            subscriptionStatus: subscriptionStatus,
+            isReactivation: isReactivation,
+          );
+
           homePage = subscriptionStatus == 'active'
               ? const MembersHomePage()
-              : const PaymentRequiredScreen();
+              : PaymentRequiredScreen(
+                  isReactivation: isReactivation,
+                );
           break;
       }
 
@@ -588,48 +903,34 @@ class NavigationService {
         return;
       }
 
-      // Check if user has valid profile data
-      final hasProfile = await _userHasValidProfile(member.id);
-      if (!hasProfile) {
-        // User is authenticated but has no profile data
-        // For admin users, don't sign them out - they might have RLS issues
-        // Try to get role first
-        final role = await SupabaseService.instance.getUserRole(
-          userId: member.id,
-        );
+      final role = await SupabaseService.instance.getUserRole(
+        userId: member.id,
+      );
 
-        if (role == 'admin') {
+      // If we can't determine role, do a profile check as a fallback
+      if (role == null) {
+        final profile = await _getMemberProfile(member.id);
+        if (profile == null) {
           if (kDebugMode) {
             print(
-              'NavigationService.navigateToHomeAfterPayment: Admin user, proceeding despite profile check failure',
+              'NavigationService.navigateToHomeAfterPayment: No role and no profile for user ${member.id} - returning welcome without clearing session',
             );
           }
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (context) => const AdminDashboardScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const WelcomePage()),
           );
           return;
         }
-
-        // For non-admin users, sign them out and show welcome
-        if (kDebugMode) {
-          print(
-            'NavigationService.navigateToHomeAfterPayment: Non-admin user with no profile - signing out',
+        if (!_isMemberProfileComplete(profile)) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MemberProfilePage()),
           );
+          return;
         }
-        await SupabaseService.instance.signOut();
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const WelcomePage()),
-        );
-        return;
       }
 
-      final role = await SupabaseService.instance.getUserRole(
-        userId: member.id,
-      );
       Widget homePage;
 
       switch (role?.toLowerCase()) {
@@ -654,6 +955,11 @@ class NavigationService {
           break;
         case 'member':
         default:
+          final profile = await _getMemberProfile(member.id);
+          if (profile != null && !_isMemberProfileComplete(profile)) {
+            homePage = const MemberProfilePage();
+            break;
+          }
           // On payment completion, still enforce member terms acceptance if somehow not yet accepted
           final memberAccepted = await SupabaseService.instance
               .hasMemberAcceptedTerms(member.id);

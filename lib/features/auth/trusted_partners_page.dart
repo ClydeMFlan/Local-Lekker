@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import '../../services/supabase_service.dart';
 import 'trusted_partner_shop_page.dart';
 import 'package:flutter/foundation.dart';
@@ -103,7 +104,7 @@ class _TrustedPartnersPageState extends State<TrustedPartnersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Trusted Partners'),
         actions: [
           IconButton(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'welcome_page.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
 
 class TpInterestThankYouPage extends StatelessWidget {
   const TpInterestThankYouPage({super.key});
@@ -7,7 +9,7 @@ class TpInterestThankYouPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Thank You')),
+      appBar: BrandedAppBar(title: const Text('Thank You')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -17,7 +19,7 @@ class TpInterestThankYouPage extends StatelessWidget {
               const Icon(
                 Icons.check_circle_outline,
                 size: 80,
-                color: Colors.teal,
+                color: AppColors.primary,
               ),
               const SizedBox(height: 24),
               const Text(

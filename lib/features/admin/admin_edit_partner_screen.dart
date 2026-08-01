@@ -1,9 +1,13 @@
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:local_lekker/core/theme/app_colors.dart';
+import 'package:local_lekker/widgets/branded_app_bar.dart';
 
 /// Screen for admins to edit an existing Trusted Partner's details.
 class AdminEditPartnerScreen extends StatefulWidget {
@@ -42,6 +46,7 @@ class _AdminEditPartnerScreenState extends State<AdminEditPartnerScreen> {
   String? _selectedCity;
   bool _isSaving = false;
   String? _selectedLogoPath;
+  Uint8List? _selectedLogoBytes;
   String? _existingLogoUrl;
 
   static const _provinces = [
@@ -184,7 +189,11 @@ class _AdminEditPartnerScreenState extends State<AdminEditPartnerScreen> {
         imageQuality: 85,
       );
       if (image != null) {
-        setState(() => _selectedLogoPath = image.path);
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _selectedLogoPath = image.path;
+          _selectedLogoBytes = bytes;
+        });
       }
     } catch (e) {
       _logger.e('Error picking logo: $e');
@@ -203,9 +212,13 @@ class _AdminEditPartnerScreenState extends State<AdminEditPartnerScreen> {
     if (_selectedLogoPath == null) return _existingLogoUrl;
 
     try {
-      final file = File(_selectedLogoPath!);
-      final bytes = await file.readAsBytes();
-      final fileExt = _selectedLogoPath!.split('.').last;
+      final bytes = _selectedLogoBytes ?? await File(_selectedLogoPath!).readAsBytes();
+      final rawExt = _selectedLogoPath!.contains('.')
+        ? _selectedLogoPath!.split('.').last.toLowerCase()
+        : '';
+      final fileExt = (rawExt.isEmpty || rawExt.contains(':') || rawExt.contains('/'))
+        ? 'png'
+        : rawExt;
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
       // Use the partner's ID as the folder so the path matches TP conventions
       final filePath = '$partnerId/$fileName';
@@ -246,60 +259,36 @@ class _AdminEditPartnerScreenState extends State<AdminEditPartnerScreen> {
 
       // Upload logo if a new one was selected
       final logoUrl = await _uploadLogo(partnerId);
+      final response = await _supabase.rpc(
+        'admin_update_trusted_partner',
+        params: {
+          'payload': {
+            'partner_id': partnerId,
+            'name': _nameCtrl.text.trim(),
+            'surname': _surnameCtrl.text.trim(),
+            'email': _emailCtrl.text.trim().toLowerCase(),
+            'contact': _contactCtrl.text.trim(),
+            'city': _selectedCity ?? '',
+            'business_name': _businessNameCtrl.text.trim(),
+            'category': _selectedCategory,
+            'address': _addressCtrl.text.trim(),
+            'contact_number': _contactNumberCtrl.text.trim(),
+            'contact_email': _contactEmailCtrl.text.trim().isNotEmpty
+                ? _contactEmailCtrl.text.trim().toLowerCase()
+                : _emailCtrl.text.trim().toLowerCase(),
+            'facebook_handle': _facebookCtrl.text.trim(),
+            'instagram_handle': _instagramCtrl.text.trim(),
+            'website_url': _websiteCtrl.text.trim(),
+            if (logoUrl case final value?) 'logo_url': value,
+          },
+        },
+      );
 
-      // 1) Update profiles table
-      await _supabase.from('profiles').update({
-        'name': _nameCtrl.text.trim(),
-        'surname': _surnameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim().toLowerCase(),
-        'contact': _contactCtrl.text.trim(),
-        'city': _selectedCity ?? '',
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', partnerId);
-
-      // 2) Upsert businesses table
-      final bizData = {
-        'owner_member_id': partnerId,
-        'name': _businessNameCtrl.text.trim(),
-        'category': _selectedCategory,
-        'city': _selectedCity ?? '',
-        'address': _addressCtrl.text.trim(),
-        'contact_number': _contactNumberCtrl.text.trim(),
-        'contact_email': _contactEmailCtrl.text.trim().isNotEmpty
-            ? _contactEmailCtrl.text.trim().toLowerCase()
-            : _emailCtrl.text.trim().toLowerCase(),
-        'facebook_handle': _facebookCtrl.text.trim(),
-        'instagram_handle': _instagramCtrl.text.trim(),
-        'website_url': _websiteCtrl.text.trim(),
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-      if (logoUrl != null) {
-        bizData['logo_url'] = logoUrl;
-      }
-
-      if (_biz != null) {
-        // Update existing business
-        await _supabase
-            .from('businesses')
-            .update(bizData)
-            .eq('owner_member_id', partnerId);
-      } else {
-        // Create business if it doesn't exist yet
-        bizData['created_at'] = DateTime.now().toIso8601String();
-        await _supabase.from('businesses').upsert(
-          bizData,
-          onConflict: 'owner_member_id',
-        );
-      }
-
-      // 3) Update trusted_partners table business_name
-      try {
-        await _supabase.from('trusted_partners').update({
-          'business_name': _businessNameCtrl.text.trim(),
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('user_id', partnerId);
-      } catch (_) {
-        // trusted_partners record may not exist or may not have these columns
+      if (response is! Map || response['ok'] != true) {
+        final error = response is Map ? response['error']?.toString() : null;
+        throw Exception(error == null || error.isEmpty
+            ? 'Failed to save trusted partner changes.'
+            : error);
       }
 
       _logger.i('Partner $partnerId updated successfully');
@@ -308,7 +297,7 @@ class _AdminEditPartnerScreenState extends State<AdminEditPartnerScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Partner updated successfully'),
-          backgroundColor: Colors.teal,
+          backgroundColor: AppColors.primary,
         ),
       );
       Navigator.pop(context, true); // Return true to trigger refresh
@@ -335,7 +324,7 @@ class _AdminEditPartnerScreenState extends State<AdminEditPartnerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: BrandedAppBar(
         title: const Text('Edit Partner'),
         centerTitle: false,
         elevation: 0,
@@ -420,12 +409,16 @@ class _AdminEditPartnerScreenState extends State<AdminEditPartnerScreen> {
                     CircleAvatar(
                       radius: 48,
                       backgroundColor: Colors.grey.shade200,
-                      backgroundImage: _selectedLogoPath != null
-                          ? FileImage(File(_selectedLogoPath!))
-                          : (_existingLogoUrl != null
-                              ? NetworkImage(_existingLogoUrl!) as ImageProvider
-                              : null),
-                      child: _selectedLogoPath == null && _existingLogoUrl == null
+                      backgroundImage: _selectedLogoBytes != null
+                          ? MemoryImage(_selectedLogoBytes!) as ImageProvider
+                          : (_selectedLogoPath != null && !kIsWeb
+                              ? FileImage(File(_selectedLogoPath!))
+                              : (_existingLogoUrl != null
+                                  ? NetworkImage(_existingLogoUrl!)
+                                  : null)),
+                      child: _selectedLogoBytes == null &&
+                              _selectedLogoPath == null &&
+                              _existingLogoUrl == null
                           ? Icon(Icons.store, size: 48, color: Colors.grey.shade400)
                           : null,
                     ),
@@ -567,7 +560,7 @@ class _AdminEditPartnerScreenState extends State<AdminEditPartnerScreen> {
                       : const Icon(Icons.save),
                   label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),

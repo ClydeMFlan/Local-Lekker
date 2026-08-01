@@ -27,6 +27,24 @@ class SubscriptionService {
     return DateTime(year, month, day, from.hour, from.minute, from.second, from.millisecond, from.microsecond);
   }
 
+  /// Returns a DateTime [months] calendar months from [from], clamping the day
+  /// (e.g. Jan 31 + 1 month → Feb 28). Handles year rollover in both directions.
+  static DateTime addCalendarMonths(DateTime from, int months) {
+    var year = from.year;
+    var month = from.month + months;
+    while (month > 12) {
+      month -= 12;
+      year++;
+    }
+    while (month < 1) {
+      month += 12;
+      year--;
+    }
+    final maxDay = DateTime(year, month + 1, 0).day;
+    final day = from.day > maxDay ? maxDay : from.day;
+    return DateTime(year, month, day, from.hour, from.minute, from.second, from.millisecond, from.microsecond);
+  }
+
   Future<bool> processManualPayment({
     required String userId,
     required String planType,
@@ -129,9 +147,12 @@ class SubscriptionService {
         'auto_renew': true,
         'updated_at': now.toIso8601String(),
         'renewal_charge_cents': renewalAmountCents,
-        if (paystackSubscriptionCode != null)
-          'paystack_subscription_code': paystackSubscriptionCode,
       };
+
+      if (paystackSubscriptionCode != null) {
+        subscriptionData['paystack_subscription_code'] =
+            paystackSubscriptionCode;
+      }
 
       if (existingSub == null) {
         // INSERT new subscription for first-time payment
@@ -226,6 +247,53 @@ class SubscriptionService {
         // Continue anyway - renewal record is optional for activation
       }
 
+      // Create an in-app notification for the member. The notifications-insert
+      // database webhook also turns this into an FCM push. Idempotency: skip if
+      // the Paystack webhook already created an activation notification in the
+      // last 10 minutes (covers the app-killed recovery race where the webhook
+      // activates the subscription before the app does).
+      try {
+        final periodEnd = oneCalendarMonthFrom(now);
+        final recentNotif = await _client
+            .from('notifications')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('type', 'subscription_renewal')
+            .gte(
+              'created_at',
+              now.subtract(const Duration(minutes: 10)).toIso8601String(),
+            )
+            .limit(1);
+        if (recentNotif.isEmpty) {
+          await _client.from('notifications').insert({
+            'user_id': userId,
+            'title': 'Subscription Activated',
+            'message':
+                'Your Local Lekker subscription is active until ${periodEnd.day}/${periodEnd.month}/${periodEnd.year}.',
+            'type': 'subscription_renewal',
+            'is_read': false,
+            'data': {
+              'expires_at': periodEnd.toIso8601String(),
+              'amount': renewalAmountCents / 100,
+              'source': 'app',
+            },
+          });
+          if (kDebugMode) {
+            print('[processManualPayment] Activation notification created');
+          }
+        } else if (kDebugMode) {
+          print(
+            '[processManualPayment] Recent activation notification exists, skipping',
+          );
+        }
+      } catch (notifyError) {
+        if (kDebugMode) {
+          print(
+            '[processManualPayment] WARNING: notification insert failed (non-critical): $notifyError',
+          );
+        }
+      }
+
       // After subscription + terms completion, mark user verified for admin tabs
       try {
         await SupabaseService.instance.syncVerificationStatus(userId);
@@ -273,15 +341,43 @@ class SubscriptionService {
           .update({'is_active': false})
           .eq('user_id', userId);
 
+      // Authoritative free-month lookup. promotions.free_months IS NULL means a
+      // lifetime membership (never expires) — see confirm_promo_signup(). The
+      // passed-in freeMonths is only a fallback: callers coerce NULL -> 0, which
+      // previously produced current_period_end == now (an already-expired
+      // subscription) and blocked the member from requesting deals right after
+      // paying the R1 intro fee.
+      var isLifetime = false;
+      var effectiveFreeMonths = freeMonths;
+      try {
+        final promoRow = await _client
+            .from('promotions')
+            .select('free_months')
+            .eq('id', promotionId)
+            .maybeSingle();
+        if (promoRow != null) {
+          final dbFreeMonths = promoRow['free_months'];
+          if (dbFreeMonths == null) {
+            isLifetime = true;
+          } else if (dbFreeMonths is int) {
+            effectiveFreeMonths = dbFreeMonths;
+          } else {
+            effectiveFreeMonths =
+                int.tryParse(dbFreeMonths.toString()) ?? effectiveFreeMonths;
+          }
+        }
+      } catch (_) {
+        // Non-critical: fall back to the passed-in freeMonths.
+      }
+
       final now = DateTime.now();
-      final freePeriodEnd = DateTime(
-        now.year,
-        now.month + freeMonths,
-        now.day,
-        now.hour,
-        now.minute,
-        now.second,
-      );
+      // Never create an already-expired subscription. Lifetime → 100 years;
+      // otherwise grant the free months, with a one-month floor so the R1
+      // payment always buys at least the first billing period before R99.
+      final monthsToGrant = isLifetime
+          ? 1200
+          : (effectiveFreeMonths > 0 ? effectiveFreeMonths : 1);
+      final freePeriodEnd = addCalendarMonths(now, monthsToGrant);
 
       final newQrCode = await QrCodeService().generateUniqueQrCode(userId);
       await _client.from('user_qr_codes').insert({
@@ -363,6 +459,49 @@ class SubscriptionService {
         }
       }
 
+      // In-app + push notification for the member. Idempotent vs. the webhook
+      // intro-recovery race (skip if one was created in the last 10 minutes).
+      try {
+        final recentNotif = await _client
+            .from('notifications')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('type', 'subscription_renewal')
+            .gte(
+              'created_at',
+              now.subtract(const Duration(minutes: 10)).toIso8601String(),
+            )
+            .limit(1);
+        if (recentNotif.isEmpty) {
+          final benefit = isLifetime
+              ? 'Your lifetime membership is now active. Enjoy Local Lekker!'
+              : effectiveFreeMonths > 0
+                  ? 'Enjoy $effectiveFreeMonths month(s) free until ${freePeriodEnd.day}/${freePeriodEnd.month}/${freePeriodEnd.year}.'
+                  : 'Your membership is active until ${freePeriodEnd.day}/${freePeriodEnd.month}/${freePeriodEnd.year}.';
+          await _client.from('notifications').insert({
+            'user_id': userId,
+            'title': 'Entry Offer Activated',
+            'message': 'Welcome to Local Lekker! $benefit',
+            'type': 'subscription_renewal',
+            'is_read': false,
+            'data': {
+              'expires_at': freePeriodEnd.toIso8601String(),
+              'amount': initialChargeCents / 100,
+              'promotion_id': promotionId,
+              'free_months': effectiveFreeMonths,
+              'lifetime': isLifetime,
+              'source': 'app',
+            },
+          });
+        }
+      } catch (notifyError) {
+        if (kDebugMode) {
+          print(
+            '[activateIntroCampaignSubscription] WARNING: notification insert failed (non-critical): $notifyError',
+          );
+        }
+      }
+
       return true;
     } catch (e, st) {
       if (kDebugMode) {
@@ -373,27 +512,91 @@ class SubscriptionService {
   }
 
   Future<Map<String, dynamic>?> getSubscriptionStatus(String userId) async {
+    // Primary path: SECURITY DEFINER RPC that is resilient to profile/QR RLS
+    // recursion issues in direct table reads.
+    try {
+      final rpcResult = await _client.rpc(
+        'get_subscription_status',
+        params: {'p_user_id': userId},
+      );
+
+      if (rpcResult is Map<String, dynamic>) {
+        final mapped = Map<String, dynamic>.from(rpcResult);
+
+        // Preserve legacy keys consumed by existing app logic.
+        final rpcStatus = mapped['subscription_status'] as String?;
+        mapped['status'] = rpcStatus;
+        mapped['current_period_end'] = mapped['subscription_end_date'];
+        return mapped;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('WARN getSubscriptionStatus: RPC get_subscription_status failed: $e');
+      }
+    }
+
+    List<dynamic> response = [];
+
     // Fetch most recent subscription from Supabase (handle multiple subscriptions)
-    final response = await _client
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', ascending: false)
-        .limit(1);
+    try {
+      response = await _client
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(1);
+    } catch (e) {
+      if (kDebugMode) {
+        print('WARN getSubscriptionStatus: subscriptions query failed: $e');
+      }
+    }
 
-    if (response.isEmpty) return null;
+    Map<String, dynamic>? subscription;
 
-    final subscription = Map<String, dynamic>.from(response[0]);
+    if (response.isNotEmpty) {
+      subscription = Map<String, dynamic>.from(response[0]);
+    } else {
+      // Legacy fallback: older accounts may only have profiles.subscription.
+      Map<String, dynamic>? legacyProfile;
+      try {
+        legacyProfile = await _client
+            .from('profiles')
+            .select('subscription')
+            .eq('id', userId)
+            .maybeSingle();
+      } catch (e) {
+        if (kDebugMode) {
+          print('WARN getSubscriptionStatus: profiles fallback query failed: $e');
+        }
+      }
 
-    // Check if there's an active QR code
-    final qrCodeResponse = await _client
-        .from('user_qr_codes')
-        .select('id, is_active, expires_at')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .gte('expires_at', DateTime.now().toIso8601String())
-        .order('created_at', ascending: false)
-        .limit(1);
+      final legacyStatus = legacyProfile?['subscription'] as String?;
+      if (legacyStatus != 'active') return null;
+
+      subscription = {
+        'status': 'active',
+        'subscription_status': 'active',
+        'source': 'profiles.subscription',
+      };
+    }
+
+    // Check if there's an active QR code. This should never determine
+    // subscription status; it is supplemental data for UI/diagnostics.
+    List<dynamic> qrCodeResponse = [];
+    try {
+      qrCodeResponse = await _client
+          .from('user_qr_codes')
+          .select('id, is_active, expires_at')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .gte('expires_at', DateTime.now().toIso8601String())
+          .order('created_at', ascending: false)
+          .limit(1);
+    } catch (e) {
+      if (kDebugMode) {
+        print('WARN getSubscriptionStatus: qr code query failed: $e');
+      }
+    }
 
     subscription['has_active_qr'] = qrCodeResponse.isNotEmpty;
 
@@ -508,6 +711,65 @@ class SubscriptionService {
 
           if (kDebugMode) {
             print('📝 Subscription status updated to expired');
+          }
+        }
+
+        // Sync profiles.subscription so NavigationService routes the member
+        // to PaymentRequiredScreen on next login instead of MembersHomePage.
+        try {
+          await _client
+              .from('profiles')
+              .update({
+                'subscription': 'expired',
+                'updated_at': DateTime.now().toIso8601String(),
+              })
+              .eq('id', userId);
+          if (kDebugMode) {
+            print('📝 Profile subscription field updated to expired');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('⚠️ Could not update profile subscription field: $e');
+          }
+        }
+
+        // Insert a payment_failure notification so the PaymentFailureAlert
+        // banner shows on MembersHomePage if the user somehow gets there.
+        try {
+          final recentFailure = await _client
+              .from('notifications')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('type', 'payment_failure')
+              .gte(
+                'created_at',
+                DateTime.now()
+                    .subtract(const Duration(hours: 24))
+                    .toIso8601String(),
+              )
+              .limit(1);
+
+          if (recentFailure.isEmpty) {
+            await _client.from('notifications').insert({
+              'user_id': userId,
+              'title': 'Subscription Payment Failed',
+              'message':
+                  'Your automatic subscription renewal could not be processed. '
+                  'Please update your payment method to continue enjoying Local Lekker discounts.',
+              'type': 'payment_failure',
+              'is_read': false,
+              'data': {
+                'reason': 'auto_renewal_failed',
+                'expired_at': expiryDate.toIso8601String(),
+              },
+            });
+            if (kDebugMode) {
+              print('🔔 Payment failure notification created');
+            }
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('⚠️ Could not create payment failure notification: $e');
           }
         }
 
