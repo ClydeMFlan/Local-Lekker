@@ -26,6 +26,16 @@ jobs:
         with:
           flutter-version: 3.38.9
 
+      - name: Create web runtime configuration
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL" > .env
+          printf 'SUPABASE_ANON_KEY=%s\n' "$SUPABASE_ANON_KEY" >> .env
+          printf 'PAYSTACK_CALLBACK_URL=https://clydemflan.github.io/Local-Lekker/\n' >> .env
+          printf 'PAYSTACK_DEVELOPMENT_MODE=false\nPAYSTACK_SANDBOX=false\n' >> .env
+
       - name: Build web release
         run: |
           flutter pub get
