@@ -40,6 +40,7 @@ jobs:
         run: |
           flutter pub get
           flutter build web --release --base-href /Local-Lekker/
+          printf 'app.locallekkerclub.co.za\n' > build/web/CNAME
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
