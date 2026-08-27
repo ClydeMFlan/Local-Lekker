@@ -39,7 +39,7 @@ jobs:
       - name: Build web release
         run: |
           flutter pub get
-          flutter build web --release --base-href /Local-Lekker/
+          flutter build web --release --base-href /
           printf 'app.locallekkerclub.co.za\n' > build/web/CNAME
 
       - name: Configure Pages
