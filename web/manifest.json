@@ -1,11 +1,11 @@
 {
-    "name": "local_lekker",
-    "short_name": "local_lekker",
+    "name": "Local Lekker",
+    "short_name": "Local Lekker",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Smart local deals, receipt scanning, and secure payments.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

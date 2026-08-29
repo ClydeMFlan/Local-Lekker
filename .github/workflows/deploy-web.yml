@@ -33,14 +33,13 @@ jobs:
         run: |
           printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL" > .env
           printf 'SUPABASE_ANON_KEY=%s\n' "$SUPABASE_ANON_KEY" >> .env
-          printf 'PAYSTACK_CALLBACK_URL=https://clydemflan.github.io/Local-Lekker/\n' >> .env
+          printf 'PAYSTACK_CALLBACK_URL=https://locallekker.github.io/\n' >> .env
           printf 'PAYSTACK_DEVELOPMENT_MODE=false\nPAYSTACK_SANDBOX=false\n' >> .env
 
       - name: Build web release
         run: |
           flutter pub get
           flutter build web --release --base-href /
-          printf 'app.locallekkerclub.co.za\n' > build/web/CNAME
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
