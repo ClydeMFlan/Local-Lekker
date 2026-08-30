@@ -131,6 +131,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
   // Logo state
   String? _existingLogoUrl;
   String? _selectedLogoPath;
+  Uint8List? _selectedLogoBytes; // in-memory bytes; avoids dart:io File which is unsupported on web
   double? _logoPreviewAspectRatio = 1.0;
   final ImagePicker _picker = ImagePicker();
 
@@ -420,7 +421,9 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
   Future<void> _updateLogoPreviewAspectRatio() async {
     ImageProvider? provider;
 
-    if (_selectedLogoPath != null && _selectedLogoPath!.trim().isNotEmpty) {
+    if (_selectedLogoBytes != null) {
+      provider = MemoryImage(_selectedLogoBytes!);
+    } else if (_selectedLogoPath != null && _selectedLogoPath!.trim().isNotEmpty) {
       provider = FileImage(File(_selectedLogoPath!));
     } else if (_existingLogoUrl != null && _existingLogoUrl!.trim().isNotEmpty) {
       provider = NetworkImage(_existingLogoUrl!.trim());
@@ -516,8 +519,10 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
       );
 
       if (image != null) {
+        final bytes = await image.readAsBytes();
         setState(() {
           _selectedLogoPath = image.path;
+          _selectedLogoBytes = bytes;
         });
         await _updateLogoPreviewAspectRatio();
       }
@@ -542,8 +547,9 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
       final user = SupabaseService.instance.getCurrentUser();
       if (user == null) throw Exception('No authenticated user');
 
-      final file = File(_selectedLogoPath!);
-      final bytes = await file.readAsBytes();
+      // Use in-memory bytes (captured at pick time) instead of dart:io File,
+      // since File is unsupported on web (throws "Unsupported operation: _Namespace").
+      final bytes = _selectedLogoBytes ?? await File(_selectedLogoPath!).readAsBytes();
       final fileExt = _selectedLogoPath!.split('.').last;
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
       final filePath = '${user.id}/$fileName';
@@ -766,13 +772,19 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                                 padding: const EdgeInsets.all(8),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(6),
-                                  child: _selectedLogoPath != null
-                                      ? Image.file(
-                                          File(_selectedLogoPath!),
+                                  child: _selectedLogoBytes != null
+                                      ? Image.memory(
+                                          _selectedLogoBytes!,
                                           alignment: Alignment.center,
                                           fit: BoxFit.contain,
                                         )
-                                      : (_existingLogoUrl != null
+                                      : (_selectedLogoPath != null
+                                            ? Image.file(
+                                                File(_selectedLogoPath!),
+                                                alignment: Alignment.center,
+                                                fit: BoxFit.contain,
+                                              )
+                                            : (_existingLogoUrl != null
                                             ? Image.network(
                                                 _existingLogoUrl!,
                                                 alignment: Alignment.center,
@@ -788,7 +800,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                                                       );
                                                     },
                                               )
-                                            : const SizedBox.shrink()),
+                                            : const SizedBox.shrink())),
                                 ),
                               );
                             },
@@ -808,6 +820,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                                   onPressed: () {
                                     setState(() {
                                       _selectedLogoPath = null;
+                                      _selectedLogoBytes = null;
                                       _existingLogoUrl = null;
                                       _logoPreviewAspectRatio = 1.0;
                                     });
@@ -2349,6 +2362,10 @@ class _BankingDetailsDialogState extends State<BankingDetailsDialog> {
           'is_active': 'true',
         };
 
+        // Fields whose DB column is numeric: compare numeric value, not string
+        // representation, since Postgres may return "90" for a "90.0" numeric literal.
+        const numericBankingFields = {'percentage_charge'};
+
         final bankingMismatches = <String>[];
         expectedBankingFields.forEach((field, expectedValue) {
           final actualValue = verifyResponse[field]?.toString().trim();
@@ -2357,6 +2374,15 @@ class _BankingDetailsDialogState extends State<BankingDetailsDialog> {
           if (normalizedExpected == null || normalizedExpected.isEmpty) {
             if (actualValue != null && actualValue.isNotEmpty) {
               bankingMismatches.add('$field expected empty but was "$actualValue"');
+            }
+            return;
+          }
+
+          if (numericBankingFields.contains(field)) {
+            final expectedNum = double.tryParse(normalizedExpected);
+            final actualNum = double.tryParse(actualValue ?? '');
+            if (expectedNum == null || actualNum == null || expectedNum != actualNum) {
+              bankingMismatches.add('$field expected "$normalizedExpected" but was "$actualValue"');
             }
             return;
           }

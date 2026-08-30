@@ -23,8 +23,7 @@ class _ChatListPageState extends State<ChatListPage> {
   final Map<String, String> _displayNames = {};
   final Map<String, String> _businessNames = {};
   final Map<String, bool> _hasUnread = {};
-  final Map<String, String?> _logoCache = {};
-  final Set<String> _logoFetchInFlight = {};
+  final Map<String, String> _profilePhotos = {};
   String? _currentUserId;
   bool _loading = true;
 
@@ -82,6 +81,9 @@ class _ChatListPageState extends State<ChatListPage> {
 
       final businessNames = await ChatService.instance
           .fetchBusinessNamesForUsers(otherUserIds.toList());
+      final profilePhotos = await ChatService.instance.fetchProfilePhotoUrls(
+        otherUserIds.toList(),
+      );
 
       _logger.i('Fetched names: $names');
 
@@ -107,6 +109,9 @@ class _ChatListPageState extends State<ChatListPage> {
       _businessNames
         ..clear()
         ..addAll(businessNames);
+      _profilePhotos
+        ..clear()
+        ..addAll(profilePhotos);
       _hasUnread
         ..clear()
         ..addAll(unreadMap);
@@ -168,53 +173,24 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  void _ensureLogo(String userId) {
-    if (_logoCache.containsKey(userId)) return;
-    if (_logoFetchInFlight.contains(userId)) return;
-    _logoFetchInFlight.add(userId);
-    ChatService.instance
-        .fetchBusinessLogoForUser(userId)
-        .then((url) {
-          if (!mounted) return;
-          setState(() {
-            _logoCache[userId] = url;
-          });
-        })
-        .whenComplete(() => _logoFetchInFlight.remove(userId));
-  }
-
   Widget _buildLeadingAvatar(
     ChatConversation c,
     String? otherId,
     bool showUnread,
     bool isAdmin,
   ) {
-    if (isAdmin) {
-      return CircleAvatar(
-        backgroundColor: showUnread ? Colors.red.shade100 : Colors.white,
-        child: ClipOval(
-          child: Image.asset(
-            'assets/heart_flag.png',
-            fit: BoxFit.cover,
-            width: 40,
-            height: 40,
-          ),
-        ),
-      );
-    }
     if (otherId != null) {
-      _ensureLogo(otherId);
-      final logo = _logoCache[otherId];
-      if (logo != null && logo.isNotEmpty) {
+      final photo = _profilePhotos[otherId];
+      if (photo != null && photo.isNotEmpty) {
         return CircleAvatar(
           backgroundColor: showUnread ? Colors.red.shade100 : Colors.grey.shade200,
-          backgroundImage: NetworkImage(logo),
+          backgroundImage: NetworkImage(photo),
         );
       }
     }
     return CircleAvatar(
       backgroundColor: showUnread ? Colors.red : null,
-      child: const Icon(Icons.store),
+      child: Icon(isAdmin ? Icons.support_agent : Icons.store),
     );
   }
 
@@ -227,7 +203,11 @@ class _ChatListPageState extends State<ChatListPage> {
     final others = c.participantIds
         .where((id) => id != _currentUserId)
         .toList();
-    final otherId = others.isNotEmpty ? others.first : null;
+    final otherId = others.isNotEmpty
+      ? others.first
+      : (latest != null && latest.senderId != _currentUserId
+          ? latest.senderId
+          : null);
 
     final subtitle = latest != null ? latest.content : 'No messages yet';
     final showUnread = _hasUnread[c.id] ?? false;

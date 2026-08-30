@@ -51,7 +51,7 @@ class TrustedPartnerHomePage extends StatefulWidget {
 }
 
 class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
-    with TickerProviderStateMixin {
+  with TickerProviderStateMixin, WidgetsBindingObserver {
   final Logger _logger = Logger();
   bool _isDarkMode = false;
   bool _isMemberView = false;
@@ -119,6 +119,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   // Animation for shutter open/close
   late AnimationController _shutterController;
   late Animation<double> _shutterAnimation;
+  bool _isInitializingCamera = false;
 
   // Check if we're on a mobile platform that supports camera
   bool get _isMobilePlatform => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
@@ -126,6 +127,8 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
   @override
   void initState() {
     super.initState();
+    // Observe lifecycle to resume scanner when returning from Settings
+    WidgetsBinding.instance.addObserver(this);
     _loadDiscounts();
     _loadBusinessName();
     _loadBankingStatus();
@@ -172,6 +175,8 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
 
   Future<void> _initializeCamera() async {
     if (!_isMobilePlatform) return;
+    if (_isInitializingCamera) return;
+    _isInitializingCamera = true;
     try {
       final controller = MobileScannerController(
         detectionTimeoutMs: 1000,
@@ -194,6 +199,8 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
           _cameraReady = false;
         });
       }
+    } finally {
+      _isInitializingCamera = false;
     }
   }
 
@@ -213,13 +220,79 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
     // Allow native camera resources to fully release before re-creating
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
-    await _initializeCamera();
+    await _ensureCameraPermissionAndInit();
   }
 
   Future<void> _openScanner() async {
+    // Request permission and initialize camera first
+    final granted = await _ensureCameraPermissionAndInit();
+    if (!granted) {
+      // Permission not granted - keep scanner closed and show friendly message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Camera permission is required to scan member QR codes.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
     setState(() => _isScannerOpen = true);
     _shutterController.forward();
-    await _initializeCamera();
+    // Camera initialized by _ensureCameraPermissionAndInit -> _initializeCamera
+  }
+
+  /// Attempts to initialize the camera controller. Permission prompts will be
+  /// triggered by the native camera APIs when needed; this avoids a dependency
+  /// on `permission_handler` which currently conflicts with local Android tooling.
+  Future<bool> _ensureCameraPermissionAndInit() async {
+    if (!_isMobilePlatform) return false;
+    try {
+      await _initializeCamera();
+      return true;
+    } catch (e) {
+      _logger.w('Camera permission/init error: $e');
+      return false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      _resumeScannerIfNeeded();
+    } else if (state == AppLifecycleState.paused) {
+      // Pause/stop camera to release resources
+      try {
+        _scannerController?.stop();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _resumeScannerIfNeeded() async {
+    if (!_isScannerOpen) return;
+    try {
+      if (_scannerController == null) {
+        await _initializeCamera();
+      } else {
+        try {
+          await _scannerController?.start();
+        } catch (e) {
+          _logger.w('Failed to start scanner on resume: $e');
+          await _initializeCamera();
+        }
+      }
+    } catch (e) {
+      _logger.w('Resume scanner failed: $e');
+      if (mounted) {
+        setState(() {
+          _cameraReady = false;
+          _cameraError = e.toString();
+        });
+      }
+    }
   }
 
   Future<void> _closeScanner() async {
@@ -403,6 +476,7 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _periodicRefreshTimer?.cancel();
     _dealAuthChannel?.unsubscribe();
     _chatMessagesChannel?.unsubscribe();
@@ -5620,50 +5694,80 @@ class _TrustedPartnerHomePageState extends State<TrustedPartnerHomePage>
 
     final List<Barcode> barcodes = capture.barcodes;
     for (final barcode in barcodes) {
-      if (barcode.rawValue != null) {
-        final qrData = barcode.rawValue!;
+      if (barcode.rawValue == null) continue;
+      String qrData = barcode.rawValue!.trim();
+
+      Map<String, dynamic>? data;
+      // Try direct JSON
+      try {
+        final dynamic decoded = jsonDecode(qrData);
+        if (decoded is Map<String, dynamic>) data = decoded;
+      } catch (_) {}
+
+      // Try if the QR is a URL containing a data/query param
+      if (data == null) {
         try {
-          final dynamic decoded = jsonDecode(qrData);
-
-          if (decoded is! Map<String, dynamic>) {
-            _showErrorDialog(
-              'Invalid QR code: Not a Local Lekker member code.',
-            );
-            break;
+          final uri = Uri.tryParse(qrData);
+          if (uri != null && uri.queryParameters.isNotEmpty) {
+            final possible = uri.queryParameters['qr'] ?? uri.queryParameters['data'] ?? uri.queryParameters['payload'];
+            if (possible != null) {
+              try {
+                final dynamic decoded = jsonDecode(possible);
+                if (decoded is Map<String, dynamic>) data = decoded;
+              } catch (_) {
+                // try base64
+                try {
+                  final decodedBytes = base64Decode(possible);
+                  final decodedString = utf8.decode(decodedBytes);
+                  final dynamic decoded = jsonDecode(decodedString);
+                  if (decoded is Map<String, dynamic>) data = decoded;
+                } catch (_) {}
+              }
+            }
           }
-
-          final Map<String, dynamic> data = decoded;
-
-          // Validate QR type
-          final type = data['type'] as String?;
-          if (type != 'user_qr') {
-            _showErrorDialog(
-              'Invalid QR code: This is not a member QR code.',
-            );
-            break;
-          }
-
-          final userId = data['user_id'] as String?;
-          final qrName = data['name'] as String? ?? 'Unknown';
-          final qrSurname = data['surname'] as String? ?? 'Unknown';
-
-          if (userId == null || userId.isEmpty) {
-            _showErrorDialog('Invalid QR code: No member ID found.');
-            break;
-          }
-
-          // Show loading indicator then fetch member details
-          _closeScanner();
-          _showMemberDetailsPopup(
-            userId: userId,
-            qrName: qrName,
-            qrSurname: qrSurname,
-          );
-        } catch (e) {
-          _showErrorDialog('Invalid QR code format.');
-        }
-        break; // Process only the first barcode
+        } catch (_) {}
       }
+
+      // Try base64-encoded JSON as a last resort
+      if (data == null) {
+        try {
+          final decodedBytes = base64Decode(qrData);
+          final decodedString = utf8.decode(decodedBytes);
+          final dynamic decoded = jsonDecode(decodedString);
+          if (decoded is Map<String, dynamic>) data = decoded;
+        } catch (_) {}
+      }
+
+      if (data == null) {
+        _showErrorDialog('Invalid QR code format.');
+        break;
+      }
+
+      final type = data['type']?.toString();
+      // Accept both legacy and ephemeral member QR types
+      final allowed = {'user_qr', 'user_qr_v2'};
+      if (!allowed.contains(type)) {
+        _showErrorDialog('Invalid QR code: This is not a member QR code.');
+        break;
+      }
+
+      final userId = data['user_id']?.toString();
+      final qrName = data['name']?.toString() ?? 'Unknown';
+      final qrSurname = data['surname']?.toString() ?? 'Unknown';
+
+      if (userId == null || userId.isEmpty) {
+        _showErrorDialog('Invalid QR code: No member ID found.');
+        break;
+      }
+
+      // Valid member QR - proceed
+      _closeScanner();
+      _showMemberDetailsPopup(
+        userId: userId,
+        qrName: qrName,
+        qrSurname: qrSurname,
+      );
+      break; // Process only the first barcode
     }
   }
 

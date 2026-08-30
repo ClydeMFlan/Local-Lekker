@@ -140,20 +140,20 @@ class DealAuthorizationService {
         notes: notes,
       );
 
-      // Get member details for notification
+      // Get member details for notification + TP email
       final memberResponse = await _supabase
           .from('profiles')
-          .select('name, surname')
+          .select('name, surname, email, contact')
           .eq('id', memberId)
           .maybeSingle();
 
-      String memberName = 'A member';
-      if (memberResponse != null) {
-        final firstName = memberResponse['name'] as String? ?? '';
-        final lastName = memberResponse['surname'] as String? ?? '';
-        memberName = '$firstName $lastName'.trim();
-        if (memberName.isEmpty) memberName = 'A member';
-      }
+      final memberFirstName = memberResponse?['name'] as String? ?? '';
+      final memberSurname = memberResponse?['surname'] as String? ?? '';
+      final memberEmail = memberResponse?['email'] as String? ?? '';
+      final memberPhone = memberResponse?['contact'] as String? ?? '';
+
+      String memberName = '$memberFirstName $memberSurname'.trim();
+      if (memberName.isEmpty) memberName = 'A member';
 
       final dealName = discountResponse['name'] as String? ?? 'a deal';
 
@@ -180,7 +180,12 @@ class DealAuthorizationService {
           'send-deal-request-email',
           body: {
             'trusted_partner_id': trustedPartnerUserId,
+            'member_id': memberId,
             'member_name': memberName,
+            'member_first_name': memberFirstName,
+            'member_surname': memberSurname,
+            'member_email': memberEmail,
+            'member_phone': memberPhone,
             'deal_name': dealName,
             'amount': amount,
             'payment_method': paymentMethod,
@@ -222,11 +227,13 @@ class DealAuthorizationService {
 
       final tpResponse = await _supabase
           .from('businesses')
-          .select('name')
+          .select('name, contact_number, contact_email')
           .eq('owner_member_id', trustedPartnerId)
           .maybeSingle();
 
       final businessName = tpResponse?['name'] as String? ?? 'Business';
+      final businessContact = tpResponse?['contact_number'] as String? ?? '';
+      final businessEmail = tpResponse?['contact_email'] as String? ?? '';
       final dealSnapshot = deal.dealSnapshot;
       final dealName = dealSnapshot?['name'] as String? ?? 'deal';
       final quantity = dealSnapshot?['quantity'] as int?;
@@ -251,7 +258,10 @@ class DealAuthorizationService {
           'send-deal-approval-email',
           body: {
             'member_id': deal.memberId,
+            'trusted_partner_id': trustedPartnerId,
             'business_name': businessName,
+            'business_contact': businessContact,
+            'business_email': businessEmail,
             'deal_name': dealName,
             'amount': deal.amount ?? 0.0,
             'payment_method': deal.paymentMethod ?? 'pos',
@@ -437,13 +447,13 @@ class DealAuthorizationService {
         final discount = await _getDiscountWithTrustedPartner(deal.discountId);
         final businessResponse = await _supabase
             .from('businesses')
-            .select('id, name, owner_member_id')
+            .select('id, name, owner_member_id, contact_number, contact_email')
             .eq('owner_member_id', discount['trusted_partner_id'])
             .single();
 
         final memberResponse = await _supabase
             .from('profiles')
-            .select('name, surname, email')
+            .select('name, surname, email, contact')
             .eq('id', memberId)
             .single();
 
@@ -451,6 +461,7 @@ class DealAuthorizationService {
             '${memberResponse['name'] ?? ''} ${memberResponse['surname'] ?? ''}'
                 .trim();
         final memberEmail = memberResponse['email'] ?? '';
+        final memberPhone = memberResponse['contact'] ?? '';
         final resolvedDiscountName = await _resolveDiscountName(deal);
 
         // Create receipt in deal_receipts table (for trusted partner's receipt tab)
@@ -463,9 +474,12 @@ class DealAuthorizationService {
           'amount': deal.amount,
           'payment_method': 'in_app',
           'business_name': businessResponse['name'],
+          'business_contact': businessResponse['contact_number'],
+          'business_email': businessResponse['contact_email'],
           'discount_name': resolvedDiscountName,
           'member_name': memberName,
           'member_email': memberEmail,
+          'member_phone': memberPhone,
         });
 
         // Update deal status to completed
@@ -609,7 +623,7 @@ class DealAuthorizationService {
       if (deal.businessId != null && deal.businessId!.isNotEmpty) {
         businessResponse = await _supabase
             .from('businesses')
-            .select('id, name')
+            .select('id, name, contact_number, contact_email')
             .eq('id', deal.businessId!)
             .maybeSingle();
       }
@@ -617,7 +631,7 @@ class DealAuthorizationService {
       // Fallback for legacy rows where business_id may be missing.
       businessResponse ??= await _supabase
           .from('businesses')
-          .select('id, name')
+          .select('id, name, contact_number, contact_email')
           .eq('owner_member_id', trustedPartnerId)
           .limit(1)
           .maybeSingle();
@@ -629,11 +643,12 @@ class DealAuthorizationService {
       // Get member details
       final memberResponse = await _supabase
           .from('profiles')
-          .select('name, surname, email')
+          .select('name, surname, email, contact')
           .eq('id', deal.memberId)
           .single();
 
       final memberEmail = (memberResponse['email'] as String?) ?? '';
+      final memberPhone = (memberResponse['contact'] as String?) ?? '';
       final memberName = buildMemberDisplayName(
         name: memberResponse['name'] as String?,
         surname: memberResponse['surname'] as String?,
@@ -651,9 +666,12 @@ class DealAuthorizationService {
         'amount': deal.amount,
         'payment_method': 'pos',
         'business_name': businessResponse['name'],
+        'business_contact': businessResponse['contact_number'],
+        'business_email': businessResponse['contact_email'],
         'discount_name': resolvedDiscountName,
         'member_name': memberName,
         'member_email': memberEmail,
+        'member_phone': memberPhone,
       });
 
       // Update deal status to completed and set completed_at timestamp

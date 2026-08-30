@@ -97,21 +97,19 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     final email = _emailController.text.trim();
     setState(() => _isSending = true);
     try {
-      final method = await SupabaseService.instance.sendPasswordResetOtp(
-        email: email,
-      );
+      await SupabaseService.instance.sendPasswordResetOtp(email: email);
       if (!mounted) return;
       setState(() {
         _codeSent = true;
         _codeVerified = false;
+        _codeController.clear();
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
       });
       final masked = _maskEmail(email);
-      final message = method == PasswordResetDelivery.otp
-          ? 'Verification code sent to $masked'
-          : 'We emailed $masked. Open the link, or enter the code if your email contains one.';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Verification code sent to $masked')),
+      );
     } catch (e) {
       _logger.e('Failed to send reset code: $e');
       final lower = e.toString().toLowerCase();
@@ -290,7 +288,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Step 2: Verify Code',
+              'Step 2: Verify Your Email',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -329,6 +327,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 label: Text(_isVerifying ? 'Verifying...' : 'Verify Code'),
               ),
             ),
+            if (_codeSent && !_codeVerified)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _isSending ? null : _sendCode,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Resend Code'),
+                ),
+              ),
             if (_codeVerified)
               const Padding(
                 padding: EdgeInsets.only(top: 8.0),
@@ -368,7 +375,29 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               obscureText: _obscureNew,
               decoration: InputDecoration(
                 labelText: 'New password (min 8 chars)',
+                helperText:
+                    '${_newPasswordController.text.length}/8 characters',
+                helperStyle: TextStyle(
+                  color: _newPasswordController.text.length >= 8
+                      ? Colors.green
+                      : null,
+                ),
                 border: const OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: _newPasswordController.text.length >= 8
+                        ? Colors.green
+                        : Colors.grey,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: _newPasswordController.text.length >= 8
+                        ? Colors.green
+                        : Theme.of(context).colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscureNew ? Icons.visibility : Icons.visibility_off,

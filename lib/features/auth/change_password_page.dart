@@ -69,19 +69,19 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       setState(() {
         _codeSent = true;
         _otpVerified = false;
+        _codeController.clear();
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Verification code sent to ${_email ?? 'your email'}',
-          ),
+          content: Text('Verification code sent to ${_email ?? 'your email'}'),
         ),
       );
     } catch (e) {
       _logger.e('Failed to send verification code: $e');
       final lower = e.toString().toLowerCase();
-      final msg =
-          (lower.contains('rate_limit') || lower.contains('rate limit'))
+      final msg = (lower.contains('rate_limit') || lower.contains('rate limit'))
           ? 'Too many attempts. Please wait a few minutes and try again.'
           : 'Failed to send verification code. Please try again.';
       if (!mounted) return;
@@ -119,7 +119,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   Future<void> _updatePassword() async {
     if (!_otpVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the verification code first.')),
+        const SnackBar(
+          content: Text('Please enter the verification code first.'),
+        ),
       );
       return;
     }
@@ -234,7 +236,11 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                 ),
                               )
                             : const Icon(Icons.send),
-                        label: Text(_isSending ? 'Sending...' : 'Send Code'),
+                        label: Text(
+                          _isSending
+                              ? 'Sending...'
+                              : (_codeSent ? 'Resend Code' : 'Send Code'),
+                        ),
                       ),
                     ),
                   ],
@@ -398,7 +404,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                       width: double.infinity,
                       height: 45,
                       child: ElevatedButton.icon(
-                        onPressed: _otpVerified && _isPasswordValid && !_isUpdating
+                        onPressed:
+                            _otpVerified && _isPasswordValid && !_isUpdating
                             ? _updatePassword
                             : null,
                         icon: _isUpdating

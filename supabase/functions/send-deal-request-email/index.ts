@@ -29,7 +29,11 @@ serve(async (req) => {
   try {
     const {
       trusted_partner_id,
-      member_name,
+      member_id,
+      member_first_name,
+      member_surname,
+      member_email,
+      member_phone,
       deal_name,
       amount,
       payment_method,
@@ -75,6 +79,30 @@ serve(async (req) => {
 
     const tpName = [profile?.name, profile?.surname].filter(Boolean).join(' ') || 'Trusted Partner'
 
+    // Resolve the member's contact details. Prefer values passed by the app,
+    // but fall back to a profiles lookup so the email is always complete.
+    let memberFirstName = member_first_name ?? ''
+    let memberSurname = member_surname ?? ''
+    let memberContactEmail = member_email ?? ''
+    let memberPhone = member_phone ?? ''
+
+    if (member_id && (!memberFirstName || !memberSurname || !memberContactEmail || !memberPhone)) {
+      const { data: memberProfile, error: memberError } = await supabase
+        .from('profiles')
+        .select('name, surname, email, contact')
+        .eq('id', member_id)
+        .maybeSingle()
+
+      if (memberError) {
+        console.error('Error fetching member profile:', memberError)
+      } else if (memberProfile) {
+        memberFirstName = memberFirstName || (memberProfile.name ?? '')
+        memberSurname = memberSurname || (memberProfile.surname ?? '')
+        memberContactEmail = memberContactEmail || (memberProfile.email ?? '')
+        memberPhone = memberPhone || (memberProfile.contact ?? '')
+      }
+    }
+
     // Format display values
     const formattedAmount = `R${Number(amount || 0).toFixed(2)}`
     const quantityText = quantity && quantity > 1 ? ` (x${quantity})` : ''
@@ -117,7 +145,12 @@ Deal Details:
   Deal: ${deal_name}${quantityText}
   Amount: ${formattedAmount}
   Payment Method: ${paymentMethodText}
-  Requested by: ${member_name || 'A member'}
+
+Member Details:
+  Name: ${memberFirstName || 'N/A'}
+  Surname: ${memberSurname || 'N/A'}
+  Cell Number: ${memberPhone || 'N/A'}
+  Email: ${memberContactEmail || 'N/A'}
 
 Please open the Local Lekker app to approve or reject this request.
 

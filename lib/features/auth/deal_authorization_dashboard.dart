@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:local_lekker/widgets/branded_app_bar.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
 import '../../models/deal_authorization.dart';
@@ -593,90 +595,215 @@ class _DealAuthorizationDashboardState
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
-                'Confirm POS Payment',
+                'Verify POS Payment',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Has the member completed payment at your POS terminal?',
-              style: TextStyle(fontSize: 15),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
+        content: SizedBox(
+          width: 420,
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              final MobileScannerController scannerController =
+                  MobileScannerController(detectionTimeoutMs: 1000);
+              String? scannedUserId;
+              String? scanError;
+              bool isVerified = false;
+              bool paymentComplete = false;
+
+              Future<void> verifyScannedMember(String rawValue) async {
+                try {
+                  final decoded = jsonDecode(rawValue);
+                  if (decoded is! Map<String, dynamic>) {
+                    throw const FormatException('Invalid QR format');
+                  }
+
+                  final type = decoded['type'] as String?;
+                  if (type != 'user_qr') {
+                    throw const FormatException('This QR is not a member QR code.');
+                  }
+
+                  final userId = decoded['user_id'] as String?;
+                  if (userId == null || userId.isEmpty) {
+                    throw const FormatException('No member ID found in QR.');
+                  }
+
+                  final profileResponse = await SupabaseService.instance.client
+                      .from('profiles')
+                      .select('id, name, surname, email, subscription')
+                      .eq('id', userId)
+                      .maybeSingle();
+
+                  if (profileResponse == null) {
+                    throw const FormatException('Member profile not found.');
+                  }
+
+                  final qrResponse = await SupabaseService.instance.client
+                      .from('user_qr_codes')
+                      .select('is_active, expires_at')
+                      .eq('user_id', userId)
+                      .eq('is_active', true)
+                      .order('created_at', ascending: false)
+                      .limit(1);
+
+                  final isActive = profileResponse['subscription'] == 'active' &&
+                      qrResponse.isNotEmpty;
+                  if (!isActive) {
+                    throw const FormatException(
+                      'This member is not active and cannot complete the sale.',
+                    );
+                  }
+
+                  setState(() {
+                    scannedUserId = userId;
+                    isVerified = true;
+                    scanError = null;
+                    paymentComplete = false;
+                  });
+                } catch (e) {
+                  setState(() {
+                    scanError = e.toString().replaceFirst('Exception: ', '').replaceFirst('FormatException: ', '');
+                    scannedUserId = null;
+                    isVerified = false;
+                    paymentComplete = false;
+                  });
+                }
+              }
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Member:'),
-                      Flexible(
-                        child: Text(
-                          memberName,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'Scan the member QR code and confirm the payment once the member profile is active.',
+                    style: TextStyle(fontSize: 15),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Deal:'),
-                      Flexible(
-                        child: Text(
-                          discountName,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                          textAlign: TextAlign.right,
-                        ),
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      height: 250,
+                      child: MobileScanner(
+                        controller: scannerController,
+                        onDetect: (capture) async {
+                          for (final barcode in capture.barcodes) {
+                            final rawValue = barcode.rawValue;
+                            if (rawValue == null || rawValue.isEmpty) continue;
+                            await scannerController.stop();
+                            await verifyScannedMember(rawValue);
+                            return;
+                          }
+                        },
                       ),
-                    ],
+                    ),
                   ),
-                  const Divider(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Amount:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                  const SizedBox(height: 12),
+                  if (scanError != null)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      Text(
-                        'R$amount',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          color: kBrandGreen,
-                        ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              scanError!,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  if (isVerified && scannedUserId != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Member:'),
+                              Flexible(
+                                child: Text(
+                                  memberName,
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Deal:'),
+                              Flexible(
+                                child: Text(
+                                  discountName,
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Amount:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                'R$amount',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                  color: kBrandGreen,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          CheckboxListTile(
+                            value: paymentComplete,
+                            onChanged: (value) {
+                              setState(() {
+                                paymentComplete = value ?? false;
+                              });
+                            },
+                            title: const Text('Payment complete'),
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
         actions: [
           OutlinedButton.icon(
             onPressed: () async {
-              // Close dialog using dialog context
               Navigator.of(dialogContext).pop();
 
-              // Handle unsuccessful payment
               try {
                 final user = SupabaseService.instance.getCurrentUser();
                 if (user == null) return;
@@ -758,10 +885,8 @@ class _DealAuthorizationDashboardState
           ),
           ElevatedButton.icon(
             onPressed: () async {
-              // Close dialog using dialog context
               Navigator.of(dialogContext).pop();
 
-              // Handle successful payment
               try {
                 final user = SupabaseService.instance.getCurrentUser();
                 if (user == null) return;
@@ -833,7 +958,7 @@ class _DealAuthorizationDashboardState
               }
             },
             icon: const Icon(Icons.check_circle),
-            label: const Text('Payment Successful'),
+            label: const Text('Confirm Payment'),
             style: ElevatedButton.styleFrom(
               backgroundColor: kBrandGreen,
               foregroundColor: Colors.white,
@@ -1159,6 +1284,10 @@ class _DealAuthorizationDashboardState
               ),
               const Divider(),
               _buildReceiptDetailRow('Member', receipt['member_name'] ?? 'N/A'),
+              _buildReceiptDetailRow(
+                'Contact',
+                receipt['member_phone'] ?? 'N/A',
+              ),
               _buildReceiptDetailRow('Email', receipt['member_email'] ?? 'N/A'),
             ],
           ),

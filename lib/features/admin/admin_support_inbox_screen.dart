@@ -24,6 +24,7 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
   List<ChatConversation> _conversations = [];
   final Map<String, ChatMessage> _latestMessages = {};
   final Map<String, String> _memberNames = {};
+  final Map<String, String> _memberProfilePhotos = {};
   final Map<String, bool> _hasUnread = {};
 
   @override
@@ -70,6 +71,9 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
       final names = await ChatService.instance.fetchDisplayNames(
         memberIds.toList(),
       );
+      final profilePhotos = await ChatService.instance.fetchProfilePhotoUrls(
+        memberIds.toList(),
+      );
 
       // Compute unread flag from SharedPreferences (last read per conversation)
       final prefs = await SharedPreferences.getInstance();
@@ -94,6 +98,9 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
         _memberNames
           ..clear()
           ..addAll(names);
+        _memberProfilePhotos
+          ..clear()
+          ..addAll(profilePhotos);
         _hasUnread
           ..clear()
           ..addAll(unread);
@@ -118,6 +125,11 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
     if (memberId.isEmpty) return 'Member';
     return _memberNames[memberId] ?? 'Member';
   }
+
+  String _memberId(ChatConversation c) => c.participantIds.firstWhere(
+    (id) => id != _adminId,
+    orElse: () => c.participantIds.isNotEmpty ? c.participantIds.first : '',
+  );
 
   String _formatWhen(DateTime dt) {
     final now = DateTime.now();
@@ -165,16 +177,25 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
                     final c = _conversations[index];
                     final latest = _latestMessages[c.id];
                     final unread = _hasUnread[c.id] ?? false;
+                    final memberId = _memberId(c);
+                    final profilePhoto = _memberProfilePhotos[memberId];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 10),
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor:
                               unread ? Colors.red : Colors.grey.shade300,
-                          child: Icon(
-                            Icons.support_agent,
-                            color: unread ? Colors.white : Colors.black54,
-                          ),
+                          backgroundImage: profilePhoto != null
+                              ? NetworkImage(profilePhoto)
+                              : null,
+                          child: profilePhoto == null
+                              ? Icon(
+                                  Icons.person,
+                                  color: unread
+                                      ? Colors.white
+                                      : Colors.black54,
+                                )
+                              : null,
                         ),
                         title: Text(
                           _memberLabel(c),

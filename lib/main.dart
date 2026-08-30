@@ -5,6 +5,7 @@ import 'dart:async';
 import 'core/theme/theme.dart';
 import 'features/auth/welcome_page.dart';
 import 'features/auth/password_reset_page.dart';
+import 'features/auth/members_signup_page.dart';
 import 'widgets/creator_ribbon.dart';
 import 'services/supabase_service.dart';
 import 'services/navigation_service.dart';
@@ -139,8 +140,18 @@ class _LocalLekkerAppState extends State<LocalLekkerApp>
           final refreshToken = parts.length > 2 ? parts[2] : null;
           _handlePasswordResetLink(accessToken, refreshToken);
         }
+      } else if (link == 'signup_completion') {
+        _handleSignupCompletionLink();
       }
     });
+  }
+
+  void _handleSignupCompletionLink() {
+    logger.i('Handling signup completion deep link');
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const MembersSignupPage()),
+      (route) => false,
+    );
   }
 
   Future<void> _handlePasswordResetPKCE(String code) async {
@@ -289,11 +300,17 @@ class _LocalLekkerAppState extends State<LocalLekkerApp>
       // Global builder to show the creator ribbon below every screen
       builder: (context, child) {
         if (child == null) return const SizedBox.shrink();
-        return Column(
-          children: [
-            Expanded(child: child),
-            const CreatorRibbon(height: AppTheme.creatorRibbonHeight),
-          ],
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: const TextScaler.linear(1.0),
+          ),
+          child: Column(
+            children: [
+              Expanded(child: child),
+              const CreatorRibbon(height: AppTheme.creatorRibbonHeight),
+            ],
+          ),
         );
       },
     );
@@ -352,6 +369,10 @@ class _AppInitializerState extends State<AppInitializer> {
           refreshToken: resetData['refreshToken'],
         );
       }
+    }
+
+    if (await DeepLinkService().checkForSignupCompletionLink()) {
+      return const MembersSignupPage();
     }
 
     // Otherwise, use normal navigation flow

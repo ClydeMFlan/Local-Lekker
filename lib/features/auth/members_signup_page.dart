@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'dart:async';
@@ -32,6 +33,7 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
   final _confirmPasswordController = TextEditingController();
 
   DateTime? _selectedDate;
+  bool _showDobValidationError = false;
   String? _selectedGender;
   String? _selectedEthnicity;
   String? _selectedProvince;
@@ -726,6 +728,33 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
     return (_selectedSuburb ?? '').trim();
   }
 
+  bool _hasAllRequiredFields() {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+    final name = _nameController.text.trim();
+    final surname = _surnameController.text.trim();
+    final street = _streetController.text.trim();
+    final contact = _contactController.text.trim();
+    final suburb = _resolvedSuburb();
+
+    return email.isNotEmpty &&
+        RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email) &&
+        password.trim().isNotEmpty &&
+        confirmPassword.trim().isNotEmpty &&
+        password == confirmPassword &&
+        name.isNotEmpty &&
+        surname.isNotEmpty &&
+        _selectedDate != null &&
+        _selectedGender != null &&
+        _selectedEthnicity != null &&
+        _selectedProvince != null &&
+        _selectedCity != null &&
+        suburb.isNotEmpty &&
+        street.isNotEmpty &&
+        contact.isNotEmpty;
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -790,8 +819,9 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
                 keyboardType: TextInputType.emailAddress,
                 onChanged: _onEmailChanged,
                 validator: (value) {
-                  if (value?.isEmpty ?? true) return 'Please enter your email';
-                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value!)) {
+                  final email = value?.trim() ?? '';
+                  if (email.isEmpty) return 'Please enter your email';
+                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
                     return 'Please enter a valid email';
                   }
                   if (_emailIsActive) {
@@ -804,12 +834,39 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Create Password'),
+                decoration: InputDecoration(
+                  labelText: 'Create Password',
+                  helperText: '${_passwordController.text.length}/8 characters',
+                  helperStyle: TextStyle(
+                    color: _passwordController.text.length >= 8
+                        ? Colors.green
+                        : null,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: _passwordController.text.length >= 8
+                          ? Colors.green
+                          : Colors.grey,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: _passwordController.text.length >= 8
+                          ? Colors.green
+                          : Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                ),
                 obscureText: true,
+                onChanged: (_) => setState(() {}),
                 validator: (value) {
-                  if (value?.isEmpty ?? true) return 'Please enter a password';
-                  if (value!.length < 6) {
-                    return 'Password must be at least 6 characters';
+                  final password = value ?? '';
+                  if (password.trim().isEmpty) {
+                    return 'Please enter a password';
+                  }
+                  if (password.length < 8) {
+                    return 'Password must be at least 8 characters';
                   }
                   return null;
                 },
@@ -821,6 +878,9 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
                 ),
                 obscureText: true,
                 validator: (value) {
+                  if (value?.trim().isEmpty ?? true) {
+                    return 'Please confirm your password';
+                  }
                   if (value != _passwordController.text) {
                     return 'Passwords do not match';
                   }
@@ -831,14 +891,16 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Name'),
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Please enter your name' : null,
+                validator: (value) => value?.trim().isEmpty ?? true
+                  ? 'Please enter your name'
+                  : null,
               ),
               TextFormField(
                 controller: _surnameController,
                 decoration: const InputDecoration(labelText: 'Surname'),
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Please enter your surname' : null,
+                validator: (value) => value?.trim().isEmpty ?? true
+                  ? 'Please enter your surname'
+                  : null,
               ),
               const SizedBox(height: 16),
               Row(
@@ -856,6 +918,14 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
                   ),
                 ],
               ),
+              if (_showDobValidationError && _selectedDate == null)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Please select your date of birth',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
               DropdownButtonFormField<String>(
                 initialValue: _selectedGender,
                 decoration: const InputDecoration(labelText: 'Gender'),
@@ -974,7 +1044,7 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
                 controller: _contactController,
                 decoration: const InputDecoration(labelText: 'Contact Number'),
                 keyboardType: TextInputType.phone,
-                validator: (value) => value?.isEmpty ?? true
+                validator: (value) => value?.trim().isEmpty ?? true
                     ? 'Please enter your contact number'
                     : null,
               ),
@@ -1270,6 +1340,24 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
   }
 
   Future<void> _showDatePicker() async {
+    if (kIsWeb) {
+      final now = DateTime.now();
+      final initialDate = _selectedDate ?? DateTime(now.year - 18, now.month, now.day);
+      final picked = await showDatePicker(
+        context: context,
+        initialDate: initialDate,
+        firstDate: DateTime(1900, 1, 1),
+        lastDate: now,
+      );
+      if (picked != null) {
+        setState(() {
+          _selectedDate = picked;
+          _showDobValidationError = false;
+        });
+      }
+      return;
+    }
+
     final DateTime now = DateTime.now();
     int selectedDay = _selectedDate?.day ?? (now.day - 1);
     int selectedMonth = _selectedDate?.month ?? now.month;
@@ -1316,7 +1404,10 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
                               selectedMonth,
                               selectedDay,
                             );
-                            this.setState(() => _selectedDate = selectedDate);
+                            this.setState(() {
+                              _selectedDate = selectedDate;
+                              _showDobValidationError = false;
+                            });
                             Navigator.pop(context);
                           },
                           child: const Text('Done'),
@@ -1442,6 +1533,33 @@ class _MembersSignupPageState extends State<MembersSignupPage> {
     if (_emailIsActive) {
       await _redirectToSignIn(_emailController.text);
       return;
+    }
+
+    final hasAllRequiredFields = _hasAllRequiredFields();
+    final isFormValid = _formKey.currentState?.validate() ?? false;
+
+    if (!hasAllRequiredFields || !isFormValid) {
+      setState(() {
+        _showDobValidationError = _selectedDate == null;
+      });
+
+      _logger.w('Signup blocked: Required fields are incomplete');
+      if (mounted) {
+        _scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Please complete all required fields before continuing.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_showDobValidationError) {
+      setState(() {
+        _showDobValidationError = false;
+      });
     }
 
     if (_formKey.currentState?.validate() ?? false) {

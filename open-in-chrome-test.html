@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0d6b52" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Local Lekker | Open in Browser</title>
+    <style>
+        :root {
+            --bg: #f4f8f5;
+            --card: #ffffff;
+            --primary: #0d6b52;
+            --primary-dark: #0a543f;
+            --text: #18342d;
+            --muted: #58776d;
+            --border: rgba(13, 107, 82, 0.12);
+            --shadow: 0 20px 45px rgba(11, 51, 41, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: linear-gradient(180deg, #edf7f2 0%, #f8faf9 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text);
+        }
+
+        .app-shell {
+            width: min(100%, 460px);
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            padding: 28px 22px 20px;
+        }
+
+        .logo {
+            width: 68px;
+            height: 68px;
+            border-radius: 18px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, var(--primary) 0%, #1d8f71 100%);
+            color: white;
+            font-size: 30px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2rem, 5vw, 2.5rem);
+            line-height: 1.1;
+        }
+
+        p {
+            color: var(--muted);
+            line-height: 1.6;
+            margin: 12px 0 0;
+        }
+
+        .actions {
+            display: grid;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        button {
+            appearance: none;
+            border: 0;
+            border-radius: 14px;
+            padding: 16px 18px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.18s ease, opacity 0.18s ease;
+        }
+
+        button:active {
+            transform: translateY(1px) scale(0.99);
+        }
+
+        .primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 10px 24px rgba(13, 107, 82, 0.22);
+        }
+
+        .secondary {
+            background: #edf7f2;
+            color: var(--primary-dark);
+            border: 1px solid rgba(13, 107, 82, 0.12);
+        }
+
+        .status {
+            margin-top: 18px;
+            min-height: 24px;
+            font-size: 0.92rem;
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+
+        .small {
+            margin-top: 18px;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        code {
+            background: #f3f7f5;
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            color: var(--text);
+        }
+    </style>
+</head>
+
+<body>
+    <main class="app-shell">
+        <div class="logo">L</div>
+        <h1>Open Local Lekker</h1>
+        <p>
+            This link is designed for iPhone users. It will try to open the experience in Chrome first,
+            and then fall back to the normal website if Chrome is not available.
+        </p>
+
+        <div class="actions">
+            <button id="open-btn" class="primary">Open app in browser</button>
+            <button id="copy-btn" class="secondary" type="button">Copy share link</button>
+        </div>
+
+        <div id="status" class="status" aria-live="polite"></div>
+
+        <p class="small">
+            Share this page or use the copied link in Safari/Chrome. On iOS, the app tries
+            <code>googlechrome://</code> first and then falls back to the website URL.
+        </p>
+    </main>
+
+    <script>
+        (function () {
+            const targetUrl = 'https://www.locallekkerclub.co.za';
+            const statusEl = document.getElementById('status');
+
+            function updateStatus(message) {
+                statusEl.textContent = message;
+            }
+
+            function copyShareLink() {
+                const pageUrl = window.location.href;
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(pageUrl)
+                        .then(() => updateStatus('Share link copied.'))
+                        .catch(() => updateStatus('Copy failed, but you can still share this page manually.'));
+                } else {
+                    updateStatus('Copy is not available on this browser, but the page can still be shared manually.');
+                }
+            }
+
+            function openInPreferredBrowser() {
+                const userAgent = navigator.userAgent || '';
+                const hostname = new URL(targetUrl).hostname;
+                const pathname = new URL(targetUrl).pathname || '/';
+                const fallbackStart = Date.now();
+
+                if (/Android/i.test(userAgent)) {
+                    const intentUrl = 'intent://' + hostname + pathname + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(targetUrl) + ';end';
+                    updateStatus('Opening in Chrome on Android...');
+                    window.location.href = intentUrl;
+                    return;
+                }
+
+                if (/iPhone|iPad|iPod/i.test(userAgent)) {
+                    const iosChromeUrl = 'googlechrome://' + hostname + pathname;
+                    const iosChromeAlt = 'googlechromes://' + hostname + pathname;
+
+                    updateStatus('Checking for Chrome on iPhone...');
+                    window.location.href = iosChromeUrl;
+
+                    setTimeout(function () {
+                        if (Date.now() - fallbackStart < 1800) {
+                            window.location.href = iosChromeAlt;
+                        }
+                    }, 300);
+
+                    setTimeout(function () {
+                        if (Date.now() - fallbackStart < 2200) {
+                            window.location.href = targetUrl;
+                            updateStatus('Chrome not available, opening the website instead.');
+                        }
+                    }, 1200);
+
+                    return;
+                }
+
+                updateStatus('Opening the website directly on this device.');
+                window.location.href = targetUrl;
+            }
+
+            document.getElementById('open-btn').addEventListener('click', openInPreferredBrowser);
+            document.getElementById('copy-btn').addEventListener('click', copyShareLink);
+        })();
+    </script>
+</body>
+
+</html>

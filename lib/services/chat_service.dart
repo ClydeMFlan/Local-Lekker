@@ -310,6 +310,30 @@ class ChatService {
     }
   }
 
+  Future<Map<String, String>> fetchProfilePhotoUrls(List<String> userIds) async {
+    final ids = userIds.where((id) => id.trim().isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return {};
+    try {
+      final rows = await _client
+          .from('profiles')
+          .select('id,profile_photo_url')
+          .inFilter('id', ids);
+
+      final photos = <String, String>{};
+      for (final map in rows as List<dynamic>) {
+        final id = map['id'] as String?;
+        final url = map['profile_photo_url'] as String?;
+        if (id != null && url != null && url.trim().isNotEmpty) {
+          photos[id] = url.trim();
+        }
+      }
+      return photos;
+    } catch (e) {
+      _logger.w('Failed to fetch profile photos: $e');
+      return {};
+    }
+  }
+
   Stream<List<ChatMessage>> streamMessages(String conversationId) {
     return _client
         .from('chat_messages')

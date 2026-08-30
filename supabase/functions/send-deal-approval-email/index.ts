@@ -29,7 +29,10 @@ serve(async (req) => {
   try {
     const {
       member_id,
+      trusted_partner_id,
       business_name,
+      business_contact,
+      business_email,
       deal_name,
       amount,
       payment_method,
@@ -75,6 +78,28 @@ serve(async (req) => {
 
     const memberName = [profile?.name, profile?.surname].filter(Boolean).join(' ') || 'Member'
 
+    // Resolve the trusted partner's business details. Prefer values passed by
+    // the app, but fall back to a businesses lookup so the email is complete.
+    let tpBusinessName = business_name ?? ''
+    let tpContact = business_contact ?? ''
+    let tpEmail = business_email ?? ''
+
+    if (trusted_partner_id && (!tpBusinessName || !tpContact || !tpEmail)) {
+      const { data: business, error: businessError } = await supabase
+        .from('businesses')
+        .select('name, contact_number, contact_email')
+        .eq('owner_member_id', trusted_partner_id)
+        .maybeSingle()
+
+      if (businessError) {
+        console.error('Error fetching business profile:', businessError)
+      } else if (business) {
+        tpBusinessName = tpBusinessName || (business.name ?? '')
+        tpContact = tpContact || (business.contact_number ?? '')
+        tpEmail = tpEmail || (business.contact_email ?? '')
+      }
+    }
+
     // Format display values
     const formattedAmount = `R${Number(amount || 0).toFixed(2)}`
     const quantityText = quantity && quantity > 1 ? ` (x${quantity})` : ''
@@ -111,7 +136,7 @@ serve(async (req) => {
         },
       })
 
-      const businessLabel = business_name || 'Local Business'
+      const businessLabel = tpBusinessName || 'Local Business'
       const paymentLabel = isPOS ? 'In-Store (POS)' : 'In-App Payment'
 
       const textBody = [
@@ -125,6 +150,11 @@ serve(async (req) => {
         `  Amount: ${formattedAmount}`,
         `  Payment Method: ${paymentLabel}`,
         '',
+        'Business Contact Details:',
+        `  Business: ${businessLabel}`,
+        `  Contact: ${tpContact || 'N/A'}`,
+        `  Email: ${tpEmail || 'N/A'}`,
+        '',
         paymentInstruction,
         '',
         '---',
@@ -134,10 +164,10 @@ serve(async (req) => {
 
       const escapeHtml = (s: string) =>
         s.replace(/&/g, '&amp;')
-         .replace(/</g, '&lt;')
-         .replace(/>/g, '&gt;')
-         .replace(/"/g, '&quot;')
-         .replace(/'/g, '&#39;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;')
 
       const htmlBody = `<!DOCTYPE html>
 <html>
@@ -150,6 +180,12 @@ serve(async (req) => {
       <li><strong>Business:</strong> ${escapeHtml(businessLabel)}</li>
       <li><strong>Amount:</strong> ${escapeHtml(formattedAmount)}</li>
       <li><strong>Payment Method:</strong> ${escapeHtml(paymentLabel)}</li>
+    </ul>
+    <p><strong>Business Contact Details:</strong></p>
+    <ul>
+      <li><strong>Business:</strong> ${escapeHtml(businessLabel)}</li>
+      <li><strong>Contact:</strong> ${escapeHtml(tpContact || 'N/A')}</li>
+      <li><strong>Email:</strong> ${escapeHtml(tpEmail || 'N/A')}</li>
     </ul>
     <p>${escapeHtml(paymentInstruction)}</p>
     <hr />

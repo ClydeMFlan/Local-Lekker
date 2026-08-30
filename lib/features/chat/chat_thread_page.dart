@@ -24,9 +24,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   bool _isSending = false;
   final Map<String, String> _nameCache = {};
   final Map<String, String> _businessNameCache = {};
-  // null = not yet fetched / no logo. Use a sentinel via separate _logoFetched set.
-  final Map<String, String?> _logoCache = {};
-  final Set<String> _logoFetchInFlight = {};
+  final Map<String, String> _profilePhotos = {};
   String? _currentUserId;
   String _threadTitle = 'Chat';
   bool _isAdminConversation = false;
@@ -118,8 +116,6 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                   itemBuilder: (context, index) {
                     final msg = ordered[ordered.length - 1 - index];
                     final isMe = user?.id == msg.senderId;
-                    // Kick off async logo fetch (once per sender)
-                    _ensureLogo(msg.senderId);
                     final avatar = _buildAvatar(msg.senderId);
                     final bubble = Container(
                       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -258,6 +254,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                             )
                           : ElevatedButton.icon(
                               onPressed: () async {
+                                final messenger = ScaffoldMessenger.of(context);
                                 final text = _controller.text.trim();
                                 if (text.isEmpty) return;
                                 setState(() {
@@ -294,7 +291,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                                           'Request timed out. Try again.';
                                     }
 
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    messenger.showSnackBar(
                                       SnackBar(
                                         content: Text(
                                           errorMsg,
@@ -471,10 +468,14 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       final names = await ChatService.instance.fetchDisplayNames(ids);
       final businessNames = await ChatService.instance
           .fetchBusinessNamesForUsers(ids);
+      final profilePhotos = await ChatService.instance.fetchProfilePhotoUrls(
+        ids,
+      );
       if (!mounted) return;
       setState(() {
         _nameCache.addAll(names);
         _businessNameCache.addAll(businessNames);
+        _profilePhotos.addAll(profilePhotos);
       });
     } catch (e) {
       _logger.w('Failed to prefetch participant names: $e');
@@ -534,10 +535,24 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
         .catchError((e) {
           _logger.w('Failed to load sender business names: $e');
         });
+
+    ChatService.instance
+        .fetchProfilePhotoUrls(missingIds.toList())
+        .then((photos) {
+          if (!mounted) return;
+          setState(() {
+            _profilePhotos.addAll(photos);
+          });
+        })
+        .catchError((e) {
+          _logger.w('Failed to load sender profile photos: $e');
+        });
   }
 
   bool _isAdminSender(String senderId) =>
-      _isAdminConversation && !_isCurrentUserAdmin && senderId != _currentUserId;
+      _isAdminConversation &&
+      !_isCurrentUserAdmin &&
+      senderId != _currentUserId;
 
   String _nameFor(String senderId) {
     if (_isAdminSender(senderId)) return 'Local Lekker Club';
@@ -587,43 +602,13 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
     return palette[hash % palette.length];
   }
 
-  void _ensureLogo(String senderId) {
-    if (_isAdminSender(senderId)) return;
-    if (_logoCache.containsKey(senderId)) return;
-    if (_logoFetchInFlight.contains(senderId)) return;
-    _logoFetchInFlight.add(senderId);
-    ChatService.instance
-        .fetchBusinessLogoForUser(senderId)
-        .then((url) {
-          if (!mounted) return;
-          setState(() {
-            _logoCache[senderId] = url;
-          });
-        })
-        .whenComplete(() => _logoFetchInFlight.remove(senderId));
-  }
-
   Widget _buildAvatar(String senderId) {
-    if (_isAdminSender(senderId)) {
-      return CircleAvatar(
-        radius: 16,
-        backgroundColor: Colors.white,
-        child: ClipOval(
-          child: Image.asset(
-            'assets/heart_flag.png',
-            fit: BoxFit.cover,
-            width: 32,
-            height: 32,
-          ),
-        ),
-      );
-    }
-    final logo = _logoCache[senderId];
-    if (logo != null && logo.isNotEmpty) {
+    final photo = _profilePhotos[senderId];
+    if (photo != null && photo.isNotEmpty) {
       return CircleAvatar(
         radius: 16,
         backgroundColor: Colors.grey.shade200,
-        backgroundImage: NetworkImage(logo),
+        backgroundImage: NetworkImage(photo),
       );
     }
     return CircleAvatar(

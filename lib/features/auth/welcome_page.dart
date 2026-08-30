@@ -39,9 +39,9 @@ class _WelcomePageState extends State<WelcomePage> {
   }
 
   void _showForgotPasswordFlow(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ForgotPasswordPage()));
   }
 
   // Show OTP verification dialog for admin-created user password setup
@@ -92,6 +92,32 @@ class _WelcomePageState extends State<WelcomePage> {
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
+            ),
+            TextButton.icon(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  await SupabaseService.instance.sendPasswordResetOtp(
+                    email: email,
+                  );
+                  if (!context.mounted) return;
+                  otpController.clear();
+                  setState(() => errorMessage = null);
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('A new verification code has been sent.'),
+                    ),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  setState(
+                    () => errorMessage =
+                        'Could not send a new code. Please try again shortly.',
+                  );
+                }
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Resend Code'),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -191,10 +217,7 @@ class _WelcomePageState extends State<WelcomePage> {
           children: [
             Text(
               "Don't have an account?",
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
             ElevatedButton(
@@ -204,10 +227,7 @@ class _WelcomePageState extends State<WelcomePage> {
             const SizedBox(height: 24),
             Text(
               'Already have an account?',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
             ElevatedButton(
@@ -496,9 +516,7 @@ class _WelcomePageState extends State<WelcomePage> {
                         setState(() => isCheckingEmail = true);
 
                         if (kDebugMode) {
-                          print(
-                            '🔐 WelcomePage: Validating email: "$trimmed"',
-                          );
+                          print('🔐 WelcomePage: Validating email: "$trimmed"');
                         }
                         final exists = await SupabaseService.instance
                             .checkEmailExists(trimmed);
@@ -517,8 +535,9 @@ class _WelcomePageState extends State<WelcomePage> {
                         bool isDeactivated = false;
                         if (exists) {
                           final results = await Future.wait([
-                            SupabaseService.instance
-                                .checkAdminCreatedStatus(trimmed),
+                            SupabaseService.instance.checkAdminCreatedStatus(
+                              trimmed,
+                            ),
                             SupabaseService.instance.isEmailDeactivated(
                               trimmed,
                             ),
@@ -840,9 +859,12 @@ class _WelcomePageState extends State<WelcomePage> {
                         String errorMessage = 'Sign in error: $errorString';
                         bool wrongPassword = false;
                         if (errorString.contains('Invalid login credentials')) {
-                          errorMessage = 'Incorrect password. Please try again.';
+                          errorMessage =
+                              'Incorrect password. Please try again.';
                           wrongPassword = true;
-                        } else if (errorString.contains('Email not confirmed')) {
+                        } else if (errorString.contains(
+                          'Email not confirmed',
+                        )) {
                           errorMessage =
                               'Please check your email and confirm your account';
                         } else if (errorString.contains(

@@ -19,3 +19,13 @@ entrypoint = "./functions/delete-auth-user/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/scheduled-renewal-worker/index.ts"
+
+[functions.pending-member-signup-reminder]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/pending-member-signup-reminder/index.ts"
+
+[functions.open-local-lekker]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/open-local-lekker/index.ts"

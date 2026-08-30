@@ -23,7 +23,33 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
   final TextEditingController _confirmPasswordController =
       TextEditingController();
   bool _isLoading = false;
+  bool _isSessionReady = true;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.refreshToken != null) {
+      _isSessionReady = false;
+      _restoreSession();
+    }
+  }
+
+  Future<void> _restoreSession() async {
+    try {
+      await SupabaseService.instance.client.auth.setSession(
+        widget.refreshToken!,
+      );
+      if (mounted) setState(() => _isSessionReady = true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSessionReady = false;
+          _errorMessage = 'This password reset link has expired. Request a new one.';
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -129,7 +155,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                   prefixIcon: Icon(Icons.lock),
                 ),
                 obscureText: true,
-                enabled: !_isLoading,
+                enabled: !_isLoading && _isSessionReady,
                 onChanged: (value) {
                   if (_errorMessage != null) {
                     setState(() => _errorMessage = null);
@@ -147,7 +173,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                   errorText: _errorMessage,
                 ),
                 obscureText: true,
-                enabled: !_isLoading,
+                enabled: !_isLoading && _isSessionReady,
                 onChanged: (value) {
                   if (_errorMessage != null) {
                     setState(() => _errorMessage = null);
@@ -157,7 +183,7 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _isLoading ? null : _resetPassword,
+                onPressed: _isLoading || !_isSessionReady ? null : _resetPassword,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -168,6 +194,20 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text(
+                  if (!_isSessionReady)
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (_) => const WelcomePage(
+                              openSignInOnLoad: true,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Request New Reset Code'),
+                    ),
                         'Reset Password',
                         style: TextStyle(fontSize: 16),
                       ),

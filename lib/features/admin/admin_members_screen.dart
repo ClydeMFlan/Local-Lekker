@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/admin_service.dart';
 import 'package:local_lekker/core/theme/app_colors.dart';
 import '../../widgets/profile_photo.dart';
@@ -54,16 +56,28 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
           .order('created_at', ascending: false);
 
       final deactivated = await _adminService.getDeactivatedMembers();
+      final contactStatusRows = await _supabase.rpc(
+        'get_admin_member_signup_contact_statuses',
+      );
+      final contactStatuses = <String, Map<String, dynamic>>{
+        for (final row in contactStatusRows as List)
+          row['user_id'].toString(): Map<String, dynamic>.from(row as Map),
+      };
 
       // Split non-deactivated members by subscription status
       final active = <Map<String, dynamic>>[];
       final pending = <Map<String, dynamic>>[];
       for (final m in allNonDeactivated) {
+        final member = Map<String, dynamic>.from(m);
+        final contactStatus = contactStatuses[member['id'].toString()];
+        if (contactStatus != null) {
+          member['signup_reminder_status'] = contactStatus;
+        }
         final sub = (m['subscription'] ?? '').toString().toLowerCase();
         if (sub == 'active') {
-          active.add(Map<String, dynamic>.from(m));
+          active.add(member);
         } else {
-          pending.add(Map<String, dynamic>.from(m));
+          pending.add(member);
         }
       }
 
@@ -90,7 +104,8 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
     return list.where((m) {
       final name = '${m['name'] ?? ''} ${m['surname'] ?? ''}'.toLowerCase();
       final email = (m['email'] ?? '').toString().toLowerCase();
-      return name.contains(q) || email.contains(q);
+      final phone = (m['contact'] ?? '').toString().toLowerCase();
+      return name.contains(q) || email.contains(q) || phone.contains(q);
     }).toList();
   }
 
@@ -163,6 +178,24 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
         SnackBar(content: Text('Failed to reactivate: $e')),
       );
     }
+  }
+
+  Future<void> _emailMember(String email) async {
+    final uri = Uri(scheme: 'mailto', path: email);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No email app is available')),
+      );
+    }
+  }
+
+  Future<void> _copyMemberPhone(String phone) async {
+    await Clipboard.setData(ClipboardData(text: phone));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Phone number copied')),
+    );
   }
 
   Future<void> _deleteMember(Map<String, dynamic> member) async {
@@ -388,8 +421,23 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
         itemBuilder: (context, index) {
           final m = members[index];
           final name = '${m['name'] ?? 'Unknown'} ${m['surname'] ?? ''}'.trim();
-          final email = m['email'] ?? 'No email';
+          final email = (m['email'] ?? '').toString().trim();
+          final phone = (m['contact'] ?? '').toString().trim();
           final city = m['city'] ?? '';
+            final reminderStatus =
+              m['signup_reminder_status'] as Map<String, dynamic>?;
+            final optedOutAt = reminderStatus?['opted_out_at'] != null
+              ? DateTime.tryParse(reminderStatus!['opted_out_at'].toString())
+              : null;
+            final openedAt = reminderStatus?['opened_at'] != null
+              ? DateTime.tryParse(reminderStatus!['opened_at'].toString())
+              : null;
+            final reminderSentAt = reminderStatus?['reminder_sent_at'] != null
+              ? DateTime.tryParse(
+                reminderStatus!['reminder_sent_at'].toString(),
+              )
+              : null;
+            final openCount = (reminderStatus?['open_count'] as num?)?.toInt() ?? 0;
           // Show the right status label per tab
           final String statusLabel;
           final Color statusColor;
@@ -424,13 +472,109 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
                         ? AppColors.primarySwatch.shade700
                         : Colors.orange.shade700,
               ),
-              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  if (status == _MemberTab.pending)
+                    Text(
+                      'Stopped after email verification, before subscription payment',
+                      style: TextStyle(
+                        color: Colors.orange.shade800,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                ],
+              ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(email, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  if (email.isNotEmpty)
+                    InkWell(
+                      onTap: optedOutAt == null ? () => _emailMember(email) : null,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Row(
+                          children: [
+                            Icon(
+                              optedOutAt == null
+                                ? Icons.email_outlined
+                                : Icons.unsubscribe_outlined,
+                              size: 15,
+                              color: optedOutAt == null
+                                ? Colors.blue.shade700
+                                : Colors.red.shade700,
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                email,
+                                style: TextStyle(
+                                    color: optedOutAt == null
+                                      ? Colors.blue.shade700
+                                      : Colors.red.shade700,
+                                  fontSize: 13,
+                                    decoration: optedOutAt == null
+                                      ? TextDecoration.underline
+                                      : TextDecoration.none,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      'No email',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    ),
+                  if (phone.isNotEmpty)
+                    InkWell(
+                      onTap: () => _copyMemberPhone(phone),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Row(
+                          children: [
+                            Icon(Icons.phone_outlined, size: 15, color: Colors.blue.shade700),
+                            const SizedBox(width: 5),
+                            Text(
+                              phone,
+                              style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontSize: 13,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Icon(Icons.copy, size: 13, color: Colors.grey.shade600),
+                          ],
+                        ),
+                      ),
+                    ),
                   if (city.isNotEmpty)
                     Text(city, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  if (status == _MemberTab.pending && optedOutAt != null)
+                    _ContactStatusRow(
+                      icon: Icons.do_not_disturb_alt_outlined,
+                      text:
+                          'Opted out ${_formatDateTime(optedOutAt)} - do not contact',
+                      color: Colors.red.shade700,
+                    )
+                  else if (status == _MemberTab.pending && openedAt != null)
+                    _ContactStatusRow(
+                      icon: Icons.open_in_new,
+                      text:
+                          'Opened reminder link ${_formatDateTime(openedAt)} ($openCount ${openCount == 1 ? 'time' : 'times'}); subscription still pending',
+                      color: Colors.blue.shade700,
+                    )
+                  else if (status == _MemberTab.pending && reminderSentAt != null)
+                    _ContactStatusRow(
+                      icon: Icons.mark_email_read_outlined,
+                      text: 'Reminder sent ${_formatDateTime(reminderSentAt)}',
+                      color: Colors.teal.shade700,
+                    ),
                   Row(
                     children: [
                       _StatusChip(
@@ -504,6 +648,49 @@ class _AdminMembersScreenState extends State<AdminMembersScreen>
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  String _formatDateTime(DateTime date) {
+    final local = date.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '${_formatDate(local)} $hour:$minute';
+  }
+}
+
+class _ContactStatusRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _ContactStatusRow({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

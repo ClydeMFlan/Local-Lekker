@@ -863,9 +863,12 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
           'receipt_number': receiptNumber,
           'amount': dealData['amount'],
           'business_name': businessDisplayName,
+          'business_contact': businessData?['contact_number'],
+          'business_email': businessData?['contact_email'],
           'discount_name': discountData?['name'],
           'member_name': memberDisplayName,
           'member_email': memberData?['email'],
+          'member_phone': memberData?['contact'],
           'payment_method': paymentMethod,
         });
 

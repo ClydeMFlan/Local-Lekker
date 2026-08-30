@@ -279,6 +279,18 @@ class _ReceiptBookPageState extends State<ReceiptBookPage> {
                 receipt['discount_name'] ?? 'N/A',
               ),
               _buildDetailRow(
+                'Business',
+                receipt['business_name'] ?? 'N/A',
+              ),
+              _buildDetailRow(
+                'Business Contact',
+                receipt['business_contact'] ?? 'N/A',
+              ),
+              _buildDetailRow(
+                'Business Email',
+                receipt['business_email'] ?? 'N/A',
+              ),
+              _buildDetailRow(
                 'Payment Method',
                 (receipt['payment_method'] as String?)?.toUpperCase() ?? 'N/A',
               ),

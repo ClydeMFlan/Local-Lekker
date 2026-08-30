@@ -39,10 +39,8 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        // Ensure versionCode is incremented for Play releases
-        versionCode = flutter.versionCode + 1
-        // Bump semantic version for this release — keep in sync with pubspec.yaml
-        versionName = "1.0.1"
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
     }
 
     signingConfigs {

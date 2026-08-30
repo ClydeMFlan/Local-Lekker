@@ -2,12 +2,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'cache_service.dart';
 import 'payment_status_service.dart';
 
-enum PasswordResetDelivery { otp, emailLink }
+enum PasswordResetDelivery { otp }
 
 class SupabaseService {
   SupabaseService._();
@@ -254,93 +252,13 @@ class SupabaseService {
     final normalizedEmail = email.trim().toLowerCase();
 
     try {
-      await client.auth.signInWithOtp(
-        email: normalizedEmail,
-        shouldCreateUser: false, // Don't create user if they don't exist
-      );
+      // Use Supabase's password-recovery flow so the Reset password template
+      // sends the recovery OTP instead of the Magic link template.
+      await client.auth.resetPasswordForEmail(normalizedEmail);
       _logger.i('Password reset OTP sent to: $normalizedEmail');
       return PasswordResetDelivery.otp;
-    } on AuthApiException catch (e) {
-      final errorText = e.message.toLowerCase();
-      final otpDisabled =
-          e.code == 'otp_disabled' ||
-          e.statusCode?.toString() == '422' ||
-          errorText.contains('otp disabled') ||
-          errorText.contains('otp_disabled') ||
-          errorText.contains('signups not allowed for otp');
-
-      if (otpDisabled) {
-        _logger.w(
-          'Password reset OTP disabled; sending password recovery email instead: $e',
-        );
-        // Use the recovery endpoint (not magic link) to send password reset email
-        await _sendPasswordRecoveryEmail(normalizedEmail);
-        _logger.i('Password recovery email sent to: $normalizedEmail');
-        return PasswordResetDelivery.emailLink;
-      }
-
-      _logger.e('Password reset OTP failed for $normalizedEmail: $e');
-      rethrow;
     } catch (e) {
       _logger.e('Password reset OTP failed for $normalizedEmail: $e');
-      rethrow;
-    }
-  }
-
-  /// Send password recovery email (not magic link) using Supabase recovery endpoint
-  Future<void> _sendPasswordRecoveryEmail(String email) async {
-    try {
-      // First, create a recovery session in our database
-      try {
-        // Try to get user ID from profiles table (more reliable than auth.users)
-        final userResult = await client
-            .from('profiles')
-            .select('id')
-            .eq('email', email)
-            .limit(1);
-
-        if (userResult.isNotEmpty) {
-          final userId = userResult[0]['id'];
-          final result = await client.rpc(
-            'create_recovery_session',
-            params: {'p_user_id': userId, 'p_email': email},
-          );
-          _logger.i('Recovery session created for: $email - Result: $result');
-        } else {
-          _logger.w('User not found in profiles table for email: $email');
-        }
-      } catch (e) {
-        _logger.w('Could not create recovery session: $e');
-        // Continue anyway - the recovery email is more important
-      }
-
-      // Call the /recover endpoint directly to send password reset email
-      final url = dotenv.env['SUPABASE_URL'] ?? '';
-      final anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
-
-      final response = await http.post(
-        Uri.parse('$url/auth/v1/recover'),
-        headers: {'Content-Type': 'application/json', 'apikey': anonKey},
-        body: json.encode({
-          'email': email,
-          'gotrue_meta_security': {},
-          'code_challenge': null,
-          'code_challenge_method': null,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        _logger.i('Password recovery email sent to: $email');
-      } else {
-        _logger.e(
-          'Recovery email failed: ${response.statusCode} - ${response.body}',
-        );
-        throw Exception(
-          'Failed to send recovery email: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      _logger.e('Failed to send recovery email: $e');
       rethrow;
     }
   }
@@ -407,7 +325,7 @@ class SupabaseService {
       final response = await client.auth.verifyOTP(
         email: email.trim().toLowerCase(),
         token: otp.trim(),
-        type: OtpType.email, // Reset OTP is sent via signInWithOtp
+        type: OtpType.recovery,
       );
       if (response.session == null || response.user == null) {
         throw Exception('Verification failed');
@@ -792,7 +710,15 @@ class SupabaseService {
     Map<String, dynamic>? userMetadata,
   }) async {
     try {
-      if (isForSignIn) {
+      if (method == 'sms') {
+        final normalizedPhone = _normalizeSmsPhone(phone);
+        await client.auth.signInWithOtp(
+          phone: normalizedPhone,
+          shouldCreateUser: !isForSignIn && !isResumeSignup,
+          data: userMetadata,
+        );
+        _logger.i('SMS OTP sent to: $normalizedPhone');
+      } else if (isForSignIn) {
         // For sign-in OTP, use signInWithOtp which sends OTP without creating account
         await client.auth.signInWithOtp(
           email: email,
@@ -833,6 +759,20 @@ class SupabaseService {
     }
   }
 
+  String _normalizeSmsPhone(String? phone) {
+    final compactPhone = phone?.replaceAll(RegExp(r'[\s()-]'), '') ?? '';
+    if (compactPhone.startsWith('+') &&
+        RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(compactPhone)) {
+      return compactPhone;
+    }
+    if (RegExp(r'^0\d{9}$').hasMatch(compactPhone)) {
+      return '+27${compactPhone.substring(1)}';
+    }
+    throw Exception(
+      'Enter a valid mobile number, for example +27821234567.',
+    );
+  }
+
   Future<AuthResponse> verifyOtp({
     required String email,
     String? phone,
@@ -846,11 +786,17 @@ class SupabaseService {
       // otherwise valid codes can be rejected as the wrong token type.
       final otpType = method == 'email' ? OtpType.email : OtpType.sms;
 
-      final response = await client.auth.verifyOTP(
-        email: email,
-        token: otp,
-        type: otpType,
-      );
+      final response = method == 'sms'
+          ? await client.auth.verifyOTP(
+              phone: _normalizeSmsPhone(phone),
+              token: otp,
+              type: otpType,
+            )
+          : await client.auth.verifyOTP(
+              email: email,
+              token: otp,
+              type: otpType,
+            );
 
       if (response.user == null) {
         throw Exception('OTP verification failed');

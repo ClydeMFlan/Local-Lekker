@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/notification.dart';
 import '../models/deal_authorization.dart';
 import '../features/payments/deal_payment_webview_page.dart';
+import '../widgets/custom_qr_code.dart';
 import 'notification_service.dart';
 import 'navigation_service.dart';
 import 'paystack_service.dart';
@@ -269,6 +270,31 @@ class DealApprovalPopupService {
 
     final businessName = deal.businessName ?? 'Business';
     final discountName = deal.discount?.name ?? 'Deal';
+    String? memberQrCode;
+
+    if (deal.paymentMethod == 'pos') {
+      final currentUser = SupabaseService.instance.getCurrentUser();
+      if (currentUser != null) {
+        try {
+          final qrResponse = await SupabaseService.instance.client
+              .from('user_qr_codes')
+              .select('qr_code, is_active')
+              .eq('user_id', currentUser.id)
+              .eq('is_active', true)
+              .order('created_at', ascending: false)
+              .limit(1);
+
+          if (qrResponse.isNotEmpty) {
+            final qrValue = qrResponse.first['qr_code'] as String?;
+            if (qrValue != null && qrValue.trim().isNotEmpty) {
+              memberQrCode = qrValue;
+            }
+          }
+        } catch (_) {
+          memberQrCode = null;
+        }
+      }
+    }
 
     // Pre-fetch payout/subaccount context for trust signals
     final payoutContext = await _fetchPayoutContext(deal);
@@ -514,7 +540,7 @@ class DealApprovalPopupService {
                 ),
               ),
               const SizedBox(height: 16),
-              if (deal.paymentMethod == 'pos')
+              if (deal.paymentMethod == 'pos') ...[
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -527,7 +553,7 @@ class DealApprovalPopupService {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Request approved! Please proceed to pay in-store at $businessName.',
+                          'Request approved. Show your QR to the trusted partner to verify your membership before the store confirms payment.',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -537,6 +563,36 @@ class DealApprovalPopupService {
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+                if (memberQrCode != null && memberQrCode!.trim().isNotEmpty)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Your QR code',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          CustomQrCode(
+                            data: memberQrCode!,
+                            logoAssetPath: 'assets/heart_flag.png',
+                            size: 180,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
               ],
             ),
           ),
@@ -1515,10 +1571,13 @@ class DealApprovalPopupService {
         'receipt_number': receiptNumber,
         'amount': dealData['amount'],
         'business_name': businessData?['name'] ?? businessName,
+        'business_contact': businessData?['contact_number'],
+        'business_email': businessData?['contact_email'],
         'discount_name': discountData?['name'] ?? discountName,
         'member_name':
             '${memberData?['name'] ?? 'Unknown'} ${memberData?['surname'] ?? 'Member'}',
         'member_email': memberData?['email'],
+        'member_phone': memberData?['contact'],
         'payment_method': 'saved_card',
       });
 

@@ -14,6 +14,57 @@ class DeepLinkService {
 
   Stream<String?> get linkStream => _linkController.stream;
 
+  bool _isAuthCallback(Uri uri) {
+    return uri.host == 'auth' && uri.path == '/callback';
+  }
+
+  bool _isSignupCompletion(Uri uri) {
+    if (uri.scheme != 'locallekker') return false;
+
+    final isDirectSignupLink =
+      uri.host == 'signup' && uri.path == '/complete';
+    final isReminderAuthLink =
+      _isAuthCallback(uri) &&
+      uri.queryParameters['type']?.toLowerCase() == 'signup_reminder';
+    return isDirectSignupLink || isReminderAuthLink;
+  }
+
+  String? _extractToken(Uri uri, String tokenName) {
+    if (uri.fragment.contains('$tokenName=')) {
+      return _extractTokenFromFragment(uri.fragment, tokenName);
+    }
+    return uri.queryParameters[tokenName];
+  }
+
+  Map<String, String>? _extractPasswordResetDataFromUri(Uri uri) {
+    final code = _extractToken(uri, 'code');
+    final accessToken = _extractToken(uri, 'access_token');
+    final refreshToken = _extractToken(uri, 'refresh_token');
+    final type = _extractToken(uri, 'type')?.toLowerCase();
+
+    if (kDebugMode) {
+      print(
+        'DeepLinkService: Inspect URI for reset - uri=$uri, code=${code != null}, accessToken=${accessToken != null}, type=$type',
+      );
+    }
+
+    // PKCE recovery can arrive either on locallekker://auth/callback OR on
+    // a web localhost URL after Supabase verify redirect.
+    if (code != null && (_isAuthCallback(uri) || type == 'recovery')) {
+      return {'code': code};
+    }
+
+    // Legacy token flow.
+    if (accessToken != null && (type == 'recovery' || type == 'magiclink')) {
+      return {
+        'accessToken': accessToken,
+        if (refreshToken != null) 'refreshToken': refreshToken,
+      };
+    }
+
+    return null;
+  }
+
   void init() {
     _appLinks = AppLinks();
 
@@ -44,71 +95,53 @@ class DeepLinkService {
         print('DeepLinkService: Initial link = $link');
       }
 
-      if (link == null) return null;
-
-      final uri = Uri.parse(link.toString());
-
-      if (kDebugMode) {
-        print(
-          'DeepLinkService: Parsed URI - host: ${uri.host}, path: ${uri.path}',
-        );
-        print('DeepLinkService: URI fragment: ${uri.fragment}');
-        print('DeepLinkService: URI query params: ${uri.queryParameters}');
+      final urisToCheck = <Uri>[];
+      if (link != null) {
+        urisToCheck.add(Uri.parse(link.toString()));
       }
 
-      // Check if this is an auth callback
-      if (uri.host == 'auth' && uri.path == '/callback') {
-        // Check for PKCE code first (password reset uses this flow)
-        final code = uri.queryParameters['code'];
+      // On web, AppLinks may return null/stripped values. Uri.base is the
+      // authoritative callback URL currently loaded in the browser.
+      if (kIsWeb) {
+        urisToCheck.add(Uri.base);
+      }
 
-        if (code != null) {
-          if (kDebugMode) {
-            print('DeepLinkService: ✅ PKCE password reset code detected!');
-          }
-          return {'code': code};
-        }
-
-        // Fall back to direct token flow (legacy)
-        final accessToken = uri.fragment.contains('access_token=')
-            ? _extractTokenFromFragment(uri.fragment, 'access_token')
-            : uri.queryParameters['access_token'];
-
-        final refreshToken = uri.fragment.contains('refresh_token=')
-            ? _extractTokenFromFragment(uri.fragment, 'refresh_token')
-            : uri.queryParameters['refresh_token'];
-
-        final type = uri.fragment.contains('type=')
-            ? _extractTokenFromFragment(uri.fragment, 'type')
-            : uri.queryParameters['type'];
-
+      for (final uri in urisToCheck) {
         if (kDebugMode) {
           print(
-            'DeepLinkService: Extracted - accessToken: ${accessToken != null}, type: $type',
+            'DeepLinkService: Parsed URI - host: ${uri.host}, path: ${uri.path}',
           );
+          print('DeepLinkService: URI fragment: ${uri.fragment}');
+          print('DeepLinkService: URI query params: ${uri.queryParameters}');
         }
 
-        // Check if this is a password reset link (recovery or magiclink)
-        if (accessToken != null &&
-            (type == 'recovery' || type == 'magiclink')) {
+        final resetData = _extractPasswordResetDataFromUri(uri);
+        if (resetData != null) {
           if (kDebugMode) {
-            print('DeepLinkService: ✅ Password reset link detected!');
+            print('DeepLinkService: ✅ Password reset callback detected!');
           }
-          return {
-            'accessToken': accessToken,
-            if (refreshToken != null) 'refreshToken': refreshToken,
-          };
-        } else {
-          if (kDebugMode) {
-            print('DeepLinkService: ❌ Not a password reset link (type: $type)');
-          }
+          return resetData;
         }
       }
+
       return null;
     } catch (e) {
       if (kDebugMode) {
         print('Error checking for password reset link: $e');
       }
       return null;
+    }
+  }
+
+  Future<bool> checkForSignupCompletionLink() async {
+    try {
+      final link = await _appLinks.getInitialLink();
+      return link != null && _isSignupCompletion(Uri.parse(link.toString()));
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking for signup completion link: $e');
+      }
+      return false;
     }
   }
 
@@ -120,34 +153,29 @@ class DeepLinkService {
     // Parse the URL to extract authentication tokens
     final uri = Uri.parse(link);
 
-    // Check if this is an authentication callback
-    if (uri.host == 'auth' && uri.path == '/callback') {
-      // Check for PKCE code parameter (password recovery uses this)
-      final code = uri.queryParameters['code'];
+    if (_isSignupCompletion(uri)) {
+      _linkController.add('signup_completion');
+      return;
+    }
 
-      if (code != null) {
-        if (kDebugMode) {
-          print(
-            'DeepLinkService: PKCE code detected - triggering password reset',
-          );
-        }
-        // This is a password recovery PKCE flow
-        _linkController.add('password_reset_pkce:$code');
-        return;
+    final resetData = _extractPasswordResetDataFromUri(uri);
+    if (resetData != null) {
+      if (resetData.containsKey('code')) {
+        _linkController.add('password_reset_pkce:${resetData['code']}');
+      } else if (resetData.containsKey('accessToken')) {
+        _handlePasswordReset(
+          resetData['accessToken']!,
+          resetData['refreshToken'],
+        );
       }
+      return;
+    }
 
-      // Extract tokens from URL fragments or query parameters
-      final accessToken = uri.fragment.contains('access_token=')
-          ? _extractTokenFromFragment(uri.fragment, 'access_token')
-          : uri.queryParameters['access_token'];
-
-      final refreshToken = uri.fragment.contains('refresh_token=')
-          ? _extractTokenFromFragment(uri.fragment, 'refresh_token')
-          : uri.queryParameters['refresh_token'];
-
-      final type = uri.fragment.contains('type=')
-          ? _extractTokenFromFragment(uri.fragment, 'type')
-          : uri.queryParameters['type'];
+    // Check if this is an authentication callback for non-recovery auth types
+    if (_isAuthCallback(uri)) {
+      final accessToken = _extractToken(uri, 'access_token');
+      final refreshToken = _extractToken(uri, 'refresh_token');
+      final type = _extractToken(uri, 'type')?.toLowerCase();
 
       if (kDebugMode) {
         print(
@@ -155,29 +183,10 @@ class DeepLinkService {
         );
       }
 
-      if (accessToken != null && (type == 'recovery' || type == 'magiclink')) {
-        // This is a password reset link (both recovery and magiclink types work for password reset)
-        _handlePasswordReset(accessToken, refreshToken);
-      } else if (accessToken != null && type == 'signup') {
-        // This is a signup confirmation link
+      if (accessToken != null && type == 'signup') {
         _handleSignupConfirmation(accessToken, refreshToken);
       } else if (accessToken != null && type == 'invite') {
-        // This is an invite link
         _handleInvite(accessToken, refreshToken);
-      } else if (accessToken != null) {
-        // If we have access token but no type, assume recovery (for deep link scheme case)
-        if (kDebugMode) {
-          print(
-            'DeepLinkService: Access token present but no type - assuming recovery',
-          );
-        }
-        _handlePasswordReset(accessToken, refreshToken);
-      } else {
-        if (kDebugMode) {
-          print(
-            'DeepLinkService: Unknown authentication type or missing tokens',
-          );
-        }
       }
     }
     // Check if this is a Paystack payment callback

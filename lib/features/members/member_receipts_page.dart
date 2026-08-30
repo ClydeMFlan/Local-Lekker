@@ -104,6 +104,14 @@ class _MemberReceiptsPageState extends State<MemberReceiptsPage> {
               ),
               const Divider(),
               _buildDetailRow('Business', receipt['business_name'] ?? 'N/A'),
+              _buildDetailRow(
+                'Business Contact',
+                receipt['business_contact'] ?? 'N/A',
+              ),
+              _buildDetailRow(
+                'Business Email',
+                receipt['business_email'] ?? 'N/A',
+              ),
               _buildDetailRow('Discount', receipt['discount_name'] ?? 'N/A'),
               const Divider(),
               _buildDetailRow('Amount', _formatAmount(receipt['amount'])),

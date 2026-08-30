@@ -34,7 +34,6 @@ class OtpVerificationDialog extends StatefulWidget {
 
 class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
   final Logger _logger = Logger();
-  final String _selectedMethod = 'email';
   final _otpController = TextEditingController();
   bool _isLoading = false;
   bool _otpSent = false;
@@ -92,7 +91,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
     if (kDebugMode) {
 
       print(
-      'DEBUG: Building OTP dialog - _otpSent: $_otpSent, _isLoading: $_isLoading, _selectedMethod: $_selectedMethod',
+      'DEBUG: Building OTP dialog - _otpSent: $_otpSent, _isLoading: $_isLoading',
     );
 
     }
@@ -103,10 +102,9 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
         : 'Verify Your Account';
 
     final descriptionText = widget.userType == 'trusted_partner'
-        ? 'Verify your business email to complete trusted partner registration:'
-        : widget.userType == 'member'
-        ? 'Verify your email to complete your account registration:'
-        : 'We\'ll send a verification code to your email:';
+      ? 'We\'ll send a verification code to your business account email:'
+      : 'We\'ll send a verification code to your email:';
+    final destination = widget.email;
 
     return AlertDialog(
       title: Text(titleText),
@@ -141,11 +139,11 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
               const SizedBox(height: 12),
             ],
 
-            // Email destination
+            // Selected delivery destination
             if (!_otpSent) ...[
               ListTile(
                 leading: Icon(Icons.email, color: Theme.of(context).primaryColor),
-                title: Text(widget.email),
+                title: Text(destination),
                 subtitle: const Text('Verification code will be sent here'),
               ),
             ],
@@ -172,7 +170,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
               ),
               const SizedBox(height: 10),
               Text(
-                'OTP sent to ${widget.email}',
+                'OTP sent to $destination',
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
@@ -252,7 +250,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
   Future<void> _sendOtp() async {
     if (kDebugMode) {
 
-      print('DEBUG: _sendOtp called with method: $_selectedMethod');
+      print('DEBUG: _sendOtp called with method: email');
 
     }
     setState(() {
@@ -269,7 +267,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
       await SupabaseService.instance.sendOtp(
         email: widget.email,
         phone: widget.phoneNumber,
-        method: _selectedMethod,
+        method: 'email',
         isForSignIn: widget.isForSignIn,
         isResumeSignup: widget.isResumeSignup,
         userMetadata: widget.userMetadata,
@@ -293,7 +291,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('OTP sent to ${widget.email}'),
+            content: Text('OTP sent to ${_deliveryDestination()}'),
             backgroundColor: Colors.green,
           ),
         );
@@ -358,16 +356,18 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
       _isLoading = true;
       _errorMessage = null;
     });
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
       final response = await SupabaseService.instance.verifyOtp(
         email: widget.email,
         phone: widget.phoneNumber,
         otp: _otpController.text,
-        method: _selectedMethod,
+        method: 'email',
         isForSignIn: widget.isForSignIn,
       );
 
+      if (!mounted) return;
       setState(() => _isLoading = false);
 
       final verifiedUserId = response.user?.id;
@@ -378,18 +378,16 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
         verifiedUserId,
       ); // Proceed to next screen with userId
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.isForSignIn
-                  ? 'Sign in successful!'
-                  : 'Account verified successfully!',
-            ),
-            backgroundColor: Colors.green,
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.isForSignIn
+                ? 'Sign in successful!'
+                : 'Account verified successfully!',
           ),
-        );
-      }
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -439,7 +437,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
       await SupabaseService.instance.sendOtp(
         email: widget.email,
         phone: widget.phoneNumber,
-        method: _selectedMethod,
+        method: 'email',
         isForSignIn: widget.isForSignIn,
         isResumeSignup: widget.isResumeSignup,
         userMetadata: widget.userMetadata,
@@ -455,7 +453,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('New OTP sent to ${widget.email}'),
+            content: Text('New OTP sent to ${_deliveryDestination()}'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -480,6 +478,10 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
         });
       }
     }
+  }
+
+  String _deliveryDestination() {
+    return widget.email;
   }
 
   @override
