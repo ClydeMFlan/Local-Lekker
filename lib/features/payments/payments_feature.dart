@@ -15,6 +15,7 @@ import 'package:local_lekker/features/payments/paystack_webview_page.dart';
 import 'package:local_lekker/features/member/member_terms_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:local_lekker/features/auth/widgets/trusted_partner_key_dialog.dart';
+import 'package:url_launcher/url_launcher.dart';
 // Removed direct MembersHomePage import to enforce centralized gating
 
 class PaymentRequiredScreen extends StatefulWidget {
@@ -1259,6 +1260,27 @@ class _PaymentOptionsScreenState extends State<PaymentOptionsScreen> {
         planType: widget.selectedPlan,
       );
 
+      // webview_flutter's in-app WebView is unsupported on web (throws at
+      // controller creation, leaving a blank/grey screen). Open the Paystack
+      // checkout in a new browser tab instead and poll for completion; the
+      // server-side paystack-webhook activates the subscription regardless.
+      if (kIsWeb) {
+        await launchUrl(Uri.parse(authUrl), webOnlyWindowName: '_blank');
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PaymentPendingScreen(
+                planName: widget.selectedPlan,
+                amount: (widget.planDetails['price'] as num).toDouble(),
+                userId: user.id,
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       // Open inline webview for Paystack checkout
       if (mounted) {
         Navigator.push(
@@ -1440,6 +1462,27 @@ class _PaymentOptionsScreenState extends State<PaymentOptionsScreen> {
       reference: transactionReference,
       planType: widget.selectedPlan,
     );
+
+    // webview_flutter's in-app WebView is unsupported on web (throws at
+    // controller creation, leaving a blank/grey screen). Open the Paystack
+    // checkout in a new browser tab instead and poll for completion; the
+    // server-side paystack-webhook activates the intro subscription regardless.
+    if (kIsWeb) {
+      await launchUrl(Uri.parse(authUrl), webOnlyWindowName: '_blank');
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PaymentPendingScreen(
+              planName: widget.selectedPlan,
+              amount: initialCharge,
+              userId: user.id,
+            ),
+          ),
+        );
+      }
+      return;
+    }
 
     if (mounted) {
       Navigator.push(
