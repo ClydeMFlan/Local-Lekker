@@ -10,6 +10,7 @@ import 'package:logger/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:local_lekker/widgets/branded_app_bar.dart';
 import 'package:local_lekker/core/utils/display_name_helpers.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DealPaymentWebViewPage extends StatefulWidget {
   final String authorizationUrl;
@@ -35,8 +36,12 @@ class DealPaymentWebViewPage extends StatefulWidget {
 class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with WidgetsBindingObserver {
   final Logger _logger = Logger();
   final SupabaseClient _supabase = Supabase.instance.client;
-  late final WebViewController _controller;
-  bool _loading = true;
+  // Null on web: webview_flutter has no web implementation, so the checkout
+  // is opened in a new tab instead and completion is detected via API
+  // polling / Supabase Realtime (both independent of this controller).
+  WebViewController? _controller;
+  // Stays false on web: there's no WebView page-load lifecycle to clear it.
+  bool _loading = !kIsWeb;
   bool _processingPayment = false;
   bool _showingSuccess = false;
   bool _receiptGenerated = false; // Track if receipt already generated
@@ -134,7 +139,7 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
         })()
       ''';
 
-      final result = await _controller.runJavaScriptReturningResult(
+      final result = await _controller!.runJavaScriptReturningResult(
         jsExtractScript,
       );
 
@@ -1200,7 +1205,7 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
 
       try {
         // Check current URL for redirect back (has reference param)
-        final currentUrl = await _controller.currentUrl();
+        final currentUrl = await _controller!.currentUrl();
 
         // If URL has explicit success status indicator, verify via API
         if (currentUrl != null && _isPaystackSuccessUrl(currentUrl)) {
@@ -1240,7 +1245,7 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
 
         // Check page text for definitive "You paid" or "Payment Successful" from Paystack
         // These are Paystack's actual success page messages (visible text only)
-        final bodyTextResult = await _controller.runJavaScriptReturningResult(
+        final bodyTextResult = await _controller!.runJavaScriptReturningResult(
           'document.body.innerText.toLowerCase()',
         );
         final bodyText = bodyTextResult.toString().replaceAll(RegExp(r'^["\s]+|["\s]+$'), '').toLowerCase();
@@ -1300,7 +1305,7 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
     // actual charge, showing a false "payment successful".
     {
       try {
-        final currentUrl = await _controller.currentUrl();
+        final currentUrl = kIsWeb ? null : await _controller!.currentUrl();
         _logger.d('Manual return current URL: $currentUrl');
 
         String? ref;
@@ -1595,6 +1600,14 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
       }
     });
 
+    // webview_flutter has no web implementation — open checkout in a new tab
+    // and rely on the API-verification polling and Realtime deal listener
+    // above (both already started, both independent of the webview) instead.
+    if (kIsWeb) {
+      launchUrl(Uri.parse(widget.authorizationUrl), webOnlyWindowName: '_blank');
+      return;
+    }
+
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -1624,7 +1637,7 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
             // and only auto-verify after manual verify timer (45s)
             if (!url.contains('paystack.com') && !url.contains('paystack.co')) {
               try {
-                final pageContent = await _controller
+                final pageContent = await _controller!
                     .runJavaScriptReturningResult(
                       'document.body.innerText.trim()',
                     );
@@ -1682,7 +1695,7 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
             // deducted the money. This mirrors paystack_webview_page.dart.
             if (url.contains('paystack.com') || url.contains('paystack.co')) {
               try {
-                await _controller.runJavaScript(r'''
+                await _controller!.runJavaScript(r'''
                   (function() {
                     if (window.__llOpenOverride) return;
                     window.__llOpenOverride = true;
@@ -1818,7 +1831,7 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
           if (_paymentVerified || _showingSuccess) return;
           if (!url.startsWith('http')) return;
           _logger.i('PaystackPopup channel: loading 3DS auth URL: $url');
-          _controller.loadRequest(Uri.parse(url));
+          _controller!.loadRequest(Uri.parse(url));
         },
       )
       ..loadRequest(Uri.parse(widget.authorizationUrl));
@@ -1910,9 +1923,30 @@ class _DealPaymentWebViewPageState extends State<DealPaymentWebViewPage> with Wi
         ),
         body: Stack(
           children: [
+            // On web there is no in-app WebViewController (checkout opened in
+            // a new tab); show a waiting placeholder instead of the WebView.
+            if (kIsWeb && !_showingSuccess)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 24),
+                      Text(
+                        'Complete your payment in the tab that just opened.\n'
+                        'This page will update automatically once payment is confirmed.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             // Only show WebView when not showing success
-            if (!_showingSuccess)
-              Positioned.fill(child: WebViewWidget(controller: _controller)),
+            if (!kIsWeb && !_showingSuccess)
+              Positioned.fill(child: WebViewWidget(controller: _controller!)),
             if (_loading && !_processingPayment && !_showingSuccess)
               const Center(child: CircularProgressIndicator(strokeWidth: 2)),
             if (_paymentDeclined && !_processingPayment && !_showingSuccess)
