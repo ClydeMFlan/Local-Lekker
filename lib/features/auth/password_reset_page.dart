@@ -194,24 +194,24 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text(
-                  if (!_isSessionReady)
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (_) => const WelcomePage(
-                              openSignInOnLoad: true,
-                            ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Request New Reset Code'),
-                    ),
                         'Reset Password',
                         style: TextStyle(fontSize: 16),
                       ),
               ),
+              if (!_isSessionReady)
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => const WelcomePage(
+                          openSignInOnLoad: true,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Request New Reset Code'),
+                ),
               const SizedBox(height: 32), // Extra bottom padding for keyboard
             ],
           ),
