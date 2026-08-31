@@ -644,4 +644,29 @@ class ChatService {
       return {};
     }
   }
+
+  Future<Map<String, String>> fetchBusinessLogosForUsers(
+    List<String> userIds,
+  ) async {
+    final ids = userIds.where((id) => id.trim().isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return {};
+    try {
+      final rows = await _client
+          .from('businesses')
+          .select('owner_member_id,logo_url')
+          .inFilter('owner_member_id', ids);
+      final result = <String, String>{};
+      for (final row in rows as List<dynamic>) {
+        final ownerId = row['owner_member_id'] as String?;
+        final logo = row['logo_url'] as String?;
+        if (ownerId != null && logo != null && logo.trim().isNotEmpty) {
+          result[ownerId] = logo.trim();
+        }
+      }
+      return result;
+    } catch (e) {
+      _logger.w('Failed to fetch business logos: $e');
+      return {};
+    }
+  }
 }

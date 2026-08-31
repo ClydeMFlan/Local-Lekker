@@ -272,6 +272,7 @@ class _TrustedPartnerSignupPageState extends State<TrustedPartnerSignupPage> {
 
   @override
   Widget build(BuildContext context) {
+    final hasMinimumPasswordLength = _passwordController.text.length >= 8;
     // Don't validate on every build - only when user submits or after first attempt
     return Scaffold(
       appBar: BrandedAppBar(title: const Text('Trusted Partner Sign Up')),
@@ -471,18 +472,18 @@ class _TrustedPartnerSignupPageState extends State<TrustedPartnerSignupPage> {
               DropdownButtonFormField<String>(
                 key: ValueKey(_selectedProvince),
                 value: _selectedCity,
-                decoration: const InputDecoration(
-                  labelText: 'City (optional)',
-                ),
-                items: (_selectedProvince != null
-                        ? _citiesByProvince[_selectedProvince!] ?? []
-                        : <String>[])
-                    .map((city) {
-                  return DropdownMenuItem(
-                    value: city,
-                    child: Text(city),
-                  );
-                }).toList(),
+                decoration: const InputDecoration(labelText: 'City (optional)'),
+                items:
+                    (_selectedProvince != null
+                            ? _citiesByProvince[_selectedProvince!] ?? []
+                            : <String>[])
+                        .map((city) {
+                          return DropdownMenuItem(
+                            value: city,
+                            child: Text(city),
+                          );
+                        })
+                        .toList(),
                 onChanged: (value) => setState(() => _selectedCity = value),
               ),
               const SizedBox(height: 16),
@@ -515,12 +516,38 @@ class _TrustedPartnerSignupPageState extends State<TrustedPartnerSignupPage> {
               ),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  helperText: '${_passwordController.text.length}/8 characters',
+                  helperStyle: TextStyle(
+                    color: hasMinimumPasswordLength ? Colors.green : null,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: hasMinimumPasswordLength
+                          ? Colors.green
+                          : Colors.grey,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: hasMinimumPasswordLength
+                          ? Colors.green
+                          : Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                ),
                 obscureText: true,
+                onChanged: (_) => setState(() {
+                  if (_passwordController.text.length < 8) {
+                    _confirmPasswordController.clear();
+                  }
+                }),
                 validator: (value) {
                   if (value?.isEmpty ?? true) return 'Please enter a password';
-                  if (value!.length < 6) {
-                    return 'Password must be at least 6 characters';
+                  if (value!.length < 8) {
+                    return 'Password must be at least 8 characters';
                   }
                   return null;
                 },
@@ -531,7 +558,11 @@ class _TrustedPartnerSignupPageState extends State<TrustedPartnerSignupPage> {
                   labelText: 'Confirm Password',
                 ),
                 obscureText: true,
+                enabled: hasMinimumPasswordLength,
                 validator: (value) {
+                  if (value?.trim().isEmpty ?? true) {
+                    return 'Please confirm your password';
+                  }
                   if (value != _passwordController.text) {
                     return 'Passwords do not match';
                   }

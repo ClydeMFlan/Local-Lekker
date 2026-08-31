@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:local_lekker/widgets/branded_app_bar.dart';
+import 'package:local_lekker/widgets/profile_photo.dart';
 import 'package:logger/logger.dart';
 import '../../services/chat_service.dart';
 import '../../services/supabase_service.dart';
@@ -25,6 +26,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   final Map<String, String> _nameCache = {};
   final Map<String, String> _businessNameCache = {};
   final Map<String, String> _profilePhotos = {};
+  final Map<String, String> _businessLogos = {};
   String? _currentUserId;
   String _threadTitle = 'Chat';
   bool _isAdminConversation = false;
@@ -347,8 +349,9 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   }
 
   String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
+    final local = dt.toLocal();
+    final h = local.hour.toString().padLeft(2, '0');
+    final m = local.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
 
@@ -404,7 +407,9 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
 
       final otherParticipantId = conversation.participantIds.firstWhere(
         (id) => id != _currentUserId,
-        orElse: () => '',
+        orElse: () => conversation.participantIds.isNotEmpty
+            ? conversation.participantIds.first
+            : '',
       );
       if (otherParticipantId.isEmpty) return;
 
@@ -418,8 +423,15 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
 
       if (currentUserBusinessName != null &&
           currentUserBusinessName.isNotEmpty) {
-        // Trusted partner view: show business name only, fallback to member name
-        final displayName = otherBusinessName;
+        // Trusted partner view: prefer the other party's business name, then
+        // fall back to their member name.
+        var displayName = otherBusinessName;
+        if (displayName == null || displayName.isEmpty) {
+          final names = await ChatService.instance.fetchDisplayNames([
+            otherParticipantId,
+          ]);
+          displayName = names[otherParticipantId];
+        }
         if (mounted) {
           setState(() {
             _threadTitle = (displayName != null && displayName.isNotEmpty)
@@ -471,11 +483,14 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       final profilePhotos = await ChatService.instance.fetchProfilePhotoUrls(
         ids,
       );
+      final businessLogos = await ChatService.instance
+          .fetchBusinessLogosForUsers(ids);
       if (!mounted) return;
       setState(() {
         _nameCache.addAll(names);
         _businessNameCache.addAll(businessNames);
         _profilePhotos.addAll(profilePhotos);
+        _businessLogos.addAll(businessLogos);
       });
     } catch (e) {
       _logger.w('Failed to prefetch participant names: $e');
@@ -547,6 +562,18 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
         .catchError((e) {
           _logger.w('Failed to load sender profile photos: $e');
         });
+
+    ChatService.instance
+        .fetchBusinessLogosForUsers(missingIds.toList())
+        .then((logos) {
+          if (!mounted) return;
+          setState(() {
+            _businessLogos.addAll(logos);
+          });
+        })
+        .catchError((e) {
+          _logger.w('Failed to load sender business logos: $e');
+        });
   }
 
   bool _isAdminSender(String senderId) =>
@@ -571,22 +598,6 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
     return 'Unknown user';
   }
 
-  String _initialsFor(String senderId) {
-    final raw = _nameCache[senderId];
-    if (raw == null || raw.trim().isEmpty) return '?';
-    final tokens = raw
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
-        .toList();
-    if (tokens.isEmpty) return '?';
-    if (tokens.length == 1) {
-      return tokens.first.substring(0, 1).toUpperCase();
-    }
-    return (tokens.first.substring(0, 1) + tokens.last.substring(0, 1))
-        .toUpperCase();
-  }
-
   Color _avatarColorFor(String id) {
     const palette = <Color>[
       Color(0xFF1976D2),
@@ -603,25 +614,27 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   }
 
   Widget _buildAvatar(String senderId) {
-    final photo = _profilePhotos[senderId];
-    if (photo != null && photo.isNotEmpty) {
-      return CircleAvatar(
-        radius: 16,
-        backgroundColor: Colors.grey.shade200,
-        backgroundImage: NetworkImage(photo),
+    if (_isAdminSender(senderId)) {
+      return ProfilePhoto(
+        size: 32,
+        displayName: null,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        fallbackIcon: Icons.support_agent,
       );
     }
-    return CircleAvatar(
-      radius: 16,
+    // Trusted partners are labelled by business name, so prefer the business
+    // logo and fall back to their personal profile photo.
+    final logo = _businessLogos[senderId];
+    final photo = _profilePhotos[senderId];
+    final imageUrl = (logo != null && logo.isNotEmpty) ? logo : photo;
+    return ProfilePhoto(
+      size: 32,
+      imageUrl: imageUrl,
+      displayName: _nameFor(senderId),
       backgroundColor: _avatarColorFor(senderId),
-      child: Text(
-        _initialsFor(senderId),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      foregroundColor: Colors.white,
+      fit: BoxFit.cover,
     );
   }
 

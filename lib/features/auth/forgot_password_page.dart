@@ -35,6 +35,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   bool _isSending = false;
   bool _isVerifying = false;
   bool _isUpdating = false;
+  String? _codeErrorMessage;
 
   bool _obscureNew = true;
   bool _obscureConfirm = true;
@@ -102,6 +103,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       setState(() {
         _codeSent = true;
         _codeVerified = false;
+        _codeErrorMessage = null;
         _codeController.clear();
         _newPasswordController.clear();
         _confirmPasswordController.clear();
@@ -137,20 +139,30 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         otp: _codeController.text.trim(),
       );
       if (!mounted) return;
-      setState(() => _codeVerified = true);
+      setState(() {
+        _codeVerified = true;
+        _codeErrorMessage = null;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Code verified. Set your new password.')),
       );
     } catch (e) {
       _logger.e('Reset code verification failed: $e');
       final lower = e.toString().toLowerCase();
-      final msg =
-          (lower.contains('expired') ||
-              lower.contains('invalid') ||
-              lower.contains('token'))
+      final isExpiredOrInvalid =
+          lower.contains('expired') ||
+          lower.contains('invalid') ||
+          lower.contains('token');
+      final msg = isExpiredOrInvalid
           ? 'Invalid or expired code. Please request a new one.'
           : 'Verification failed. Please try again.';
       if (!mounted) return;
+      setState(() {
+        _codeErrorMessage = msg;
+        if (isExpiredOrInvalid) {
+          _codeController.clear();
+        }
+      });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } finally {
       if (mounted) setState(() => _isVerifying = false);
@@ -295,17 +307,30 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             TextField(
               controller: _codeController,
               enabled: _codeSent && !_isVerifying && !_codeVerified,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter 6-digit code',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
                 counterText: '',
+                errorText: _codeErrorMessage,
               ),
               keyboardType: TextInputType.number,
               maxLength: 6,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(() => _codeErrorMessage = null),
             ),
             const SizedBox(height: 12),
+            if (_codeErrorMessage != null && !_codeVerified) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 45,
+                child: ElevatedButton.icon(
+                  onPressed: _isSending ? null : _sendCode,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Resend Code'),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             SizedBox(
               width: double.infinity,
               height: 45,
@@ -327,7 +352,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 label: Text(_isVerifying ? 'Verifying...' : 'Verify Code'),
               ),
             ),
-            if (_codeSent && !_codeVerified)
+            if (_codeSent && !_codeVerified && _codeErrorMessage == null)
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
@@ -357,6 +382,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Widget _buildNewPasswordCard() {
+    final hasMinimumPasswordLength = _newPasswordController.text.length >= 8;
     final showMatchHint = _confirmPasswordController.text.isNotEmpty;
     return Card(
       child: Padding(
@@ -378,21 +404,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 helperText:
                     '${_newPasswordController.text.length}/8 characters',
                 helperStyle: TextStyle(
-                  color: _newPasswordController.text.length >= 8
-                      ? Colors.green
-                      : null,
+                  color: hasMinimumPasswordLength ? Colors.green : null,
                 ),
                 border: const OutlineInputBorder(),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(
-                    color: _newPasswordController.text.length >= 8
-                        ? Colors.green
-                        : Colors.grey,
+                    color: hasMinimumPasswordLength ? Colors.green : Colors.grey,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(
-                    color: _newPasswordController.text.length >= 8
+                    color: hasMinimumPasswordLength
                         ? Colors.green
                         : Theme.of(context).colorScheme.primary,
                     width: 2,
@@ -405,12 +427,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   onPressed: () => setState(() => _obscureNew = !_obscureNew),
                 ),
               ),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(() {
+                if (_newPasswordController.text.length < 8) {
+                  _confirmPasswordController.clear();
+                }
+              }),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _confirmPasswordController,
-              enabled: _codeVerified && !_isUpdating,
+              enabled: _codeVerified && hasMinimumPasswordLength && !_isUpdating,
               obscureText: _obscureConfirm,
               decoration: InputDecoration(
                 labelText: 'Confirm new password',

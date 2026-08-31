@@ -6,6 +6,7 @@ import '../../models/chat_conversation.dart';
 import '../../models/chat_message.dart';
 import '../../services/chat_service.dart';
 import '../../services/supabase_service.dart';
+import '../../widgets/profile_photo.dart';
 import '../chat/chat_thread_page.dart';
 
 class AdminSupportInboxScreen extends StatefulWidget {
@@ -24,7 +25,9 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
   List<ChatConversation> _conversations = [];
   final Map<String, ChatMessage> _latestMessages = {};
   final Map<String, String> _memberNames = {};
+  final Map<String, String> _businessNames = {};
   final Map<String, String> _memberProfilePhotos = {};
+  final Map<String, String> _businessLogos = {};
   final Map<String, bool> _hasUnread = {};
 
   @override
@@ -71,9 +74,13 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
       final names = await ChatService.instance.fetchDisplayNames(
         memberIds.toList(),
       );
+      final businessNames = await ChatService.instance
+          .fetchBusinessNamesForUsers(memberIds.toList());
       final profilePhotos = await ChatService.instance.fetchProfilePhotoUrls(
         memberIds.toList(),
       );
+      final businessLogos = await ChatService.instance
+          .fetchBusinessLogosForUsers(memberIds.toList());
 
       // Compute unread flag from SharedPreferences (last read per conversation)
       final prefs = await SharedPreferences.getInstance();
@@ -98,9 +105,15 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
         _memberNames
           ..clear()
           ..addAll(names);
+        _businessNames
+          ..clear()
+          ..addAll(businessNames);
         _memberProfilePhotos
           ..clear()
           ..addAll(profilePhotos);
+        _businessLogos
+          ..clear()
+          ..addAll(businessLogos);
         _hasUnread
           ..clear()
           ..addAll(unread);
@@ -118,11 +131,14 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
   }
 
   String _memberLabel(ChatConversation c) {
-    final memberId = c.participantIds.firstWhere(
-      (id) => id != _adminId,
-      orElse: () => c.participantIds.isNotEmpty ? c.participantIds.first : '',
-    );
+    final memberId = _memberId(c);
     if (memberId.isEmpty) return 'Member';
+    // Trusted partners are identified by their business name, not their
+    // personal profile name.
+    final businessName = _businessNames[memberId];
+    if (businessName != null && businessName.trim().isNotEmpty) {
+      return businessName;
+    }
     return _memberNames[memberId] ?? 'Member';
   }
 
@@ -132,15 +148,17 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
   );
 
   String _formatWhen(DateTime dt) {
+    final local = dt.toLocal();
     final now = DateTime.now();
-    final isToday =
-        dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    final isToday = local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day;
     if (isToday) {
-      final h = dt.hour.toString().padLeft(2, '0');
-      final m = dt.minute.toString().padLeft(2, '0');
+      final h = local.hour.toString().padLeft(2, '0');
+      final m = local.minute.toString().padLeft(2, '0');
       return '$h:$m';
     }
-    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -178,24 +196,22 @@ class _AdminSupportInboxScreenState extends State<AdminSupportInboxScreen> {
                     final latest = _latestMessages[c.id];
                     final unread = _hasUnread[c.id] ?? false;
                     final memberId = _memberId(c);
-                    final profilePhoto = _memberProfilePhotos[memberId];
+                    final logo = _businessLogos[memberId];
+                    final profilePhoto = (logo != null && logo.isNotEmpty)
+                        ? logo
+                        : _memberProfilePhotos[memberId];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 10),
                       child: ListTile(
-                        leading: CircleAvatar(
+                        leading: ProfilePhoto(
+                          size: 40,
+                          imageUrl: profilePhoto,
+                          displayName: _memberLabel(c),
                           backgroundColor:
                               unread ? Colors.red : Colors.grey.shade300,
-                          backgroundImage: profilePhoto != null
-                              ? NetworkImage(profilePhoto)
-                              : null,
-                          child: profilePhoto == null
-                              ? Icon(
-                                  Icons.person,
-                                  color: unread
-                                      ? Colors.white
-                                      : Colors.black54,
-                                )
-                              : null,
+                          foregroundColor:
+                              unread ? Colors.white : Colors.black54,
+                          fit: BoxFit.cover,
                         ),
                         title: Text(
                           _memberLabel(c),

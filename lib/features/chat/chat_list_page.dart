@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_lekker/widgets/branded_app_bar.dart';
+import 'package:local_lekker/widgets/profile_photo.dart';
 import '../../services/chat_service.dart';
 import '../../services/supabase_service.dart';
 import '../../models/chat_conversation.dart';
@@ -179,18 +180,14 @@ class _ChatListPageState extends State<ChatListPage> {
     bool showUnread,
     bool isAdmin,
   ) {
-    if (otherId != null) {
-      final photo = _profilePhotos[otherId];
-      if (photo != null && photo.isNotEmpty) {
-        return CircleAvatar(
-          backgroundColor: showUnread ? Colors.red.shade100 : Colors.grey.shade200,
-          backgroundImage: NetworkImage(photo),
-        );
-      }
-    }
-    return CircleAvatar(
-      backgroundColor: showUnread ? Colors.red : null,
-      child: Icon(isAdmin ? Icons.support_agent : Icons.store),
+    return ProfilePhoto(
+      size: 40,
+      imageUrl: otherId != null ? _profilePhotos[otherId] : null,
+      displayName: isAdmin ? null : _conversationTitle(c, isAdmin),
+      backgroundColor: showUnread ? Colors.red : Colors.grey.shade300,
+      foregroundColor: showUnread ? Colors.white : Colors.black87,
+      fallbackIcon: isAdmin ? Icons.support_agent : Icons.store,
+      fit: BoxFit.cover,
     );
   }
 

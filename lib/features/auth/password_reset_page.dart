@@ -45,7 +45,8 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
       if (mounted) {
         setState(() {
           _isSessionReady = false;
-          _errorMessage = 'This password reset link has expired. Request a new one.';
+          _errorMessage =
+              'This password reset link has expired. Request a new one.';
         });
       }
     }
@@ -64,8 +65,8 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
       return;
     }
 
-    if (_newPasswordController.text.length < 6) {
-      setState(() => _errorMessage = 'Password must be at least 6 characters');
+    if (_newPasswordController.text.length < 8) {
+      setState(() => _errorMessage = 'Password must be at least 8 characters');
       return;
     }
 
@@ -129,6 +130,8 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
 
   @override
   Widget build(BuildContext context) {
+    final hasMinimumPasswordLength = _newPasswordController.text.length >= 8;
+
     return Scaffold(
       appBar: BrandedAppBar(title: const Text('Reset Password')),
       body: SafeArea(
@@ -148,18 +151,41 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
               const SizedBox(height: 32),
               TextField(
                 controller: _newPasswordController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'New Password',
                   hintText: 'Enter your new password',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
+                  helperText:
+                      '${_newPasswordController.text.length}/8 characters',
+                  helperStyle: TextStyle(
+                    color: hasMinimumPasswordLength ? Colors.green : null,
+                  ),
+                  border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: hasMinimumPasswordLength
+                          ? Colors.green
+                          : Colors.grey,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: hasMinimumPasswordLength
+                          ? Colors.green
+                          : Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  prefixIcon: const Icon(Icons.lock),
                 ),
                 obscureText: true,
                 enabled: !_isLoading && _isSessionReady,
                 onChanged: (value) {
-                  if (_errorMessage != null) {
-                    setState(() => _errorMessage = null);
-                  }
+                  setState(() {
+                    _errorMessage = null;
+                    if (_newPasswordController.text.length < 8) {
+                      _confirmPasswordController.clear();
+                    }
+                  });
                 },
               ),
               const SizedBox(height: 16),
@@ -173,7 +199,8 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                   errorText: _errorMessage,
                 ),
                 obscureText: true,
-                enabled: !_isLoading && _isSessionReady,
+                enabled:
+                    !_isLoading && _isSessionReady && hasMinimumPasswordLength,
                 onChanged: (value) {
                   if (_errorMessage != null) {
                     setState(() => _errorMessage = null);
@@ -183,7 +210,14 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _isLoading || !_isSessionReady ? null : _resetPassword,
+                onPressed:
+                    _isLoading ||
+                        !_isSessionReady ||
+                        !hasMinimumPasswordLength ||
+                        _newPasswordController.text !=
+                            _confirmPasswordController.text
+                    ? null
+                    : _resetPassword,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -203,9 +237,8 @@ class _PasswordResetPageState extends State<PasswordResetPage> {
                   onPressed: () {
                     Navigator.of(context).pushReplacement(
                       MaterialPageRoute(
-                        builder: (_) => const WelcomePage(
-                          openSignInOnLoad: true,
-                        ),
+                        builder: (_) =>
+                            const WelcomePage(openSignInOnLoad: true),
                       ),
                     );
                   },
